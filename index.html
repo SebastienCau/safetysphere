@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.5.8 — ST : invitation intervenants par liste email + import Excel/CSV
+       v0.5.9 — ST : invitations intervenants sauvegardées en base, liste rattachés + en attente + relance
   -->
-  <meta name="app-version" content="0.5.8" />
+  <meta name="app-version" content="0.5.9" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -248,7 +248,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.5.8</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.5.9</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -1850,25 +1850,81 @@ async function loadSTWorkers() {
     container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Organisation non configurée.</div></div>`;
     return;
   }
-  const { data: workers } = await sb.from('profiles').select('id, full_name, email').eq('org_id', currentProfile.org_id).eq('role','worker');
-  if (!workers || !workers.length) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">👷</div><div class="empty-state-text">Aucun intervenant rattaché.<br>Partagez votre code équipe avec vos intervenants.</div></div>`;
-    // Afficher le code équipe
-    const { data: org } = await sb.from('organizations').select('team_code').eq('id', currentProfile.org_id).single();
-    if (org) container.innerHTML += `<div style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.25);border-radius:12px;padding:14px 18px;margin-top:16px;text-align:center"><div style="font-size:11px;color:var(--muted);margin-bottom:6px">CODE À PARTAGER AVEC VOS INTERVENANTS</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--orange);letter-spacing:3px">${org.team_code}</div><button onclick="navigator.clipboard.writeText('${org.team_code}').then(()=>showToast('Code copié','success'))" class="btn-sm btn-view" style="margin-top:8px">📋 Copier</button></div>`;
-    return;
+
+  // Charger workers rattachés + invitations en attente en parallèle
+  const [{ data: workers }, { data: invites }, { data: org }] = await Promise.all([
+    sb.from('profiles').select('id, full_name, email').eq('org_id', currentProfile.org_id).eq('role','worker'),
+    sb.from('worker_invites').select('*').eq('org_id', currentProfile.org_id).order('created_at', { ascending: false }),
+    sb.from('organizations').select('team_code, name').eq('id', currentProfile.org_id).single()
+  ]);
+
+  const joinedEmails = new Set((workers || []).map(w => w.email.toLowerCase()));
+
+  // Marquer les invitations comme "joined" si le worker s'est inscrit
+  const pendingInvites = (invites || []).filter(i => !joinedEmails.has(i.worker_email.toLowerCase()));
+
+  let html = '';
+
+  // Bannière code équipe
+  if (org) {
+    html += `<div style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.25);border-radius:12px;padding:12px 18px;margin-bottom:20px;display:flex;align-items:center;gap:14px">
+      <div style="flex:1"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:3px">Code à partager</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:var(--orange);letter-spacing:3px">${org.team_code}</div></div>
+      <button onclick="navigator.clipboard.writeText('${org.team_code}').then(()=>showToast('Code copié','success'))" class="btn-sm btn-view">📋 Copier</button>
+    </div>`;
   }
-  const html = '<div class="request-list">' + workers.map(w => `
-    <div class="request-card">
+
+  // Section intervenants rattachés
+  if (workers && workers.length) {
+    html += `<div class="section-title" style="margin-bottom:12px">✅ Rattachés (${workers.length})</div>
+    <div class="request-list" style="margin-bottom:24px">` +
+    workers.map(w => `<div class="request-card">
       <div class="request-card-header">
         <div class="request-card-icon">👷</div>
         <div class="request-card-info">
           <div class="request-card-name">${w.full_name}</div>
           <div class="request-card-meta">📧 ${w.email}</div>
         </div>
+        <span style="font-size:11px;color:#86EFAC;font-weight:700">✓ Actif</span>
       </div>
     </div>`).join('') + '</div>';
+  }
+
+  // Section invitations en attente
+  if (pendingInvites.length) {
+    html += `<div class="section-title" style="margin-bottom:12px">⏳ Invités en attente (${pendingInvites.length})</div>
+    <div class="request-list">` +
+    pendingInvites.map(inv => {
+      const date = new Date(inv.created_at).toLocaleDateString('fr-FR');
+      const subject   = encodeURIComponent(`Invitation SafetySphere — ${org?.name || ''}`);
+      const bodyShort = encodeURIComponent(`Bonjour,\n\n${org?.name} vous invite sur SafetySphere.\n\nCréez votre compte : https://safetysphere.vercel.app\nRôle : Intervenant | Code employeur : ${org?.team_code}\n\nCordialement,\n${currentProfile.full_name}`);
+      return `<div class="request-card">
+        <div class="request-card-header">
+          <div class="request-card-icon">📧</div>
+          <div class="request-card-info">
+            <div class="request-card-name">${inv.worker_email}</div>
+            <div class="request-card-meta">Invité le ${date}</div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button onclick="window.open('mailto:${inv.worker_email}?subject=${subject}&body=${bodyShort}','_self')" class="btn-sm btn-view" style="white-space:nowrap">🔁 Relancer</button>
+            <button onclick="cancelWorkerInvite('${inv.id}')" class="btn-sm btn-reject" style="white-space:nowrap">✕</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('') + '</div>';
+  }
+
+  if (!workers?.length && !pendingInvites.length) {
+    html += `<div class="empty-state"><div class="empty-state-icon">👷</div><div class="empty-state-text">Aucun intervenant pour l'instant.<br>Cliquez sur "Inviter des intervenants" pour commencer.</div></div>`;
+  }
+
   container.innerHTML = html;
+}
+
+async function cancelWorkerInvite(inviteId) {
+  await sb.from('worker_invites').delete().eq('id', inviteId);
+  showToast('✓ Invitation supprimée', 'success');
+  loadSTWorkers();
 }
 
 async function loadSTInvites() {
@@ -2031,6 +2087,10 @@ async function sendWorkerInvites() {
   }
   if (!emails.length) { showToast('Aucun email valide trouvé', 'error'); return; }
 
+  // Sauvegarder les invitations en base (ignorer les doublons)
+  const inserts = emails.map(email => ({ org_id: currentProfile.org_id, worker_email: email }));
+  await sb.from('worker_invites').upsert(inserts, { onConflict: 'org_id,worker_email', ignoreDuplicates: true });
+
   const messages = emails.map(email => {
     const subject    = encodeURIComponent(`Invitation SafetySphere — ${org.name}`);
     const bodyShort  = encodeURIComponent(`Bonjour,\n\n${org.name} vous invite sur SafetySphere.\n\nCréez votre compte : https://safetysphere.vercel.app\nRôle : Intervenant | Code employeur : ${org.team_code}\n\nCordialement,\n${currentProfile.full_name}`);
@@ -2051,6 +2111,7 @@ async function sendWorkerInvites() {
     </div>`
   ).join('');
   document.getElementById('workerInviteResultModal').classList.add('open');
+  loadSTWorkers();
 }
 
 function copyAllWorkerInvites() {
