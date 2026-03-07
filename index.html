@@ -14,14 +14,17 @@
       --orange:  #F97316;
       --orange2: #EA580C;
       --white:   #FFFFFF;
-      --off:     #F0F4F8;
       --muted:   #94A3B8;
       --light:   #CBD5E0;
       --danger:  #EF4444;
       --success: #22C55E;
       --warn:    #F59E0B;
+      --purple:  #A855F7;
+      --teal:    #14B8A6;
     }
     html, body { height: 100%; font-family: 'Barlow', sans-serif; background: var(--navy); color: var(--white); overflow-x: hidden; }
+
+    /* BG */
     .bg-layer { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
     .bg-circle { position: absolute; border-radius: 50%; background: radial-gradient(circle, #1B3A5C 0%, transparent 70%); }
     .bg-circle.c1 { width: 700px; height: 700px; top: -200px; right: -150px; opacity: .6; }
@@ -31,35 +34,35 @@
     /* AUTH */
     .app { position: relative; z-index: 1; min-height: 100vh; display: flex; }
     .left-panel { width: 420px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; padding: 60px 50px; border-right: 1px solid rgba(255,255,255,.06); background: rgba(13,27,42,.7); backdrop-filter: blur(12px); }
-    .logo { display: flex; align-items: center; gap: 12px; margin-bottom: 56px; }
+    .logo { display: flex; align-items: center; gap: 12px; margin-bottom: 48px; }
     .logo-icon { width: 44px; height: 44px; background: var(--orange); clip-path: polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); display: flex; align-items: center; justify-content: center; font-size: 20px; }
     .logo-text { font-family: 'Barlow Condensed',sans-serif; font-size: 26px; font-weight: 900; }
     .logo-text span { color: var(--orange); }
-    .panel-title { font-family: 'Barlow Condensed',sans-serif; font-size: 42px; font-weight: 900; line-height: 1.05; margin-bottom: 12px; }
+    .panel-title { font-family: 'Barlow Condensed',sans-serif; font-size: 40px; font-weight: 900; line-height: 1.05; margin-bottom: 12px; }
     .panel-title em { color: var(--orange); font-style: normal; }
-    .panel-subtitle { font-size: 15px; color: var(--muted); line-height: 1.6; margin-bottom: 48px; }
-    .role-pills { display: flex; flex-direction: column; gap: 12px; }
-    .role-pill { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border: 1px solid rgba(255,255,255,.08); border-radius: 10px; background: rgba(255,255,255,.03); transition: all .2s; }
+    .panel-subtitle { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 40px; }
+    .role-pills { display: flex; flex-direction: column; gap: 10px; }
+    .role-pill { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border: 1px solid rgba(255,255,255,.08); border-radius: 10px; background: rgba(255,255,255,.03); transition: all .2s; }
     .role-pill:hover { border-color: rgba(249,115,22,.3); background: rgba(249,115,22,.05); }
-    .role-pill-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--steel); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .role-pill-icon { width: 34px; height: 34px; border-radius: 8px; background: var(--steel); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
     .role-pill-info { flex: 1; }
-    .role-pill-name { font-weight: 700; font-size: 13px; margin-bottom: 2px; }
+    .role-pill-name { font-weight: 700; font-size: 12px; margin-bottom: 1px; }
     .role-pill-desc { font-size: 11px; color: var(--muted); }
-    .role-pill-badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px; background: rgba(249,115,22,.15); color: var(--orange); letter-spacing: .5px; }
+    .role-pill-badge { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 20px; background: rgba(249,115,22,.15); color: var(--orange); letter-spacing: .5px; }
     .right-panel { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px; }
-    .auth-card { width: 100%; max-width: 460px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 20px; padding: 48px 44px; backdrop-filter: blur(8px); }
-    .tabs { display: flex; gap: 4px; margin-bottom: 36px; padding: 4px; background: rgba(0,0,0,.3); border-radius: 10px; }
+    .auth-card { width: 100%; max-width: 460px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 20px; padding: 44px; backdrop-filter: blur(8px); }
+    .tabs { display: flex; gap: 4px; margin-bottom: 32px; padding: 4px; background: rgba(0,0,0,.3); border-radius: 10px; }
     .tab { flex: 1; padding: 10px; border: none; background: transparent; color: var(--muted); font-family: 'Barlow',sans-serif; font-size: 14px; font-weight: 600; border-radius: 7px; cursor: pointer; transition: all .2s; }
     .tab.active { background: var(--orange); color: var(--white); }
-    .form-group { margin-bottom: 20px; }
-    .form-label { display: block; font-size: 12px; font-weight: 700; color: var(--light); letter-spacing: .8px; text-transform: uppercase; margin-bottom: 8px; }
-    .form-input { width: 100%; padding: 13px 16px; background: rgba(255,255,255,.05); border: 1.5px solid rgba(255,255,255,.1); border-radius: 10px; color: var(--white); font-family: 'Barlow',sans-serif; font-size: 15px; transition: border-color .2s,background .2s; outline: none; }
+    .form-group { margin-bottom: 18px; }
+    .form-label { display: block; font-size: 11px; font-weight: 700; color: var(--light); letter-spacing: .8px; text-transform: uppercase; margin-bottom: 7px; }
+    .form-input { width: 100%; padding: 12px 15px; background: rgba(255,255,255,.05); border: 1.5px solid rgba(255,255,255,.1); border-radius: 10px; color: var(--white); font-family: 'Barlow',sans-serif; font-size: 15px; transition: border-color .2s,background .2s; outline: none; }
     .form-input:focus { border-color: var(--orange); background: rgba(249,115,22,.06); }
     .form-input::placeholder { color: var(--muted); }
-    .form-select { width: 100%; padding: 13px 16px; background: rgba(255,255,255,.05); border: 1.5px solid rgba(255,255,255,.1); border-radius: 10px; color: var(--white); font-family: 'Barlow',sans-serif; font-size: 15px; cursor: pointer; outline: none; transition: border-color .2s; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394A3B8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 16px center; padding-right: 40px; }
+    .form-select { width: 100%; padding: 12px 15px; background: rgba(255,255,255,.05); border: 1.5px solid rgba(255,255,255,.1); border-radius: 10px; color: var(--white); font-family: 'Barlow',sans-serif; font-size: 15px; cursor: pointer; outline: none; transition: border-color .2s; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394A3B8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 15px center; padding-right: 38px; }
     .form-select:focus { border-color: var(--orange); }
     .form-select option { background: #1B3A5C; }
-    .btn-primary { width: 100%; padding: 15px; background: var(--orange); border: none; border-radius: 10px; color: var(--white); font-family: 'Barlow Condensed',sans-serif; font-size: 17px; font-weight: 700; letter-spacing: 1px; cursor: pointer; margin-top: 8px; transition: background .2s,transform .1s; text-transform: uppercase; }
+    .btn-primary { width: 100%; padding: 14px; background: var(--orange); border: none; border-radius: 10px; color: var(--white); font-family: 'Barlow Condensed',sans-serif; font-size: 17px; font-weight: 700; letter-spacing: 1px; cursor: pointer; margin-top: 8px; transition: background .2s,transform .1s; text-transform: uppercase; }
     .btn-primary:hover { background: var(--orange2); }
     .btn-primary:active { transform: scale(.98); }
     .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
@@ -71,117 +74,153 @@
     /* DASHBOARD */
     .dashboard { display: none; min-height: 100vh; flex-direction: column; position: relative; z-index: 1; }
     .dashboard.active { display: flex; }
-    .topbar { height: 64px; display: flex; align-items: center; padding: 0 32px; gap: 16px; background: rgba(13,27,42,.95); border-bottom: 1px solid rgba(255,255,255,.07); backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 100; }
-    .topbar-logo-icon { width: 32px; height: 32px; background: var(--orange); clip-path: polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); display: flex; align-items: center; justify-content: center; font-size: 14px; }
-    .topbar-logo-text { font-family: 'Barlow Condensed',sans-serif; font-size: 20px; font-weight: 900; color: var(--white); }
-    .topbar-logo-text span { color: var(--orange); }
+    .topbar { height: 62px; display: flex; align-items: center; padding: 0 28px; gap: 14px; background: rgba(13,27,42,.95); border-bottom: 1px solid rgba(255,255,255,.07); backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 100; }
     .topbar-logo { display:flex; align-items:center; gap:10px; }
+    .topbar-logo-icon { width: 30px; height: 30px; background: var(--orange); clip-path: polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); display: flex; align-items: center; justify-content: center; font-size: 13px; }
+    .topbar-logo-text { font-family: 'Barlow Condensed',sans-serif; font-size: 19px; font-weight: 900; color: var(--white); }
+    .topbar-logo-text span { color: var(--orange); }
     .topbar-spacer { flex: 1; }
-    .topbar-role-badge { padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; }
-    .badge-hse { background: rgba(34,197,94,.15); color: #86EFAC; border: 1px solid rgba(34,197,94,.3); }
-    .badge-worker { background: rgba(59,130,246,.15); color: #93C5FD; border: 1px solid rgba(59,130,246,.3); }
+    .topbar-role-badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; white-space: nowrap; }
+    .badge-hse     { background: rgba(34,197,94,.15);  color: #86EFAC; border: 1px solid rgba(34,197,94,.3); }
+    .badge-worker  { background: rgba(59,130,246,.15); color: #93C5FD; border: 1px solid rgba(59,130,246,.3); }
     .badge-company { background: rgba(168,85,247,.15); color: #D8B4FE; border: 1px solid rgba(168,85,247,.3); }
-    .badge-admin { background: rgba(249,115,22,.15); color: #FED7AA; border: 1px solid rgba(249,115,22,.3); }
+    .badge-admin   { background: rgba(249,115,22,.15); color: #FED7AA; border: 1px solid rgba(249,115,22,.3); }
+    .badge-trainer { background: rgba(20,184,166,.15); color: #5EEAD4; border: 1px solid rgba(20,184,166,.3); }
     .topbar-user { font-size: 13px; color: var(--muted); }
-    .btn-logout { padding: 7px 16px; background: transparent; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; color: var(--muted); font-family: 'Barlow',sans-serif; font-size: 13px; cursor: pointer; transition: all .2s; }
+    .btn-logout { padding: 6px 14px; background: transparent; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; color: var(--muted); font-family: 'Barlow',sans-serif; font-size: 13px; cursor: pointer; transition: all .2s; }
     .btn-logout:hover { border-color: var(--orange); color: var(--orange); }
-    .nav-tabs { display: flex; gap: 4px; padding: 0 32px; background: rgba(13,27,42,.8); border-bottom: 1px solid rgba(255,255,255,.05); }
-    .nav-tab { padding: 14px 20px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--muted); font-family: 'Barlow',sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; transition: all .2s; }
+    .nav-tabs { display: flex; gap: 2px; padding: 0 28px; background: rgba(13,27,42,.8); border-bottom: 1px solid rgba(255,255,255,.05); overflow-x: auto; }
+    .nav-tab { padding: 13px 18px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--muted); font-family: 'Barlow',sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s; white-space: nowrap; }
     .nav-tab:hover { color: var(--white); }
     .nav-tab.active { color: var(--orange); border-bottom-color: var(--orange); }
-    .dash-body { flex: 1; padding: 36px 32px; }
-    .dash-welcome { font-family: 'Barlow Condensed',sans-serif; font-size: 34px; font-weight: 900; margin-bottom: 4px; }
+    .dash-body { flex: 1; padding: 32px 28px; max-width: 1200px; width: 100%; }
+    .dash-welcome { font-family: 'Barlow Condensed',sans-serif; font-size: 32px; font-weight: 900; margin-bottom: 4px; }
     .dash-welcome em { color: var(--orange); font-style: normal; }
-    .dash-subtitle { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 16px; margin-bottom: 36px; }
-    .stat-card { padding: 22px; border-radius: 14px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); transition: border-color .2s,transform .2s; }
+    .dash-subtitle { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(170px,1fr)); gap: 14px; margin-bottom: 32px; }
+    .stat-card { padding: 20px; border-radius: 14px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); transition: border-color .2s,transform .2s; cursor: default; }
     .stat-card:hover { border-color: rgba(249,115,22,.25); transform: translateY(-2px); }
-    .stat-icon { font-size: 26px; margin-bottom: 12px; }
-    .stat-value { font-family: 'Barlow Condensed',sans-serif; font-size: 34px; font-weight: 900; color: var(--orange); line-height: 1; margin-bottom: 4px; }
+    .stat-icon { font-size: 24px; margin-bottom: 10px; }
+    .stat-value { font-family: 'Barlow Condensed',sans-serif; font-size: 32px; font-weight: 900; color: var(--orange); line-height: 1; margin-bottom: 4px; }
     .stat-label { font-size: 12px; color: var(--muted); }
-    .section-title { font-family: 'Barlow Condensed',sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+    .section-title { font-family: 'Barlow Condensed',sans-serif; font-size: 17px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
     .section-title::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,.07); }
     .page-section { display: none; }
     .page-section.active { display: block; }
 
     /* DOC CARDS */
-    .doc-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(280px,1fr)); gap: 14px; }
-    .doc-card { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 20px; transition: all .2s; }
+    .doc-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(270px,1fr)); gap: 14px; margin-bottom: 24px; }
+    .doc-card { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 18px; transition: all .2s; }
     .doc-card:hover { border-color: rgba(249,115,22,.2); transform: translateY(-1px); }
-    .doc-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
-    .doc-card-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--steel); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
-    .doc-card-status { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: .5px; }
-    .status-empty { background: rgba(148,163,184,.1); color: var(--muted); border: 1px solid rgba(148,163,184,.2); }
-    .status-pending { background: rgba(245,158,11,.12); color: #FCD34D; border: 1px solid rgba(245,158,11,.25); }
+    .doc-card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; gap: 8px; }
+    .doc-card-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--steel); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .doc-card-badges { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+    .doc-badge { padding: 3px 9px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: .4px; white-space: nowrap; }
+    .status-empty     { background: rgba(148,163,184,.1); color: var(--muted); border: 1px solid rgba(148,163,184,.2); }
+    .status-pending   { background: rgba(245,158,11,.12); color: #FCD34D; border: 1px solid rgba(245,158,11,.25); }
     .status-validated { background: rgba(34,197,94,.12); color: #86EFAC; border: 1px solid rgba(34,197,94,.25); }
-    .status-rejected { background: rgba(239,68,68,.12); color: #FCA5A5; border: 1px solid rgba(239,68,68,.25); }
-    .status-expired { background: rgba(239,68,68,.12); color: #FCA5A5; border: 1px solid rgba(239,68,68,.25); }
-    .doc-card-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
-    .doc-card-desc { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
-    .doc-card-expiry { font-size: 11px; color: var(--warn); margin-bottom: 12px; }
+    .status-rejected  { background: rgba(239,68,68,.12); color: #FCA5A5; border: 1px solid rgba(239,68,68,.25); }
+    .status-expired   { background: rgba(239,68,68,.12); color: #FCA5A5; border: 1px solid rgba(239,68,68,.25); }
+    .badge-center-validated { background: rgba(20,184,166,.12); color: #5EEAD4; border: 1px solid rgba(20,184,166,.25); }
+    .badge-center-pending   { background: rgba(168,85,247,.10); color: #D8B4FE; border: 1px solid rgba(168,85,247,.2); }
+    .badge-center-none      { background: rgba(148,163,184,.08); color: var(--muted); border: 1px solid rgba(148,163,184,.15); }
+    .doc-card-name { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+    .doc-card-desc { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+    .doc-card-expiry { font-size: 11px; color: var(--warn); margin-bottom: 10px; display: flex; align-items: center; gap: 5px; }
     .doc-card-expiry.ok { color: var(--success); }
-    .doc-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-    .btn-sm { padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; border: none; transition: all .2s; font-family: 'Barlow',sans-serif; }
-    .btn-upload { background: var(--orange); color: var(--white); }
+    .doc-card-expiry.urgent { color: var(--danger); font-weight: 700; }
+    .doc-card-center { font-size: 11px; color: var(--teal); margin-bottom: 10px; }
+    .doc-card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .btn-sm { padding: 6px 12px; border-radius: 7px; font-size: 11px; font-weight: 700; cursor: pointer; border: none; transition: all .2s; font-family: 'Barlow',sans-serif; white-space: nowrap; }
+    .btn-upload   { background: var(--orange); color: var(--white); }
     .btn-upload:hover { background: var(--orange2); }
-    .btn-view { background: rgba(255,255,255,.08); color: var(--white); border: 1px solid rgba(255,255,255,.1); }
+    .btn-view     { background: rgba(255,255,255,.08); color: var(--white); border: 1px solid rgba(255,255,255,.1); }
     .btn-view:hover { background: rgba(255,255,255,.14); }
     .btn-validate { background: rgba(34,197,94,.15); color: #86EFAC; border: 1px solid rgba(34,197,94,.25); }
     .btn-validate:hover { background: rgba(34,197,94,.28); }
-    .btn-reject { background: rgba(239,68,68,.12); color: #FCA5A5; border: 1px solid rgba(239,68,68,.2); }
+    .btn-reject   { background: rgba(239,68,68,.12); color: #FCA5A5; border: 1px solid rgba(239,68,68,.2); }
     .btn-reject:hover { background: rgba(239,68,68,.25); }
+    .btn-booking  { background: rgba(20,184,166,.15); color: #5EEAD4; border: 1px solid rgba(20,184,166,.25); }
+    .btn-booking:hover { background: rgba(20,184,166,.25); }
+
+    /* ALERT EXPIRY BANNER */
+    .expiry-alerts { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+    .expiry-alert { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 12px; background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.25); }
+    .expiry-alert.warn { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.25); }
+    .expiry-alert-icon { font-size: 22px; flex-shrink: 0; }
+    .expiry-alert-info { flex: 1; }
+    .expiry-alert-name { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+    .expiry-alert-date { font-size: 12px; color: var(--muted); }
+    .expiry-alert-actions { display: flex; gap: 8px; }
 
     /* WORKER LIST */
     .worker-list { display: flex; flex-direction: column; gap: 10px; }
-    .worker-card { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; gap: 16px; cursor: pointer; transition: all .2s; }
+    .worker-card { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 14px 18px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: all .2s; }
     .worker-card:hover { border-color: rgba(249,115,22,.25); }
-    .worker-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--steel); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .worker-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--steel); display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
     .worker-info { flex: 1; }
-    .worker-name { font-size: 15px; font-weight: 700; }
+    .worker-name { font-size: 14px; font-weight: 700; }
     .worker-role { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .worker-docs-panel { display: none; margin: 0 0 16px 52px; padding: 16px; background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.06); border-radius: 12px; }
+
+    /* TRAINER REQUEST CARDS */
+    .request-list { display: flex; flex-direction: column; gap: 12px; }
+    .request-card { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 18px 20px; }
+    .request-card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .request-card-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--steel); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+    .request-card-info { flex: 1; }
+    .request-card-name { font-size: 15px; font-weight: 700; }
+    .request-card-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .request-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
     /* MODAL */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); padding: 20px; }
     .modal-overlay.open { display: flex; }
-    .modal { background: #0F2035; border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 36px; width: 100%; max-width: 480px; position: relative; margin: 20px; }
+    .modal { background: #0F2035; border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 32px; width: 100%; max-width: 500px; position: relative; max-height: 90vh; overflow-y: auto; }
     .modal-title { font-family: 'Barlow Condensed',sans-serif; font-size: 24px; font-weight: 900; margin-bottom: 6px; }
-    .modal-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
-    .modal-close { position: absolute; top: 16px; right: 16px; background: transparent; border: none; color: var(--muted); font-size: 20px; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+    .modal-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+    .modal-close { position: absolute; top: 14px; right: 14px; background: transparent; border: none; color: var(--muted); font-size: 20px; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
     .modal-close:hover { color: var(--white); background: rgba(255,255,255,.08); }
-    .file-drop { border: 2px dashed rgba(249,115,22,.3); border-radius: 12px; padding: 32px; text-align: center; cursor: pointer; transition: all .2s; margin-bottom: 20px; }
+    .file-drop { border: 2px dashed rgba(249,115,22,.3); border-radius: 12px; padding: 28px; text-align: center; cursor: pointer; transition: all .2s; margin-bottom: 18px; }
     .file-drop:hover, .file-drop.dragover { border-color: var(--orange); background: rgba(249,115,22,.05); }
-    .file-drop-icon { font-size: 36px; margin-bottom: 10px; }
+    .file-drop-icon { font-size: 32px; margin-bottom: 8px; }
     .file-drop-text { font-size: 14px; color: var(--muted); }
     .file-drop-text strong { color: var(--orange); }
     .file-name-preview { font-size: 13px; color: var(--success); margin-top: 8px; }
     .file-input-hidden { display: none; }
     .notif-badge { background: var(--danger); color: var(--white); font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px; margin-left: 6px; }
-    .empty-state { text-align: center; padding: 60px 20px; }
-    .empty-state-icon { font-size: 48px; margin-bottom: 16px; opacity: .5; }
+    .empty-state { text-align: center; padding: 56px 20px; }
+    .empty-state-icon { font-size: 44px; margin-bottom: 14px; opacity: .5; }
     .empty-state-text { font-size: 15px; color: var(--muted); line-height: 1.6; }
-    .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,.3); border-top-color: var(--white); border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: 8px; }
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-top-color: var(--white); border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; margin-right: 8px; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .toast { position: fixed; bottom: 24px; right: 24px; z-index: 2000; padding: 14px 20px; border-radius: 12px; font-size: 14px; font-weight: 600; transform: translateY(100px); opacity: 0; transition: all .3s; max-width: 340px; }
+    .toast { position: fixed; bottom: 24px; right: 24px; z-index: 2000; padding: 13px 18px; border-radius: 12px; font-size: 14px; font-weight: 600; transform: translateY(100px); opacity: 0; transition: all .3s; max-width: 340px; }
     .toast.show { transform: translateY(0); opacity: 1; }
     .toast-success { background: #052e16; border: 1px solid rgba(34,197,94,.4); color: #86EFAC; }
-    .toast-error { background: #2d0a0a; border: 1px solid rgba(239,68,68,.4); color: #FCA5A5; }
-    .worker-docs-panel { display: none; margin: 0 0 20px 56px; padding: 20px; background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.06); border-radius: 12px; }
-    @media (max-width: 768px) { .left-panel { display: none; } .auth-card { padding: 28px 20px; } .dash-body { padding: 20px 16px; } .topbar { padding: 0 16px; } .nav-tabs { padding: 0 16px; overflow-x: auto; } }
+    .toast-error   { background: #2d0a0a; border: 1px solid rgba(239,68,68,.4); color: #FCA5A5; }
+
+    @media (max-width: 768px) {
+      .left-panel { display: none; }
+      .auth-card { padding: 24px 18px; }
+      .dash-body { padding: 18px 14px; }
+      .topbar { padding: 0 14px; }
+    }
   </style>
 </head>
 <body>
 <div class="bg-layer"><div class="bg-circle c1"></div><div class="bg-circle c2"></div><div class="bg-grid"></div></div>
 
-<!-- AUTH -->
+<!-- ══ AUTH ══ -->
 <div class="app" id="authScreen">
   <div class="left-panel">
     <div class="logo"><div class="logo-icon">🛡</div><div class="logo-text">Safety<span>Sphere</span></div></div>
     <div class="panel-title">Le <em>Passeport<br>Industriel</em><br>Unique</div>
-    <div class="panel-subtitle">Centralisez habilitations, certifications et documents de conformité pour toutes vos interventions.</div>
+    <div class="panel-subtitle">Centralisez habilitations, certifications et documents de conformité pour toutes vos interventions industrielles.</div>
     <div class="role-pills">
       <div class="role-pill"><div class="role-pill-icon">🏭</div><div class="role-pill-info"><div class="role-pill-name">Responsable HSE</div><div class="role-pill-desc">Gérez vos sites et sous-traitants</div></div><div class="role-pill-badge">HSE</div></div>
-      <div class="role-pill"><div class="role-pill-icon">🏢</div><div class="role-pill-info"><div class="role-pill-name">Entreprise Sous-Traitante</div><div class="role-pill-desc">Gérez vos intervenants et documents société</div></div><div class="role-pill-badge">SOCIÉTÉ</div></div>
+      <div class="role-pill"><div class="role-pill-icon">🏢</div><div class="role-pill-info"><div class="role-pill-name">Entreprise Sous-Traitante</div><div class="role-pill-desc">Gérez vos intervenants et documents</div></div><div class="role-pill-badge">SOCIÉTÉ</div></div>
       <div class="role-pill"><div class="role-pill-icon">👷</div><div class="role-pill-info"><div class="role-pill-name">Intervenant</div><div class="role-pill-desc">Votre passeport industriel personnel</div></div><div class="role-pill-badge">TERRAIN</div></div>
+      <div class="role-pill"><div class="role-pill-icon">🎓</div><div class="role-pill-info"><div class="role-pill-name">Centre de Formation</div><div class="role-pill-desc">Validez les habilitations délivrées</div></div><div class="role-pill-badge">FORMATION</div></div>
       <div class="role-pill"><div class="role-pill-icon">⚙️</div><div class="role-pill-info"><div class="role-pill-name">Administrateur</div><div class="role-pill-desc">Gestion globale de la plateforme</div></div><div class="role-pill-badge">ADMIN</div></div>
     </div>
   </div>
@@ -192,18 +231,20 @@
         <button class="tab" onclick="switchTab('register',event)">Créer un compte</button>
       </div>
       <div id="alertBox" class="alert"></div>
+      <!-- LOGIN -->
       <form id="loginForm" onsubmit="handleLogin(event)">
         <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="loginEmail" placeholder="votre@email.fr" required /></div>
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
-        <div style="text-align:right;margin-top:-8px;margin-bottom:12px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:#94A3B8;text-decoration:none;">Mot de passe oublié ?</a></div>
+        <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
       </form>
-      <!-- Forgot Password Form -->
+      <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
         <div class="form-group"><label class="form-label">Votre email</label><input type="email" class="form-input" id="forgotEmail" placeholder="votre@email.fr" /></div>
         <button class="btn-primary" onclick="handleForgotPassword()">Envoyer le lien de réinitialisation</button>
-        <div style="text-align:center;margin-top:12px"><a href="#" onclick="showLoginForm();return false;" style="font-size:13px;color:#94A3B8;text-decoration:none;">← Retour à la connexion</a></div>
+        <div style="text-align:center;margin-top:12px"><a href="#" onclick="showLoginForm();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">← Retour à la connexion</a></div>
       </div>
+      <!-- REGISTER -->
       <form id="registerForm" style="display:none" onsubmit="handleRegister(event)">
         <div class="form-group"><label class="form-label">Prénom et Nom</label><input type="text" class="form-input" id="regName" placeholder="Jean Dupont" required /></div>
         <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="regEmail" placeholder="votre@email.fr" required /></div>
@@ -214,10 +255,21 @@
             <option value="hse">🏭 Responsable HSE</option>
             <option value="company">🏢 Entreprise Sous-Traitante</option>
             <option value="worker">👷 Intervenant</option>
+            <option value="trainer">🎓 Centre de Formation</option>
             <option value="admin">⚙️ Administrateur</option>
           </select>
         </div>
-        <div class="form-group" id="companyNameGroup" style="display:none"><label class="form-label">Nom de la société</label><input type="text" class="form-input" id="regCompanyName" placeholder="Ex: Électricité Pro SARL" /></div>
+        <!-- Champ nom organisation (company + trainer) -->
+        <div class="form-group" id="orgNameGroup" style="display:none">
+          <label class="form-label" id="orgNameLabel">Nom de la société</label>
+          <input type="text" class="form-input" id="regOrgName" placeholder="Ex: Électricité Pro SARL" />
+        </div>
+        <!-- Champ URL réservation (trainer uniquement) -->
+        <div class="form-group" id="bookingUrlGroup" style="display:none">
+          <label class="form-label">Lien prise de RDV (optionnel)</label>
+          <input type="url" class="form-input" id="regBookingUrl" placeholder="https://calendly.com/votre-centre" />
+        </div>
+        <!-- Champ code employeur (worker uniquement) -->
         <div class="form-group" id="teamCodeGroup" style="display:none">
           <label class="form-label">Code employeur</label>
           <input type="text" class="form-input" id="regTeamCode" placeholder="Ex: ELEC-4X9K" style="text-transform:uppercase;letter-spacing:2px" />
@@ -230,7 +282,7 @@
   </div>
 </div>
 
-<!-- DASHBOARD INTERVENANT -->
+<!-- ══ DASHBOARD INTERVENANT ══ -->
 <div class="dashboard" id="dashWorker">
   <nav class="topbar">
     <div class="topbar-logo"><div class="topbar-logo-icon">🛡</div><div class="topbar-logo-text">Safety<span>Sphere</span></div></div>
@@ -241,46 +293,51 @@
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Worker','overview',this)">🏠 Accueil</button>
-    <button class="nav-tab" onclick="switchPage('Worker','docs',this)">📄 Mes Documents</button>
+    <button class="nav-tab" onclick="switchPage('Worker','docs',this)">📄 Mes Habilitations</button>
   </div>
   <div class="dash-body">
+    <!-- OVERVIEW -->
     <div class="page-section active" id="Worker-overview">
       <div class="dash-welcome">Bonjour, <em id="workerFirstName">—</em> 👋</div>
       <div class="dash-subtitle">Votre Passeport Industriel personnel</div>
 
-      <!-- Rattachement employeur -->
-      <div id="linkCompanyBanner" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:12px;padding:20px 24px;margin-bottom:28px;display:none">
-        <div style="font-size:13px;font-weight:700;color:#FCD34D;margin-bottom:12px">⚠️ Vous n'êtes pas encore rattaché à une société employeur</div>
+      <!-- Bannière rattachement employeur -->
+      <div id="linkCompanyBanner" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:12px;padding:18px 22px;margin-bottom:24px;display:none">
+        <div style="font-size:13px;font-weight:700;color:#FCD34D;margin-bottom:10px">⚠️ Vous n'êtes pas encore rattaché à une société employeur</div>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-          <input type="text" id="linkTeamCode" class="form-input" placeholder="Saisissez votre code employeur (ex: ELEC-4X9K)" style="max-width:320px;text-transform:uppercase;letter-spacing:2px;margin:0" />
+          <input type="text" id="linkTeamCode" class="form-input" placeholder="Code employeur (ex: ELEC-4X9K)" style="max-width:300px;text-transform:uppercase;letter-spacing:2px;margin:0" />
           <button onclick="linkToCompany()" class="btn-sm btn-upload" style="white-space:nowrap">🔗 Me rattacher</button>
         </div>
       </div>
-
-      <div id="linkedCompanyBanner" style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:12px;padding:16px 20px;margin-bottom:28px;display:none;align-items:center;gap:14px">
-        <span style="font-size:24px">🏢</span>
+      <div id="linkedCompanyBanner" style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:12px;padding:14px 18px;margin-bottom:24px;display:none;align-items:center;gap:12px">
+        <span style="font-size:22px">🏢</span>
         <div>
           <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700">Société employeur</div>
-          <div id="linkedCompanyName" style="font-size:16px;font-weight:700;color:#86EFAC">—</div>
+          <div id="linkedCompanyName" style="font-size:15px;font-weight:700;color:#86EFAC">—</div>
         </div>
       </div>
 
+      <!-- Alertes expiration -->
+      <div id="workerExpiryAlerts"></div>
+
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value" id="wStat1">0</div><div class="stat-label">Documents validés</div></div>
-        <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value" id="wStat2">0</div><div class="stat-label">En attente validation</div></div>
+        <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value" id="wStat2">0</div><div class="stat-label">En attente</div></div>
         <div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value" id="wStat3">0</div><div class="stat-label">Expirent bientôt</div></div>
         <div class="stat-card"><div class="stat-icon">❌</div><div class="stat-value" id="wStat4">0</div><div class="stat-label">Expirés / Refusés</div></div>
       </div>
     </div>
+
+    <!-- DOCUMENTS -->
     <div class="page-section" id="Worker-docs">
       <div class="dash-welcome">Mes <em>Habilitations</em></div>
-      <div class="dash-subtitle">Déposez vos documents — votre employeur sera notifié pour validation</div>
+      <div class="dash-subtitle">Déposez vos documents — votre employeur et le centre de formation seront notifiés</div>
       <div id="workerDocsContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
   </div>
 </div>
 
-<!-- DASHBOARD ENTREPRISE -->
+<!-- ══ DASHBOARD ENTREPRISE ══ -->
 <div class="dashboard" id="dashCompany">
   <nav class="topbar">
     <div class="topbar-logo"><div class="topbar-logo-icon">🛡</div><div class="topbar-logo-text">Safety<span>Sphere</span></div></div>
@@ -298,13 +355,13 @@
     <div class="page-section active" id="Company-overview">
       <div class="dash-welcome">Bonjour, <em id="companyFirstName">—</em> 👋</div>
       <div class="dash-subtitle">Tableau de bord Entreprise Sous-Traitante</div>
-      <div id="teamCodeBanner" style="display:none;background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.25);border-radius:12px;padding:16px 20px;margin-bottom:24px;align-items:center;gap:16px">
-        <span style="font-size:28px">🔑</span>
+      <div id="teamCodeBanner" style="display:none;background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.25);border-radius:12px;padding:14px 18px;margin-bottom:22px;align-items:center;gap:14px">
+        <span style="font-size:26px">🔑</span>
         <div>
-          <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:4px">Code à partager avec vos intervenants</div>
-          <div id="teamCodeDisplay" style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--orange);letter-spacing:3px">—</div>
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:3px">Code à partager avec vos intervenants</div>
+          <div id="teamCodeDisplay" style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;color:var(--orange);letter-spacing:3px">—</div>
         </div>
-        <button onclick="copyTeamCode()" style="margin-left:auto;padding:8px 16px;background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.3);border-radius:8px;color:var(--orange);font-size:13px;font-weight:700;cursor:pointer">📋 Copier</button>
+        <button onclick="copyTeamCode()" style="margin-left:auto;padding:7px 14px;background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.3);border-radius:8px;color:var(--orange);font-size:12px;font-weight:700;cursor:pointer">📋 Copier</button>
       </div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon">👷</div><div class="stat-value" id="cStat1">0</div><div class="stat-label">Intervenants</div></div>
@@ -326,7 +383,7 @@
   </div>
 </div>
 
-<!-- DASHBOARD HSE -->
+<!-- ══ DASHBOARD HSE ══ -->
 <div class="dashboard" id="dashHSE">
   <nav class="topbar">
     <div class="topbar-logo"><div class="topbar-logo-icon">🛡</div><div class="topbar-logo-text">Safety<span>Sphere</span></div></div>
@@ -351,8 +408,8 @@
       </div>
       <div class="section-title">Prochains modules</div>
       <div class="doc-grid">
-        <div class="doc-card"><div class="doc-card-header"><div class="doc-card-icon">📄</div><span class="doc-card-status status-empty">Bientôt</span></div><div class="doc-card-name">Plan de Prévention (PdP)</div><div class="doc-card-desc">Digitalisation complète des plans de prévention</div></div>
-        <div class="doc-card"><div class="doc-card-header"><div class="doc-card-icon">🔑</div><span class="doc-card-status status-empty">Bientôt</span></div><div class="doc-card-name">Permis de Travail</div><div class="doc-card-desc">Émission et suivi des permis de travail</div></div>
+        <div class="doc-card"><div class="doc-card-header"><div class="doc-card-icon">📄</div><div class="doc-card-badges"><span class="doc-badge status-empty">Bientôt</span></div></div><div class="doc-card-name">Plan de Prévention (PdP)</div><div class="doc-card-desc">Digitalisation complète des plans de prévention</div></div>
+        <div class="doc-card"><div class="doc-card-header"><div class="doc-card-icon">🔑</div><div class="doc-card-badges"><span class="doc-badge status-empty">Bientôt</span></div></div><div class="doc-card-name">Permis de Travail</div><div class="doc-card-desc">Émission et suivi des permis de travail</div></div>
       </div>
     </div>
     <div class="page-section" id="HSE-contractors">
@@ -363,7 +420,52 @@
   </div>
 </div>
 
-<!-- DASHBOARD ADMIN -->
+<!-- ══ DASHBOARD TRAINER (Centre de Formation) ══ -->
+<div class="dashboard" id="dashTrainer">
+  <nav class="topbar">
+    <div class="topbar-logo"><div class="topbar-logo-icon">🛡</div><div class="topbar-logo-text">Safety<span>Sphere</span></div></div>
+    <div class="topbar-spacer"></div>
+    <span class="topbar-role-badge badge-trainer">🎓 Formation</span>
+    <span class="topbar-user" id="trainerUserName"></span>
+    <button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+  </nav>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchPage('Trainer','overview',this)">🏠 Accueil</button>
+    <button class="nav-tab" onclick="switchPage('Trainer','requests',this)">📋 Demandes de validation <span id="trainerPendingBadge" class="notif-badge" style="display:none">!</span></button>
+    <button class="nav-tab" onclick="switchPage('Trainer','validated',this)">✅ Historique</button>
+  </div>
+  <div class="dash-body">
+    <div class="page-section active" id="Trainer-overview">
+      <div class="dash-welcome">Bonjour, <em id="trainerFirstName">—</em> 👋</div>
+      <div class="dash-subtitle">Tableau de bord Centre de Formation</div>
+      <div id="trainerBookingBanner" style="display:none;background:rgba(20,184,166,.08);border:1px solid rgba(20,184,166,.25);border-radius:12px;padding:14px 18px;margin-bottom:22px;align-items:center;gap:14px">
+        <span style="font-size:22px">📅</span>
+        <div style="flex:1">
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:3px">Lien de réservation affiché aux intervenants</div>
+          <div id="trainerBookingUrl" style="font-size:14px;font-weight:600;color:#5EEAD4">—</div>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-icon">📋</div><div class="stat-value" id="tStat1">0</div><div class="stat-label">Demandes en attente</div></div>
+        <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value" id="tStat2">0</div><div class="stat-label">Validations ce mois</div></div>
+        <div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value" id="tStat3">0</div><div class="stat-label">Expirations à venir</div></div>
+        <div class="stat-card"><div class="stat-icon">👷</div><div class="stat-value" id="tStat4">0</div><div class="stat-label">Stagiaires suivis</div></div>
+      </div>
+    </div>
+    <div class="page-section" id="Trainer-requests">
+      <div class="dash-welcome">Demandes de <em>Validation</em></div>
+      <div class="dash-subtitle">Intervenants en attente de validation de leur habilitation</div>
+      <div id="trainerRequestsContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
+    </div>
+    <div class="page-section" id="Trainer-validated">
+      <div class="dash-welcome">Formations <em>Validées</em></div>
+      <div class="dash-subtitle">Historique des validations effectuées par votre centre</div>
+      <div id="trainerHistoryContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DASHBOARD ADMIN ══ -->
 <div class="dashboard" id="dashAdmin">
   <nav class="topbar">
     <div class="topbar-logo"><div class="topbar-logo-icon">🛡</div><div class="topbar-logo-text">Safety<span>Sphere</span></div></div>
@@ -378,13 +480,13 @@
     <div class="stats-grid">
       <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-value">—</div><div class="stat-label">Utilisateurs</div></div>
       <div class="stat-card"><div class="stat-icon">🏢</div><div class="stat-value">0</div><div class="stat-label">Sites industriels</div></div>
-      <div class="stat-card"><div class="stat-icon">📋</div><div class="stat-value">0</div><div class="stat-label">PdP créés</div></div>
+      <div class="stat-card"><div class="stat-icon">🎓</div><div class="stat-value">0</div><div class="stat-label">Centres de formation</div></div>
       <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-value">0 €</div><div class="stat-label">MRR</div></div>
     </div>
   </div>
 </div>
 
-<!-- MODAL UPLOAD -->
+<!-- ══ MODAL UPLOAD ══ -->
 <div class="modal-overlay" id="uploadModal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal()">✕</button>
@@ -397,8 +499,16 @@
     </div>
     <input type="file" id="fileInput" class="file-input-hidden" accept=".pdf,.jpg,.jpeg,.png" onchange="handleFileSelect(event)" />
     <div class="form-group">
-      <label class="form-label">Date d'expiration (optionnel)</label>
+      <label class="form-label">Date d'expiration</label>
       <input type="date" class="form-input" id="expiryDate" />
+    </div>
+    <!-- Sélection centre de formation (worker uniquement) -->
+    <div class="form-group" id="centerPickerGroup" style="display:none">
+      <label class="form-label">Centre de formation (optionnel)</label>
+      <select class="form-select" id="centerPicker">
+        <option value="">Aucun / Je ne sais pas</option>
+      </select>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px">🎓 Le centre recevra une demande de validation</div>
     </div>
     <button class="btn-primary" id="uploadBtn" onclick="uploadDocument()">Envoyer le document</button>
   </div>
@@ -412,11 +522,13 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
 
-let currentUser = null;
+let currentUser    = null;
 let currentProfile = null;
 let currentUploadDoc = null;
-let selectedFile = null;
+let selectedFile   = null;
+let trainingCenters = []; // cache des centres chargés
 
+// ── DÉFINITIONS DOCUMENTS ──
 const WORKER_DOCS = [
   { key: 'habilitation_elec', name: 'Habilitation Électrique', icon: '⚡', desc: 'B0, H0, BR, BC...' },
   { key: 'travail_hauteur',   name: 'Travail en Hauteur',      icon: '🏗️', desc: 'Port du harnais, nacelle...' },
@@ -425,28 +537,26 @@ const WORKER_DOCS = [
   { key: 'carte_btp',         name: 'Carte BTP',               icon: '🪪', desc: "Carte d'identification BTP" },
   { key: 'visite_medicale',   name: 'Visite Médicale',         icon: '🏥', desc: 'Aptitude médicale au poste' },
 ];
-
 const COMPANY_DOCS = [
-  { key: 'kbis',     name: 'KBIS',               icon: '📋', desc: 'Extrait Kbis de moins de 3 mois' },
-  { key: 'rc_pro',   name: 'Attestation RC Pro',  icon: '🛡️', desc: 'Responsabilité civile professionnelle' },
-  { key: 'urssaf',   name: 'Attestation URSSAF',  icon: '📊', desc: 'Vigilance sociale à jour' },
-  { key: 'accord_st',name: 'Accord Sous-Traitance',icon: '🤝', desc: 'Convention signée avec le donneur' },
+  { key: 'kbis',      name: 'KBIS',                icon: '📋', desc: 'Extrait Kbis de moins de 3 mois' },
+  { key: 'rc_pro',    name: 'Attestation RC Pro',   icon: '🛡️', desc: 'Responsabilité civile professionnelle' },
+  { key: 'urssaf',    name: 'Attestation URSSAF',   icon: '📊', desc: 'Vigilance sociale à jour' },
+  { key: 'accord_st', name: 'Accord Sous-Traitance',icon: '🤝', desc: 'Convention signée avec le donneur' },
 ];
 
+// ── HELPERS UI ──
 function showToast(msg, type = 'success') {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.className = `toast toast-${type} show`;
   setTimeout(() => t.classList.remove('show'), 3500);
 }
-
 function showAlert(msg, type = 'error') {
   const el = document.getElementById('alertBox');
   el.textContent = msg;
   el.className = `alert show alert-${type}`;
   setTimeout(() => el.classList.remove('show'), 5000);
 }
-
 function setLoading(btnId, loading, label) {
   const btn = document.getElementById(btnId);
   if (!btn) return;
@@ -454,19 +564,44 @@ function setLoading(btnId, loading, label) {
   btn.innerHTML = loading ? '<span class="spinner"></span> Chargement...' : label;
 }
 
+// ── AUTH TABS ──
 function switchTab(tab, e) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   if (e && e.target) e.target.classList.add('active');
-  document.getElementById('loginForm').style.display    = tab === 'login' ? 'block' : 'none';
+  document.getElementById('loginForm').style.display    = tab === 'login'    ? 'block' : 'none';
   document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+  document.getElementById('forgotForm').style.display   = 'none';
   document.getElementById('alertBox').classList.remove('show');
 }
-
-function onRoleChange(val) {
-  document.getElementById('companyNameGroup').style.display = val === 'company' ? 'block' : 'none';
-  document.getElementById('teamCodeGroup').style.display = val === 'worker' ? 'block' : 'none';
+function showForgotPassword() {
+  document.getElementById('loginForm').style.display    = 'none';
+  document.getElementById('registerForm').style.display = 'none';
+  document.getElementById('forgotForm').style.display   = 'block';
+}
+function showLoginForm() {
+  document.getElementById('loginForm').style.display    = 'block';
+  document.getElementById('forgotForm').style.display   = 'none';
+  document.getElementById('registerForm').style.display = 'none';
+}
+async function handleForgotPassword() {
+  const email = document.getElementById('forgotEmail').value.trim();
+  if (!email) { showAlert('Veuillez saisir votre email.'); return; }
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+  if (error) { showAlert('Erreur : ' + error.message); return; }
+  showAlert('Lien de réinitialisation envoyé à ' + email, 'success');
+  setTimeout(() => showLoginForm(), 3000);
 }
 
+// ── ROLE CHANGE (inscription) ──
+function onRoleChange(val) {
+  document.getElementById('orgNameGroup').style.display    = (val === 'company' || val === 'trainer') ? 'block' : 'none';
+  document.getElementById('bookingUrlGroup').style.display = val === 'trainer' ? 'block' : 'none';
+  document.getElementById('teamCodeGroup').style.display   = val === 'worker'  ? 'block' : 'none';
+  const label = document.getElementById('orgNameLabel');
+  if (label) label.textContent = val === 'trainer' ? 'Nom du centre de formation' : 'Nom de la société';
+}
+
+// ── NAV PAGES ──
 function switchPage(dash, page, el) {
   const dashEl = document.getElementById('dash' + dash);
   dashEl.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
@@ -474,40 +609,49 @@ function switchPage(dash, page, el) {
   const section = document.getElementById(dash + '-' + page);
   if (section) section.classList.add('active');
   if (el) el.classList.add('active');
-  if (dash === 'Worker' && page === 'docs') loadWorkerDocs();
+  // Lazy loads
+  if (dash === 'Worker'  && page === 'docs')      loadWorkerDocs();
   if (dash === 'Company' && page === 'societedocs') loadCompanyDocs();
-  if (dash === 'Company' && page === 'workers') loadCompanyWorkers();
+  if (dash === 'Company' && page === 'workers')   loadCompanyWorkers();
+  if (dash === 'Trainer' && page === 'requests')  loadTrainerRequests();
+  if (dash === 'Trainer' && page === 'validated') loadTrainerHistory();
 }
 
+// ── SHOW DASHBOARD ──
 function showDashboard(role, fullName) {
   document.getElementById('authScreen').style.display = 'none';
-  ['dashWorker','dashCompany','dashHSE','dashAdmin'].forEach(id => document.getElementById(id).classList.remove('active'));
+  ['dashWorker','dashCompany','dashHSE','dashTrainer','dashAdmin'].forEach(id => document.getElementById(id).classList.remove('active'));
   const firstName = (fullName || 'Utilisateur').split(' ')[0];
   if (role === 'worker') {
     document.getElementById('dashWorker').classList.add('active');
     document.getElementById('workerFirstName').textContent = firstName;
-    document.getElementById('workerUserName').textContent = fullName || '';
+    document.getElementById('workerUserName').textContent  = fullName || '';
     loadWorkerStats();
   } else if (role === 'company') {
     document.getElementById('dashCompany').classList.add('active');
     document.getElementById('companyFirstName').textContent = firstName;
-    document.getElementById('companyUserName').textContent = fullName || '';
+    document.getElementById('companyUserName').textContent  = fullName || '';
     loadCompanyStats();
   } else if (role === 'hse') {
     document.getElementById('dashHSE').classList.add('active');
     document.getElementById('hseFirstName').textContent = firstName;
-    document.getElementById('hseUserName').textContent = fullName || '';
+    document.getElementById('hseUserName').textContent  = fullName || '';
+  } else if (role === 'trainer') {
+    document.getElementById('dashTrainer').classList.add('active');
+    document.getElementById('trainerFirstName').textContent = firstName;
+    document.getElementById('trainerUserName').textContent  = fullName || '';
+    loadTrainerStats();
   } else if (role === 'admin') {
     document.getElementById('dashAdmin').classList.add('active');
     document.getElementById('adminUserName').textContent = fullName || '';
   }
 }
-
 function hideAllDashboards() {
-  ['dashWorker','dashCompany','dashHSE','dashAdmin'].forEach(id => document.getElementById(id).classList.remove('active'));
+  ['dashWorker','dashCompany','dashHSE','dashTrainer','dashAdmin'].forEach(id => document.getElementById(id).classList.remove('active'));
   document.getElementById('authScreen').style.display = 'flex';
 }
 
+// ── LOGIN ──
 async function handleLogin(e) {
   e.preventDefault();
   setLoading('loginBtn', true, 'Se connecter');
@@ -523,23 +667,25 @@ async function handleLogin(e) {
   else showAlert('Profil introuvable. Contactez un administrateur.');
 }
 
+// ── REGISTER ──
 async function handleRegister(e) {
   e.preventDefault();
-  const name = document.getElementById('regName').value;
-  const email = document.getElementById('regEmail').value;
-  const role = document.getElementById('regRole').value;
-  const password = document.getElementById('regPassword').value;
-  const companyName = document.getElementById('regCompanyName').value;
-  const teamCodeInput = document.getElementById('regTeamCode').value.toUpperCase().trim();
+  const name       = document.getElementById('regName').value;
+  const email      = document.getElementById('regEmail').value;
+  const role       = document.getElementById('regRole').value;
+  const password   = document.getElementById('regPassword').value;
+  const orgName    = document.getElementById('regOrgName').value;
+  const bookingUrl = document.getElementById('regBookingUrl').value;
+  const teamCode   = document.getElementById('regTeamCode').value.toUpperCase().trim();
   if (!role) { showAlert('Veuillez choisir un rôle.'); return; }
 
-  // Si intervenant → valider le code via la table organizations
-  let companyProfileId = null;
+  // Worker : valider le code employeur
+  let orgId = null;
   if (role === 'worker') {
-    if (!teamCodeInput) { showAlert('Veuillez saisir le code de votre employeur.'); return; }
-    const { data: org } = await sb.from('organizations').select('id, name').eq('team_code', teamCodeInput).single();
+    if (!teamCode) { showAlert('Veuillez saisir le code de votre employeur.'); return; }
+    const { data: org } = await sb.from('organizations').select('id').eq('team_code', teamCode).single();
     if (!org) { showAlert('Code employeur invalide. Vérifiez auprès de votre société.'); return; }
-    companyProfileId = org.id;
+    orgId = org.id;
   }
 
   setLoading('registerBtn', true, 'Créer mon compte');
@@ -547,118 +693,204 @@ async function handleRegister(e) {
   if (error) { showAlert(error.message); setLoading('registerBtn', false, 'Créer mon compte'); return; }
 
   if (data.user) {
-    let orgId = companyProfileId || null;
-
-    // Si entreprise → créer organization + team_code
-    if (role === 'company' && companyName) {
-      const prefix = companyName.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 4).padEnd(4, 'X');
-      const suffix = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4).padEnd(4, '0');
+    // Company ou Trainer → créer organization
+    if ((role === 'company' || role === 'trainer') && orgName) {
+      const prefix   = orgName.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 4).padEnd(4, 'X');
+      const suffix   = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4).padEnd(4, '0');
       const teamCode = prefix + '-' + suffix;
-      const { data: org, error: orgError } = await sb.from('organizations').insert({
-        name: companyName,
-        team_code: teamCode,
-        type: 'company',
-        created_by: data.user.id
-      }).select().single();
-      if (orgError) {
-        console.error('Erreur création organisation:', orgError);
-        showAlert('Erreur création organisation : ' + orgError.message);
-        setLoading('registerBtn', false, 'Créer mon compte');
-        return;
-      }
+      const orgPayload = { name: orgName, team_code: teamCode, type: role === 'trainer' ? 'training_center' : 'company', created_by: data.user.id };
+      if (role === 'trainer' && bookingUrl) orgPayload.booking_url = bookingUrl;
+      const { data: org, error: orgErr } = await sb.from('organizations').insert(orgPayload).select().single();
+      if (orgErr) { showAlert('Erreur création organisation : ' + orgErr.message); setLoading('registerBtn', false, 'Créer mon compte'); return; }
       if (org) orgId = org.id;
     }
-
-    await sb.from('profiles').insert({
-      id: data.user.id,
-      full_name: name,
-      email,
-      role,
-      company_name: companyName || null,
-      org_id: orgId
-    });
+    await sb.from('profiles').insert({ id: data.user.id, full_name: name, email, role, org_id: orgId });
   }
   setLoading('registerBtn', false, 'Créer mon compte');
   showAlert('Compte créé ! Confirmez votre email puis connectez-vous.', 'success');
 }
 
-function showForgotPassword() {
-  document.getElementById('loginForm').style.display = 'none';
-  document.getElementById('registerForm').style.display = 'none';
-  document.getElementById('forgotForm').style.display = 'block';
-  document.getElementById('alertBox').className = 'alert';
-  document.getElementById('alertBox').textContent = '';
-}
-
-function showLoginForm() {
-  document.getElementById('loginForm').style.display = 'block';
-  document.getElementById('forgotForm').style.display = 'none';
-  document.getElementById('registerForm').style.display = 'none';
-}
-
-async function handleForgotPassword() {
-  const email = document.getElementById('forgotEmail').value.trim();
-  if (!email) { showAlert('Veuillez saisir votre email.'); return; }
-  const { error } = await sb.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.origin
-  });
-  if (error) { showAlert('Erreur : ' + error.message); return; }
-  showAlert('Un lien de réinitialisation a été envoyé à ' + email, 'success');
-  setTimeout(() => showLoginForm(), 3000);
-}
-
+// ── LOGOUT ──
 async function handleLogout() {
   await sb.auth.signOut();
   currentUser = null; currentProfile = null;
   hideAllDashboards();
 }
 
+// ══════════════════════════════
+// WORKER
+// ══════════════════════════════
 async function loadWorkerStats() {
-  // Vérifier le rattachement à une organisation
+  // Rattachement employeur
   if (currentProfile.org_id) {
     const { data: org } = await sb.from('organizations').select('name').eq('id', currentProfile.org_id).single();
-    document.getElementById('linkCompanyBanner').style.display = 'none';
-    document.getElementById('linkedCompanyBanner').style.display = 'flex';
+    document.getElementById('linkCompanyBanner').style.display    = 'none';
+    document.getElementById('linkedCompanyBanner').style.display  = 'flex';
     if (org) document.getElementById('linkedCompanyName').textContent = org.name;
   } else {
-    document.getElementById('linkCompanyBanner').style.display = 'block';
-    document.getElementById('linkedCompanyBanner').style.display = 'none';
+    document.getElementById('linkCompanyBanner').style.display    = 'block';
+    document.getElementById('linkedCompanyBanner').style.display  = 'none';
   }
-  const { data: docs } = await sb.from('documents').select('status,expires_at').eq('owner_id', currentUser.id).eq('category', 'worker');
+
+  const { data: docs } = await sb.from('documents').select('status,expires_at,doc_type').eq('owner_id', currentUser.id).eq('category', 'worker');
   if (!docs) return;
-  const now = new Date(); const soon = new Date(); soon.setDate(soon.getDate() + 30);
+
+  const now  = new Date();
+  const soon = new Date(); soon.setDate(soon.getDate() + 30);
+
   document.getElementById('wStat1').textContent = docs.filter(d => d.status === 'validated').length;
   document.getElementById('wStat2').textContent = docs.filter(d => d.status === 'pending').length;
   document.getElementById('wStat3').textContent = docs.filter(d => d.expires_at && new Date(d.expires_at) > now && new Date(d.expires_at) < soon).length;
-  document.getElementById('wStat4').textContent = docs.filter(d => d.status === 'rejected' || d.status === 'expired').length;
+  document.getElementById('wStat4').textContent = docs.filter(d => d.status === 'rejected' || (d.expires_at && new Date(d.expires_at) <= now)).length;
+
+  // Alertes expiration
+  renderExpiryAlerts(docs);
 }
 
-async function loadCompanyStats() {
-  // Charger le team_code depuis organizations
-  if (currentProfile && currentProfile.org_id) {
-    const { data: org } = await sb.from('organizations').select('team_code, name').eq('id', currentProfile.org_id).single();
-    if (org && org.team_code) {
-      document.getElementById('teamCodeDisplay').textContent = org.team_code;
-      document.getElementById('teamCodeBanner').style.display = 'flex';
+function renderExpiryAlerts(docs) {
+  const container = document.getElementById('workerExpiryAlerts');
+  if (!container) return;
+  const now  = new Date();
+  const warn = new Date(); warn.setDate(warn.getDate() + 30);
+  const crit = new Date(); crit.setDate(crit.getDate() + 7);
+
+  const expiring = docs.filter(d => d.expires_at && new Date(d.expires_at) > now && new Date(d.expires_at) < warn);
+  if (!expiring.length) { container.innerHTML = ''; return; }
+
+  const html = `<div class="expiry-alerts">` + expiring.map(d => {
+    const def     = WORKER_DOCS.find(w => w.key === d.doc_type) || { name: d.doc_type, icon: '📄' };
+    const expDate = new Date(d.expires_at);
+    const isCrit  = expDate < crit;
+    const daysLeft = Math.ceil((expDate - now) / 86400000);
+    return `<div class="expiry-alert ${isCrit ? '' : 'warn'}">
+      <div class="expiry-alert-icon">${isCrit ? '🔴' : '🟡'}</div>
+      <div class="expiry-alert-info">
+        <div class="expiry-alert-name">${def.icon} ${def.name}</div>
+        <div class="expiry-alert-date">Expire le ${expDate.toLocaleDateString('fr-FR')} — <strong>${daysLeft} jour${daysLeft > 1 ? 's' : ''}</strong></div>
+      </div>
+      <div class="expiry-alert-actions">
+        <button class="btn-sm btn-booking" onclick="openUploadModal('${d.doc_type}','${def.name}','worker')">🔄 Renouveler</button>
+      </div>
+    </div>`;
+  }).join('') + `</div>`;
+  container.innerHTML = html;
+}
+
+async function loadWorkerDocs() {
+  const { data: docs } = await sb.from('documents').select('*').eq('owner_id', currentUser.id).eq('category', 'worker');
+  // Charger les centres pour le sélecteur upload
+  await loadTrainingCenters();
+  renderWorkerDocCards('workerDocsContainer', docs);
+}
+
+function renderWorkerDocCards(containerId, existingDocs) {
+  const statusLabels = { empty: 'Non déposé', pending: 'En attente employeur', validated: 'Validé ✓', rejected: 'Refusé', expired: 'Expiré' };
+  const centerStatusLabels = { none: '', pending: '🎓 Centre : en attente', validated: '🎓 Centre : validé ✓', rejected: '🎓 Centre : refusé' };
+
+  const html = '<div class="doc-grid">' + WORKER_DOCS.map(def => {
+    const doc    = existingDocs ? existingDocs.find(d => d.doc_type === def.key) : null;
+    const status = doc ? doc.status : 'empty';
+    const now    = new Date();
+    const soon   = new Date(); soon.setDate(soon.getDate() + 30);
+
+    let expiryHtml = '';
+    if (doc && doc.expires_at) {
+      const exp      = new Date(doc.expires_at);
+      const daysLeft = Math.ceil((exp - now) / 86400000);
+      const cls      = exp < now ? 'urgent' : (exp < soon ? '' : 'ok');
+      expiryHtml = `<div class="doc-card-expiry ${cls}">📅 ${exp.toLocaleDateString('fr-FR')}${daysLeft > 0 ? ' — ' + daysLeft + 'j' : ' — Expiré'}</div>`;
     }
+
+    // Badge centre de formation
+    let centerBadgeHtml = '';
+    let centerInfoHtml  = '';
+    let bookingBtnHtml  = '';
+    if (doc && doc.training_center_id) {
+      const cStatus = doc.center_status || 'none';
+      if (cStatus !== 'none') {
+        centerBadgeHtml = `<span class="doc-badge badge-center-${cStatus === 'validated' ? 'validated' : cStatus === 'pending' ? 'pending' : 'none'}">${centerStatusLabels[cStatus]}</span>`;
+      }
+      const center = trainingCenters.find(c => c.id === doc.training_center_id);
+      if (center) {
+        centerInfoHtml = `<div class="doc-card-center">🎓 ${center.name}</div>`;
+        // Bouton prise de RDV si validé et expiration proche
+        const url = doc.booking_url || center.booking_url;
+        if (url && doc.expires_at) {
+          const exp = new Date(doc.expires_at);
+          const daysLeft = Math.ceil((exp - now) / 86400000);
+          if (daysLeft < 30) {
+            bookingBtnHtml = `<button class="btn-sm btn-booking" onclick="window.open('${url}','_blank')">📅 Prendre RDV</button>`;
+          }
+        }
+      }
+    }
+
+    let actions = '';
+    if (!doc) {
+      actions = `<button class="btn-sm btn-upload" onclick="openUploadModal('${def.key}','${def.name}','worker')">📤 Déposer</button>`;
+    } else {
+      actions  = `<button class="btn-sm btn-view" onclick="viewDoc('${doc.file_url}')">👁 Voir</button>`;
+      actions += `<button class="btn-sm btn-upload" onclick="openUploadModal('${def.key}','${def.name}','worker')">🔄 Remplacer</button>`;
+      actions += bookingBtnHtml;
+    }
+
+    return `<div class="doc-card">
+      <div class="doc-card-header">
+        <div class="doc-card-icon">${def.icon}</div>
+        <div class="doc-card-badges">
+          <span class="doc-badge status-${status}">${statusLabels[status]}</span>
+          ${centerBadgeHtml}
+        </div>
+      </div>
+      <div class="doc-card-name">${def.name}</div>
+      <div class="doc-card-desc">${def.desc}</div>
+      ${centerInfoHtml}
+      ${expiryHtml}
+      <div class="doc-card-actions">${actions}</div>
+    </div>`;
+  }).join('') + '</div>';
+
+  document.getElementById(containerId).innerHTML = html;
+}
+
+// ══════════════════════════════
+// COMPANY
+// ══════════════════════════════
+async function loadCompanyStats() {
+  if (!currentProfile?.org_id) return;
+  const { data: org } = await sb.from('organizations').select('team_code, name').eq('id', currentProfile.org_id).single();
+  if (org?.team_code) {
+    document.getElementById('teamCodeDisplay').textContent      = org.team_code;
+    document.getElementById('teamCodeBanner').style.display = 'flex';
   }
-  const { data: docs } = await sb.from('documents').select('status,expires_at,category').eq('owner_id', currentUser.id);
-  if (docs) {
-    const pending = docs.filter(d => d.status === 'pending').length;
-    document.getElementById('cStat2').textContent = pending;
-    document.getElementById('cStat3').textContent = docs.filter(d => d.status === 'validated' && d.category === 'company').length;
-    const soon = new Date(); soon.setDate(soon.getDate() + 30);
-    document.getElementById('cStat4').textContent = docs.filter(d => d.expires_at && new Date(d.expires_at) < soon && new Date(d.expires_at) > new Date()).length;
-    if (pending > 0) { const b = document.getElementById('pendingBadge'); b.style.display = 'inline'; b.textContent = pending; }
+  const { data: workers } = await sb.from('profiles').select('id').eq('org_id', currentProfile.org_id);
+  document.getElementById('cStat1').textContent = workers ? workers.length : 0;
+
+  const { data: companyDocs } = await sb.from('documents').select('status,expires_at,category').eq('owner_id', currentUser.id);
+  let pendingWorkerDocs = 0;
+  if (workers && workers.length > 0) {
+    const ids = workers.map(w => w.id);
+    const { data: wd } = await sb.from('documents').select('status').in('owner_id', ids).eq('category','worker').eq('status','pending');
+    pendingWorkerDocs = wd ? wd.length : 0;
+  }
+  document.getElementById('cStat2').textContent = pendingWorkerDocs;
+  if (pendingWorkerDocs > 0) {
+    const b = document.getElementById('pendingBadge');
+    b.style.display = 'inline'; b.textContent = pendingWorkerDocs;
+  }
+  if (companyDocs) {
+    document.getElementById('cStat3').textContent = companyDocs.filter(d => d.status === 'validated' && d.category === 'company').length;
+    const s = new Date(); s.setDate(s.getDate() + 30);
+    document.getElementById('cStat4').textContent = companyDocs.filter(d => d.expires_at && new Date(d.expires_at) < s && new Date(d.expires_at) > new Date()).length;
   }
 }
 
 function renderDocCards(containerId, docDefs, existingDocs, category, canValidate) {
   const statusLabels = { empty: 'Non déposé', pending: 'En attente', validated: 'Validé ✓', rejected: 'Refusé', expired: 'Expiré' };
   const html = '<div class="doc-grid">' + docDefs.map(def => {
-    const doc = existingDocs ? existingDocs.find(d => d.doc_type === def.key) : null;
+    const doc    = existingDocs ? existingDocs.find(d => d.doc_type === def.key) : null;
     const status = doc ? doc.status : 'empty';
-    const expiryHtml = doc && doc.expires_at ? `<div class="doc-card-expiry ${new Date(doc.expires_at) > new Date() ? 'ok' : ''}">📅 Exp. : ${new Date(doc.expires_at).toLocaleDateString('fr-FR')}</div>` : '';
+    const expiryHtml = doc && doc.expires_at ? `<div class="doc-card-expiry ${new Date(doc.expires_at) > new Date() ? 'ok' : 'urgent'}">📅 ${new Date(doc.expires_at).toLocaleDateString('fr-FR')}</div>` : '';
     let actions = '';
     if (!doc) {
       actions = `<button class="btn-sm btn-upload" onclick="openUploadModal('${def.key}','${def.name}','${category}')">📤 Déposer</button>`;
@@ -668,7 +900,7 @@ function renderDocCards(containerId, docDefs, existingDocs, category, canValidat
       if (canValidate && doc.status === 'pending') actions += `<button class="btn-sm btn-validate" onclick="validateDoc('${doc.id}','validated')">✓ Valider</button><button class="btn-sm btn-reject" onclick="validateDoc('${doc.id}','rejected')">✗ Refuser</button>`;
     }
     return `<div class="doc-card">
-      <div class="doc-card-header"><div class="doc-card-icon">${def.icon}</div><span class="doc-card-status status-${status}">${statusLabels[status]}</span></div>
+      <div class="doc-card-header"><div class="doc-card-icon">${def.icon}</div><div class="doc-card-badges"><span class="doc-badge status-${status}">${statusLabels[status]}</span></div></div>
       <div class="doc-card-name">${def.name}</div>
       <div class="doc-card-desc">${def.desc}</div>
       ${expiryHtml}
@@ -678,11 +910,6 @@ function renderDocCards(containerId, docDefs, existingDocs, category, canValidat
   document.getElementById(containerId).innerHTML = html;
 }
 
-async function loadWorkerDocs() {
-  const { data } = await sb.from('documents').select('*').eq('owner_id', currentUser.id).eq('category', 'worker');
-  renderDocCards('workerDocsContainer', WORKER_DOCS, data, 'worker', false);
-}
-
 async function loadCompanyDocs() {
   const { data } = await sb.from('documents').select('*').eq('owner_id', currentUser.id).eq('category', 'company');
   renderDocCards('companyDocsContainer', COMPANY_DOCS, data, 'company', false);
@@ -690,10 +917,9 @@ async function loadCompanyDocs() {
 
 async function loadCompanyWorkers() {
   const container = document.getElementById('companyWorkersContainer');
-  // Charger les intervenants rattachés à l'organisation
   const { data: workers } = await sb.from('profiles').select('*').eq('org_id', currentProfile.org_id);
-  if (!workers || workers.length === 0) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">👷</div><div class="empty-state-text">Aucun intervenant lié pour l'instant.<br>Vos intervenants doivent s'inscrire et renseigner le nom de votre société.</div></div>`;
+  if (!workers || !workers.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">👷</div><div class="empty-state-text">Aucun intervenant lié.<br>Partagez votre code employeur pour qu'ils vous rejoignent.</div></div>`;
     return;
   }
   document.getElementById('cStat1').textContent = workers.length;
@@ -701,13 +927,16 @@ async function loadCompanyWorkers() {
   for (const w of workers) {
     const { data: docs } = await sb.from('documents').select('*').eq('owner_id', w.id).eq('category', 'worker');
     const pending = docs ? docs.filter(d => d.status === 'pending').length : 0;
-    const docCardsHtml = docs && docs.length > 0
+    const statusLabels = { pending: 'En attente', validated: 'Validé ✓', rejected: 'Refusé', expired: 'Expiré' };
+    const centerStatusLabels = { pending: '🎓 Centre : en attente', validated: '🎓 Centre : validé ✓', rejected: '🎓 Centre : refusé' };
+    const docsHtml = docs && docs.length
       ? '<div class="doc-grid">' + WORKER_DOCS.map(def => {
           const doc = docs.find(d => d.doc_type === def.key);
           if (!doc) return '';
-          const statusLabels = { pending: 'En attente', validated: 'Validé ✓', rejected: 'Refusé', expired: 'Expiré' };
+          const centerBadge = doc.center_status && doc.center_status !== 'none'
+            ? `<span class="doc-badge badge-center-${doc.center_status === 'validated' ? 'validated' : 'pending'}">${centerStatusLabels[doc.center_status] || ''}</span>` : '';
           return `<div class="doc-card">
-            <div class="doc-card-header"><div class="doc-card-icon">${def.icon}</div><span class="doc-card-status status-${doc.status}">${statusLabels[doc.status]}</span></div>
+            <div class="doc-card-header"><div class="doc-card-icon">${def.icon}</div><div class="doc-card-badges"><span class="doc-badge status-${doc.status}">${statusLabels[doc.status]}</span>${centerBadge}</div></div>
             <div class="doc-card-name">${def.name}</div>
             <div class="doc-card-actions">
               <button class="btn-sm btn-view" onclick="viewDoc('${doc.file_url}')">👁 Voir</button>
@@ -715,17 +944,17 @@ async function loadCompanyWorkers() {
             </div>
           </div>`;
         }).filter(Boolean).join('') + '</div>'
-      : '<p style="color:var(--muted);padding:12px 0;font-size:14px">Aucun document déposé par cet intervenant</p>';
+      : '<p style="color:var(--muted);padding:10px 0;font-size:13px">Aucun document déposé</p>';
     html += `
       <div class="worker-card" onclick="togglePanel('panel_${w.id}')">
         <div class="worker-avatar">👷</div>
         <div class="worker-info">
           <div class="worker-name">${w.full_name}</div>
-          <div class="worker-role">Intervenant${pending > 0 ? ' — <span style="color:var(--warn)">'+pending+' en attente de validation</span>' : ''}</div>
+          <div class="worker-role">Intervenant${pending > 0 ? ' — <span style="color:var(--warn)">'+pending+' en attente</span>' : ''}</div>
         </div>
         <span style="color:var(--muted);font-size:12px">▼</span>
       </div>
-      <div id="panel_${w.id}" class="worker-docs-panel">${docCardsHtml}</div>`;
+      <div id="panel_${w.id}" class="worker-docs-panel">${docsHtml}</div>`;
   }
   html += '</div>';
   container.innerHTML = html;
@@ -733,15 +962,160 @@ async function loadCompanyWorkers() {
 
 function togglePanel(id) {
   const el = document.getElementById(id);
-  el.style.display = el.style.display === 'none' || el.style.display === '' ? 'block' : 'none';
+  el.style.display = (el.style.display === 'block') ? 'none' : 'block';
 }
 
-function openUploadModal(docKey, docName, category) {
+// ══════════════════════════════
+// TRAINER (Centre de Formation)
+// ══════════════════════════════
+async function loadTrainerStats() {
+  if (!currentProfile?.org_id) return;
+
+  // Afficher le lien de RDV si défini
+  const { data: org } = await sb.from('organizations').select('name, booking_url').eq('id', currentProfile.org_id).single();
+  if (org?.booking_url) {
+    document.getElementById('trainerBookingUrl').textContent    = org.booking_url;
+    document.getElementById('trainerBookingBanner').style.display = 'flex';
+  }
+
+  const { data: pending } = await sb.from('documents').select('id').eq('training_center_id', currentProfile.org_id).eq('center_status', 'pending');
+  const { data: validated } = await sb.from('documents').select('id').eq('training_center_id', currentProfile.org_id).eq('center_status', 'validated');
+
+  const pCount = pending ? pending.length : 0;
+  const vCount = validated ? validated.length : 0;
+
+  document.getElementById('tStat1').textContent = pCount;
+  document.getElementById('tStat2').textContent = vCount;
+  document.getElementById('tStat4').textContent = pCount + vCount;
+
+  // Expirations à venir (30j)
+  const soon = new Date(); soon.setDate(soon.getDate() + 30);
+  const { data: expiring } = await sb.from('documents')
+    .select('id')
+    .eq('training_center_id', currentProfile.org_id)
+    .eq('center_status', 'validated')
+    .lt('expires_at', soon.toISOString())
+    .gt('expires_at', new Date().toISOString());
+  document.getElementById('tStat3').textContent = expiring ? expiring.length : 0;
+
+  if (pCount > 0) {
+    const b = document.getElementById('trainerPendingBadge');
+    b.style.display = 'inline'; b.textContent = pCount;
+  }
+}
+
+async function loadTrainerRequests() {
+  const container = document.getElementById('trainerRequestsContainer');
+  const { data: docs, error } = await sb.from('documents')
+    .select('*, profiles!owner_id(full_name, email)')
+    .eq('training_center_id', currentProfile.org_id)
+    .eq('center_status', 'pending');
+
+  if (error || !docs || !docs.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">Aucune demande de validation en attente.<br>Les intervenants qui ont suivi vos formations apparaîtront ici.</div></div>`;
+    return;
+  }
+  const html = '<div class="request-list">' + docs.map(doc => {
+    const def      = WORKER_DOCS.find(w => w.key === doc.doc_type) || { name: doc.doc_type, icon: '📄' };
+    const workerName = doc.profiles?.full_name || 'Intervenant inconnu';
+    const expiry   = doc.expires_at ? new Date(doc.expires_at).toLocaleDateString('fr-FR') : 'Non renseignée';
+    return `<div class="request-card">
+      <div class="request-card-header">
+        <div class="request-card-icon">${def.icon}</div>
+        <div class="request-card-info">
+          <div class="request-card-name">${def.name}</div>
+          <div class="request-card-meta">👷 ${workerName} — Expiration : ${expiry}</div>
+        </div>
+        <button class="btn-sm btn-view" onclick="viewDoc('${doc.file_url}')">👁 Voir</button>
+      </div>
+      <div class="request-card-actions">
+        <button class="btn-sm btn-validate" onclick="validateCenterDoc('${doc.id}','validated')">✓ Valider cette formation</button>
+        <button class="btn-sm btn-reject"   onclick="validateCenterDoc('${doc.id}','rejected')">✗ Refuser</button>
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+  container.innerHTML = html;
+}
+
+async function loadTrainerHistory() {
+  const container = document.getElementById('trainerHistoryContainer');
+  const { data: docs } = await sb.from('documents')
+    .select('*, profiles!owner_id(full_name)')
+    .eq('training_center_id', currentProfile.org_id)
+    .in('center_status', ['validated', 'rejected'])
+    .order('center_validated_at', { ascending: false })
+    .limit(50);
+
+  if (!docs || !docs.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">✅</div><div class="empty-state-text">Aucune validation effectuée pour l'instant.</div></div>`;
+    return;
+  }
+  const centerStatusLabels = { validated: '✓ Validé', rejected: '✗ Refusé' };
+  const html = '<div class="request-list">' + docs.map(doc => {
+    const def  = WORKER_DOCS.find(w => w.key === doc.doc_type) || { name: doc.doc_type, icon: '📄' };
+    const name = doc.profiles?.full_name || '—';
+    const date = doc.center_validated_at ? new Date(doc.center_validated_at).toLocaleDateString('fr-FR') : '—';
+    const exp  = doc.expires_at ? new Date(doc.expires_at).toLocaleDateString('fr-FR') : '—';
+    return `<div class="request-card">
+      <div class="request-card-header">
+        <div class="request-card-icon">${def.icon}</div>
+        <div class="request-card-info">
+          <div class="request-card-name">${def.name} — <span class="doc-badge status-${doc.center_status === 'validated' ? 'validated' : 'rejected'}" style="font-size:11px">${centerStatusLabels[doc.center_status]}</span></div>
+          <div class="request-card-meta">👷 ${name} — Validé le ${date} — Expire le ${exp}</div>
+        </div>
+        <button class="btn-sm btn-view" onclick="viewDoc('${doc.file_url}')">👁 Voir</button>
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+  container.innerHTML = html;
+}
+
+async function validateCenterDoc(docId, status) {
+  // SDR Phase 2.3 — ségrégation : le centre ne peut pas valider ses propres docs
+  const { data: doc } = await sb.from('documents').select('owner_id').eq('id', docId).single();
+  if (doc && doc.owner_id === currentUser.id) {
+    showToast('Interdit : vous ne pouvez pas valider vos propres documents.', 'error');
+    return;
+  }
+  const { error } = await sb.from('documents').update({
+    center_status:       status,
+    center_validated_by: currentUser.id,
+    center_validated_at: new Date().toISOString()
+  }).eq('id', docId);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  showToast(status === 'validated' ? '🎓 Formation validée ✓' : '✗ Formation refusée', status === 'validated' ? 'success' : 'error');
+  loadTrainerRequests();
+  loadTrainerStats();
+}
+
+// ══════════════════════════════
+// UPLOAD MODAL
+// ══════════════════════════════
+async function loadTrainingCenters() {
+  if (trainingCenters.length) return; // cache
+  const { data } = await sb.from('organizations').select('id, name, booking_url').eq('type', 'training_center').eq('status', 'active');
+  trainingCenters = data || [];
+}
+
+async function openUploadModal(docKey, docName, category) {
   currentUploadDoc = { key: docKey, name: docName, category };
   selectedFile = null;
-  document.getElementById('modalSubtitle').textContent = 'Document : ' + docName;
-  document.getElementById('fileNamePreview').textContent = '';
-  document.getElementById('expiryDate').value = '';
+  document.getElementById('modalSubtitle').textContent    = 'Document : ' + docName;
+  document.getElementById('fileNamePreview').textContent  = '';
+  document.getElementById('expiryDate').value             = '';
+  document.getElementById('centerPicker').value           = '';
+
+  // Afficher le sélecteur de centre uniquement pour les habilitations worker
+  const showCenter = category === 'worker';
+  document.getElementById('centerPickerGroup').style.display = showCenter ? 'block' : 'none';
+
+  if (showCenter) {
+    await loadTrainingCenters();
+    const picker = document.getElementById('centerPicker');
+    picker.innerHTML = '<option value="">Aucun / Je ne sais pas</option>' +
+      trainingCenters.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  }
+
   document.getElementById('uploadModal').classList.add('open');
 }
 
@@ -749,7 +1123,6 @@ function closeModal() {
   document.getElementById('uploadModal').classList.remove('open');
   currentUploadDoc = null; selectedFile = null;
 }
-
 function handleFileSelect(e) {
   selectedFile = e.target.files[0];
   if (selectedFile) document.getElementById('fileNamePreview').textContent = '✓ ' + selectedFile.name;
@@ -767,53 +1140,62 @@ fileDrop.addEventListener('drop', e => {
 async function uploadDocument() {
   if (!selectedFile) { showToast('Veuillez sélectionner un fichier', 'error'); return; }
   setLoading('uploadBtn', true, 'Envoi...');
-  const ext = selectedFile.name.split('.').pop();
+
+  const ext  = selectedFile.name.split('.').pop();
   const path = `${currentUser.id}/${currentUploadDoc.key}_${Date.now()}.${ext}`;
   const { error: upErr } = await sb.storage.from('documents').upload(path, selectedFile);
-  if (upErr) { showToast('Erreur upload: ' + upErr.message, 'error'); setLoading('uploadBtn', false, 'Envoyer le document'); return; }
+  if (upErr) { showToast('Erreur upload : ' + upErr.message, 'error'); setLoading('uploadBtn', false, 'Envoyer le document'); return; }
+
   const { data: urlData } = sb.storage.from('documents').getPublicUrl(path);
-  const expiry = document.getElementById('expiryDate').value || null;
-  const { error: dbErr } = await sb.from('documents').upsert({
-    owner_id: currentUser.id,
-    doc_type: currentUploadDoc.key,
-    category: currentUploadDoc.category,
-    file_url: urlData.publicUrl,
-    expires_at: expiry,
-    status: 'pending',
-    validated_by: null,
-    validated_at: null
-  }, { onConflict: 'owner_id,doc_type' });
+  const expiry     = document.getElementById('expiryDate').value || null;
+  const centerId   = document.getElementById('centerPicker').value || null;
+  const center     = centerId ? trainingCenters.find(c => c.id === centerId) : null;
+
+  const payload = {
+    owner_id:           currentUser.id,
+    doc_type:           currentUploadDoc.key,
+    category:           currentUploadDoc.category,
+    file_url:           urlData.publicUrl,
+    expires_at:         expiry,
+    status:             'pending',
+    validated_by:       null,
+    validated_at:       null,
+    training_center_id: centerId || null,
+    center_status:      centerId ? 'pending' : 'none',
+    center_validated_by: null,
+    center_validated_at: null,
+    booking_url:        center?.booking_url || null,
+    reminder_days:      30
+  };
+
+  const { error: dbErr } = await sb.from('documents').upsert(payload, { onConflict: 'owner_id,doc_type' });
   setLoading('uploadBtn', false, 'Envoyer le document');
-  if (dbErr) { showToast('Erreur: ' + dbErr.message, 'error'); return; }
+  if (dbErr) { showToast('Erreur : ' + dbErr.message, 'error'); return; }
+
   closeModal();
-  showToast('✓ Document déposé — en attente de validation', 'success');
+  const msg = centerId
+    ? '✓ Document déposé — employeur et centre de formation notifiés'
+    : '✓ Document déposé — en attente de validation employeur';
+  showToast(msg, 'success');
   if (currentUploadDoc.category === 'worker') { loadWorkerDocs(); loadWorkerStats(); }
   else loadCompanyDocs();
 }
 
 function viewDoc(url) { if (url) window.open(url, '_blank'); }
 
+// ── RATTACHEMENT WORKER → COMPANY ──
 async function linkToCompany() {
   const code = document.getElementById('linkTeamCode').value.toUpperCase().trim();
   if (!code) { showToast('Veuillez saisir un code employeur', 'error'); return; }
-
-  // Chercher dans la table organizations
-  const { data: org, error: orgErr } = await sb.from('organizations')
-    .select('id, name')
-    .eq('team_code', code)
-    .single();
-
-  if (orgErr || !org) { showToast('Code invalide. Vérifiez auprès de votre employeur.', 'error'); return; }
-
-  // Rattacher le profil à l'organisation
+  const { data: org } = await sb.from('organizations').select('id, name').eq('team_code', code).single();
+  if (!org) { showToast('Code invalide. Vérifiez auprès de votre employeur.', 'error'); return; }
   const { error } = await sb.from('profiles').update({ org_id: org.id }).eq('id', currentUser.id);
   if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
-
   currentProfile.org_id = org.id;
   showToast('✓ Rattaché à ' + org.name, 'success');
-  document.getElementById('linkCompanyBanner').style.display = 'none';
+  document.getElementById('linkCompanyBanner').style.display   = 'none';
   document.getElementById('linkedCompanyBanner').style.display = 'flex';
-  document.getElementById('linkedCompanyName').textContent = org.name;
+  document.getElementById('linkedCompanyName').textContent     = org.name;
 }
 
 function copyTeamCode() {
@@ -821,13 +1203,25 @@ function copyTeamCode() {
   navigator.clipboard.writeText(code).then(() => showToast('Code copié : ' + code, 'success'));
 }
 
+// ── VALIDATION EMPLOYEUR (SDR 2.3) ──
 async function validateDoc(docId, status) {
-  const { error } = await sb.from('documents').update({ status, validated_by: currentUser.id, validated_at: new Date().toISOString() }).eq('id', docId);
-  if (error) { showToast('Erreur: ' + error.message, 'error'); return; }
+  const { data: doc } = await sb.from('documents').select('owner_id').eq('id', docId).single();
+  if (doc && doc.owner_id === currentUser.id) {
+    showToast('Interdit : vous ne pouvez pas valider vos propres documents.', 'error');
+    return;
+  }
+  const { error } = await sb.from('documents').update({
+    status,
+    validated_by: currentUser.id,
+    validated_at: new Date().toISOString()
+  }).eq('id', docId);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
   showToast(status === 'validated' ? '✓ Document validé' : '✗ Document refusé', status === 'validated' ? 'success' : 'error');
-  loadCompanyWorkers(); loadCompanyStats();
+  loadCompanyWorkers();
+  loadCompanyStats();
 }
 
+// ── AUTO LOGIN ──
 (async () => {
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
