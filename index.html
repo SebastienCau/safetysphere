@@ -485,14 +485,6 @@ function showDashboard(role, fullName) {
     document.getElementById('dashCompany').classList.add('active');
     document.getElementById('companyFirstName').textContent = firstName;
     document.getElementById('companyUserName').textContent = fullName || '';
-    // Charger le team_code depuis organizations
-    if (currentProfile && currentProfile.org_id) {
-      const { data: org } = await sb.from('organizations').select('team_code, name').eq('id', currentProfile.org_id).single();
-      if (org && org.team_code) {
-        document.getElementById('teamCodeDisplay').textContent = org.team_code;
-        document.getElementById('teamCodeBanner').style.display = 'flex';
-      }
-    }
     loadCompanyStats();
   } else if (role === 'hse') {
     document.getElementById('dashHSE').classList.add('active');
@@ -604,6 +596,14 @@ async function loadWorkerStats() {
 }
 
 async function loadCompanyStats() {
+  // Charger le team_code depuis organizations
+  if (currentProfile && currentProfile.org_id) {
+    const { data: org } = await sb.from('organizations').select('team_code, name').eq('id', currentProfile.org_id).single();
+    if (org && org.team_code) {
+      document.getElementById('teamCodeDisplay').textContent = org.team_code;
+      document.getElementById('teamCodeBanner').style.display = 'flex';
+    }
+  }
   const { data: docs } = await sb.from('documents').select('status,expires_at,category').eq('owner_id', currentUser.id);
   if (docs) {
     const pending = docs.filter(d => d.status === 'pending').length;
