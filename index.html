@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.5.1 — Fix syntax error : double fermeture onRoleChange
+       v0.5.2 — HSE peut inviter des ST, fonctions ST génériques, stats HSE
   -->
-  <meta name="app-version" content="0.5.1" />
+  <meta name="app-version" content="0.5.2" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -248,7 +248,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.5.1</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.5.2</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -490,7 +490,7 @@
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('HSE','overview',this)">🏠 Accueil</button>
-    <button class="nav-tab" onclick="switchPage('HSE','contractors',this)">👥 Sous-traitants</button>
+    <button class="nav-tab" onclick="switchPage('HSE','contractors',this)">🤝 Sous-traitants <span id="hseSTBadge" class="notif-badge" style="display:none">!</span></button>
     <button class="nav-tab" onclick="switchPage('HSE','received',this)">📂 Documents reçus</button>
   </div>
   <div class="dash-body">
@@ -498,8 +498,8 @@
       <div class="dash-welcome">Bonjour, <em id="hseFirstName">—</em> 👋</div>
       <div class="dash-subtitle">Tableau de bord Responsable HSE</div>
       <div class="stats-grid">
-        <div class="stat-card"><div class="stat-icon">🏢</div><div class="stat-value">0</div><div class="stat-label">Sociétés ST</div></div>
-        <div class="stat-card"><div class="stat-icon">👷</div><div class="stat-value">0</div><div class="stat-label">Intervenants</div></div>
+        <div class="stat-card"><div class="stat-icon">🏢</div><div class="stat-value" id="hseStat1">0</div><div class="stat-label">Sociétés ST</div></div>
+        <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value" id="hseStat2">0</div><div class="stat-label">Invitations en attente</div></div>
         <div class="stat-card"><div class="stat-icon">📋</div><div class="stat-value">0</div><div class="stat-label">PdP actifs</div></div>
         <div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value">0</div><div class="stat-label">Non-conformités</div></div>
       </div>
@@ -510,9 +510,10 @@
       </div>
     </div>
     <div class="page-section" id="HSE-contractors">
-      <div class="dash-welcome">Sous-<em>Traitants</em></div>
-      <div class="dash-subtitle">Vue conformité de tous vos sous-traitants</div>
-      <div class="empty-state"><div class="empty-state-icon">👥</div><div class="empty-state-text">Aucun sous-traitant enregistré pour l'instant</div></div>
+      <div class="dash-welcome">Mes <em>Sous-Traitants</em></div>
+      <div class="dash-subtitle">Invitez vos sous-traitants à rejoindre SafetySphere</div>
+      <button class="btn-sm btn-upload" style="margin-bottom:24px;padding:10px 20px;font-size:13px" onclick="openInviteSTModal()">✉️ Inviter un sous-traitant</button>
+      <div id="hseSTContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
     <div class="page-section" id="HSE-received">
       <div class="dash-welcome">Documents <em>Reçus</em></div>
@@ -787,8 +788,9 @@ function switchPage(dash, page, el) {
   if (dash === 'Company' && page === 'societedocs') loadCompanyDocs();
   if (dash === 'Company' && page === 'workers')    loadCompanyWorkers();
   if (dash === 'Company' && page === 'received')   loadReceivedDocs('Company-receivedContainer');
+  if (dash === 'HSE'     && page === 'contractors') loadST(currentProfile.org_id, 'hseSTContainer');
   if (dash === 'HSE'     && page === 'received')   loadReceivedDocs('HSE-receivedContainer');
-  if (dash === 'Company' && page === 'subcontractors') loadCompanyST();
+  if (dash === 'Company' && page === 'subcontractors') loadST(currentProfile.org_id, 'companySTContainer');
   if (dash === 'Subcontractor' && page === 'invites')  loadSTInvites();
   if (dash === 'Subcontractor' && page === 'docs')     loadSTDocs();
   if (dash === 'Trainer' && page === 'requests')   loadTrainerRequests();
@@ -815,6 +817,7 @@ function showDashboard(role, fullName) {
     document.getElementById('dashHSE').classList.add('active');
     document.getElementById('hseFirstName').textContent = firstName;
     document.getElementById('hseUserName').textContent  = fullName || '';
+    loadHSEStats();
   } else if (role === 'trainer') {
     document.getElementById('dashTrainer').classList.add('active');
     document.getElementById('trainerFirstName').textContent = firstName;
@@ -1645,6 +1648,7 @@ function closeInviteSTModal() {
 async function sendSTInvite() {
   const email = document.getElementById('inviteSTEmail').value.trim().toLowerCase();
   if (!email) { showToast('Veuillez saisir un email', 'error'); return; }
+  if (!currentProfile.org_id) { showToast('Votre organisation n\'est pas configurée', 'error'); return; }
   setLoading('inviteSTBtn', true, 'Envoi...');
   const { error } = await sb.from('subcontractor_invites').insert({
     eu_org_id: currentProfile.org_id,
@@ -1654,13 +1658,18 @@ async function sendSTInvite() {
   if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
   closeInviteSTModal();
   showToast('✓ Invitation créée pour ' + email, 'success');
-  loadCompanyST();
+  const containerId = currentProfile.role === 'hse' ? 'hseSTContainer' : 'companySTContainer';
+  loadST(currentProfile.org_id, containerId);
 }
 
-async function loadCompanyST() {
-  const container = document.getElementById('companySTContainer');
+async function loadST(orgId, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container || !orgId) {
+    if (container) container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Organisation non configurée. Complétez votre profil.</div></div>`;
+    return;
+  }
   const { data: invites } = await sb.from('subcontractor_invites')
-    .select('*').eq('eu_org_id', currentProfile.org_id).order('created_at', { ascending: false });
+    .select('*').eq('eu_org_id', orgId).order('created_at', { ascending: false });
 
   if (!invites || !invites.length) {
     container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🤝</div><div class="empty-state-text">Aucun sous-traitant invité pour l'instant.<br>Invitez vos partenaires à rejoindre SafetySphere.</div></div>`;
@@ -1684,18 +1693,26 @@ async function loadCompanyST() {
           <div class="request-card-name">📧 ${inv.st_email}</div>
           <div class="request-card-meta">${stName} — Invité le ${date} — <span style="color:${statusColor[inv.status]};font-weight:700">${statusLabel[inv.status]}</span></div>
         </div>
-        ${inv.status === 'pending' ? `<button class="btn-sm btn-reject" onclick="cancelSTInvite('${inv.id}')">✕ Annuler</button>` : ''}
+        ${inv.status === 'pending' ? `<button class="btn-sm btn-reject" onclick="cancelSTInvite('${inv.id}','${containerId}')">✕ Annuler</button>` : ''}
       </div>
     </div>`;
   }).join('') + '</div>';
   container.innerHTML = html;
 }
 
-async function cancelSTInvite(inviteId) {
+async function cancelSTInvite(inviteId, containerId) {
   if (!confirm('Annuler cette invitation ?')) return;
   await sb.from('subcontractor_invites').delete().eq('id', inviteId);
   showToast('✓ Invitation annulée', 'success');
-  loadCompanyST();
+  loadST(currentProfile.org_id, containerId);
+}
+
+async function loadHSEStats() {
+  if (!currentProfile.org_id) return;
+  const { data: accepted } = await sb.from('subcontractor_invites').select('id').eq('eu_org_id', currentProfile.org_id).eq('status','accepted');
+  const { data: pending }  = await sb.from('subcontractor_invites').select('id').eq('eu_org_id', currentProfile.org_id).eq('status','pending');
+  document.getElementById('hseStat1').textContent = accepted ? accepted.length : 0;
+  document.getElementById('hseStat2').textContent = pending  ? pending.length  : 0;
 }
 
 // ══════════════════════════════════════
