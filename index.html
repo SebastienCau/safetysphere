@@ -547,12 +547,18 @@ async function handleRegister(e) {
       const prefix = companyName.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 4).padEnd(4, 'X');
       const suffix = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4).padEnd(4, '0');
       const teamCode = prefix + '-' + suffix;
-      const { data: org } = await sb.from('organizations').insert({
+      const { data: org, error: orgError } = await sb.from('organizations').insert({
         name: companyName,
         team_code: teamCode,
         type: 'company',
         created_by: data.user.id
       }).select().single();
+      if (orgError) {
+        console.error('Erreur création organisation:', orgError);
+        showAlert('Erreur création organisation : ' + orgError.message);
+        setLoading('registerBtn', false, 'Créer mon compte');
+        return;
+      }
       if (org) orgId = org.id;
     }
 
