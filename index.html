@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.5.6 — Fix mailto : body raccourci pour respecter limite URL navigateur
+       v0.5.7 — Workers rattachables aux sous-traitants + onglet intervenants dashboard ST
   -->
-  <meta name="app-version" content="0.5.6" />
+  <meta name="app-version" content="0.5.7" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -248,7 +248,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.5.6</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.5.7</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -452,6 +452,7 @@
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Subcontractor','overview',this)">🏠 Accueil</button>
+    <button class="nav-tab" onclick="switchPage('Subcontractor','workers',this)">👷 Mes Intervenants</button>
     <button class="nav-tab" onclick="switchPage('Subcontractor','invites',this)">📩 Invitations <span id="stPendingBadge" class="notif-badge" style="display:none">!</span></button>
     <button class="nav-tab" onclick="switchPage('Subcontractor','docs',this)">🏢 Mes Documents</button>
   </div>
@@ -462,9 +463,14 @@
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon">🏢</div><div class="stat-value" id="stStat1">0</div><div class="stat-label">EU partenaires</div></div>
         <div class="stat-card"><div class="stat-icon">📩</div><div class="stat-value" id="stStat2">0</div><div class="stat-label">Invitations en attente</div></div>
-        <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value" id="stStat3">0</div><div class="stat-label">Docs valides</div></div>
+        <div class="stat-card"><div class="stat-icon">👷</div><div class="stat-value" id="stStat3">0</div><div class="stat-label">Intervenants</div></div>
         <div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value" id="stStat4">0</div><div class="stat-label">Expirations proches</div></div>
       </div>
+    </div>
+    <div class="page-section" id="Subcontractor-workers">
+      <div class="dash-welcome">Mes <em>Intervenants</em></div>
+      <div class="dash-subtitle">Intervenants rattachés à votre société</div>
+      <div id="stWorkersContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
     <div class="page-section" id="Subcontractor-invites">
       <div class="dash-welcome">Mes <em>Invitations</em></div>
@@ -810,6 +816,7 @@ function switchPage(dash, page, el) {
   if (dash === 'HSE'     && page === 'contractors') loadST(currentProfile.org_id, 'hseSTContainer');
   if (dash === 'HSE'     && page === 'received')   loadReceivedDocs('HSE-receivedContainer');
   if (dash === 'Company' && page === 'subcontractors') loadST(currentProfile.org_id, 'companySTContainer');
+  if (dash === 'Subcontractor' && page === 'workers')  loadSTWorkers();
   if (dash === 'Subcontractor' && page === 'invites')  loadSTInvites();
   if (dash === 'Subcontractor' && page === 'docs')     loadSTDocs();
   if (dash === 'Trainer' && page === 'requests')   loadTrainerRequests();
@@ -897,10 +904,10 @@ async function handleRegister(e) {
   const teamCode   = document.getElementById('regTeamCode').value.toUpperCase().trim();
   if (!role) { showAlert('Veuillez choisir un rôle.'); return; }
 
-  // Worker : valider le code employeur si renseigné (optionnel)
+  // Worker : valider le code employeur si renseigné (optionnel) — company ou sous-traitant
   let orgId = null;
   if (role === 'worker' && teamCode) {
-    const { data: org } = await sb.from('organizations').select('id').eq('team_code', teamCode).eq('type','company').single();
+    const { data: org } = await sb.from('organizations').select('id').eq('team_code', teamCode).in('type',['company','subcontractor']).single();
     if (!org) { showAlert('Code employeur invalide. Vérifiez auprès de votre société.'); return; }
     orgId = org.id;
   }
@@ -1444,11 +1451,11 @@ async function downloadDoc(url, name) {
   }
 }
 
-// ── RATTACHEMENT WORKER → COMPANY ──
+// ── RATTACHEMENT WORKER → EMPLOYEUR (company ou sous-traitant) ──
 async function linkToCompany() {
   const code = document.getElementById('linkTeamCode').value.toUpperCase().trim();
   if (!code) { showToast('Veuillez saisir un code employeur', 'error'); return; }
-  const { data: org } = await sb.from('organizations').select('id, name').eq('team_code', code).eq('type','company').single();
+  const { data: org } = await sb.from('organizations').select('id, name').eq('team_code', code).in('type',['company','subcontractor']).single();
   if (!org) { showToast('Code invalide. Vérifiez auprès de votre employeur.', 'error'); return; }
   const { error } = await sb.from('profiles').update({ org_id: org.id }).eq('id', currentUser.id);
   if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
@@ -1468,7 +1475,7 @@ function showChangeEmployer() {
 async function changeEmployer() {
   const code = document.getElementById('newTeamCode').value.toUpperCase().trim();
   if (!code) { showToast('Veuillez saisir un code employeur', 'error'); return; }
-  const { data: org } = await sb.from('organizations').select('id, name').eq('team_code', code).eq('type','company').single();
+  const { data: org } = await sb.from('organizations').select('id, name').eq('team_code', code).in('type',['company','subcontractor']).single();
   if (!org) { showToast('Code invalide. Vérifiez auprès de votre employeur.', 'error'); return; }
   if (org.id === currentProfile.org_id) { showToast('Vous êtes déjà rattaché à cette société.', 'error'); return; }
   const { error } = await sb.from('profiles').update({ org_id: org.id }).eq('id', currentUser.id);
@@ -1782,6 +1789,37 @@ async function loadSTStats() {
   document.getElementById('stStat1').textContent = aCount;
   document.getElementById('stStat2').textContent = pCount;
   if (pCount > 0) { const b = document.getElementById('stPendingBadge'); b.style.display = 'inline'; b.textContent = pCount; }
+  if (currentProfile.org_id) {
+    const { data: workers } = await sb.from('profiles').select('id').eq('org_id', currentProfile.org_id).eq('role','worker');
+    document.getElementById('stStat3').textContent = workers ? workers.length : 0;
+  }
+}
+
+async function loadSTWorkers() {
+  const container = document.getElementById('stWorkersContainer');
+  if (!currentProfile.org_id) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Organisation non configurée.</div></div>`;
+    return;
+  }
+  const { data: workers } = await sb.from('profiles').select('id, full_name, email').eq('org_id', currentProfile.org_id).eq('role','worker');
+  if (!workers || !workers.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">👷</div><div class="empty-state-text">Aucun intervenant rattaché.<br>Partagez votre code équipe avec vos intervenants.</div></div>`;
+    // Afficher le code équipe
+    const { data: org } = await sb.from('organizations').select('team_code').eq('id', currentProfile.org_id).single();
+    if (org) container.innerHTML += `<div style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.25);border-radius:12px;padding:14px 18px;margin-top:16px;text-align:center"><div style="font-size:11px;color:var(--muted);margin-bottom:6px">CODE À PARTAGER AVEC VOS INTERVENANTS</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--orange);letter-spacing:3px">${org.team_code}</div><button onclick="navigator.clipboard.writeText('${org.team_code}').then(()=>showToast('Code copié','success'))" class="btn-sm btn-view" style="margin-top:8px">📋 Copier</button></div>`;
+    return;
+  }
+  const html = '<div class="request-list">' + workers.map(w => `
+    <div class="request-card">
+      <div class="request-card-header">
+        <div class="request-card-icon">👷</div>
+        <div class="request-card-info">
+          <div class="request-card-name">${w.full_name}</div>
+          <div class="request-card-meta">📧 ${w.email}</div>
+        </div>
+      </div>
+    </div>`).join('') + '</div>';
+  container.innerHTML = html;
 }
 
 async function loadSTInvites() {
