@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.3.2 — Fix inscription : organisation créée avant profil, suppression FK created_by
+       v0.3.3 — Fix login : retry x3 avec délai pour attendre établissement session auth
   -->
-  <meta name="app-version" content="0.3.2" />
+  <meta name="app-version" content="0.3.3" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -247,7 +247,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.3.2</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.3.3</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -672,7 +672,15 @@ async function handleLogin(e) {
   });
   if (error) { showAlert('Email ou mot de passe incorrect.'); setLoading('loginBtn', false, 'Se connecter'); return; }
   currentUser = data.user;
-  const { data: profile } = await sb.from('profiles').select('*').eq('id', data.user.id).single();
+
+  // Attendre que la session soit bien établie avant de lire le profil
+  let profile = null;
+  for (let i = 0; i < 3; i++) {
+    const { data: p } = await sb.from('profiles').select('*').eq('id', data.user.id).single();
+    if (p) { profile = p; break; }
+    await new Promise(r => setTimeout(r, 500)); // retry après 500ms
+  }
+
   setLoading('loginBtn', false, 'Se connecter');
   if (profile) { currentProfile = profile; showDashboard(profile.role, profile.full_name); }
   else showAlert('Profil introuvable. Contactez un administrateur.');
