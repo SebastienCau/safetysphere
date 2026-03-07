@@ -240,6 +240,24 @@
     <div class="page-section active" id="Worker-overview">
       <div class="dash-welcome">Bonjour, <em id="workerFirstName">—</em> 👋</div>
       <div class="dash-subtitle">Votre Passeport Industriel personnel</div>
+
+      <!-- Rattachement employeur -->
+      <div id="linkCompanyBanner" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:12px;padding:20px 24px;margin-bottom:28px;display:none">
+        <div style="font-size:13px;font-weight:700;color:#FCD34D;margin-bottom:12px">⚠️ Vous n'êtes pas encore rattaché à une société employeur</div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <input type="text" id="linkTeamCode" class="form-input" placeholder="Saisissez votre code employeur (ex: ELEC-4X9K)" style="max-width:320px;text-transform:uppercase;letter-spacing:2px;margin:0" />
+          <button onclick="linkToCompany()" class="btn-sm btn-upload" style="white-space:nowrap">🔗 Me rattacher</button>
+        </div>
+      </div>
+
+      <div id="linkedCompanyBanner" style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:12px;padding:16px 20px;margin-bottom:28px;display:none;align-items:center;gap:14px">
+        <span style="font-size:24px">🏢</span>
+        <div>
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700">Société employeur</div>
+          <div id="linkedCompanyName" style="font-size:16px;font-weight:700;color:#86EFAC">—</div>
+        </div>
+      </div>
+
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value" id="wStat1">0</div><div class="stat-label">Documents validés</div></div>
         <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value" id="wStat2">0</div><div class="stat-label">En attente validation</div></div>
@@ -273,7 +291,7 @@
     <div class="page-section active" id="Company-overview">
       <div class="dash-welcome">Bonjour, <em id="companyFirstName">—</em> 👋</div>
       <div class="dash-subtitle">Tableau de bord Entreprise Sous-Traitante</div>
-      <div id="teamCodeBanner" style="display:none;background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.25);border-radius:12px;padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;gap:16px">
+      <div id="teamCodeBanner" style="display:none;background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.25);border-radius:12px;padding:16px 20px;margin-bottom:24px;align-items:center;gap:16px">
         <span style="font-size:28px">🔑</span>
         <div>
           <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:4px">Code à partager avec vos intervenants</div>
@@ -554,6 +572,16 @@ async function handleLogout() {
 }
 
 async function loadWorkerStats() {
+  // Check company link status
+  if (currentProfile.company_id) {
+    const { data: company } = await sb.from('profiles').select('full_name, company_name').eq('id', currentProfile.company_id).single();
+    document.getElementById('linkCompanyBanner').style.display = 'none';
+    document.getElementById('linkedCompanyBanner').style.display = 'flex';
+    if (company) document.getElementById('linkedCompanyName').textContent = company.company_name || company.full_name;
+  } else {
+    document.getElementById('linkCompanyBanner').style.display = 'block';
+    document.getElementById('linkedCompanyBanner').style.display = 'none';
+  }
   const { data: docs } = await sb.from('documents').select('status,expires_at').eq('owner_id', currentUser.id).eq('category', 'worker');
   if (!docs) return;
   const now = new Date(); const soon = new Date(); soon.setDate(soon.getDate() + 30);
@@ -713,6 +741,20 @@ async function uploadDocument() {
 }
 
 function viewDoc(url) { if (url) window.open(url, '_blank'); }
+
+async function linkToCompany() {
+  const code = document.getElementById('linkTeamCode').value.toUpperCase().trim();
+  if (!code) { showToast('Veuillez saisir un code employeur', 'error'); return; }
+  const { data: company } = await sb.from('profiles').select('id, full_name, company_name').eq('team_code', code).eq('role', 'company').single();
+  if (!company) { showToast('Code invalide. Vérifiez auprès de votre employeur.', 'error'); return; }
+  const { error } = await sb.from('profiles').update({ company_id: company.id }).eq('id', currentUser.id);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  currentProfile.company_id = company.id;
+  showToast('✓ Rattaché à ' + (company.company_name || company.full_name), 'success');
+  document.getElementById('linkCompanyBanner').style.display = 'none';
+  document.getElementById('linkedCompanyBanner').style.display = 'flex';
+  document.getElementById('linkedCompanyName').textContent = company.company_name || company.full_name;
+}
 
 function copyTeamCode() {
   const code = document.getElementById('teamCodeDisplay').textContent;
