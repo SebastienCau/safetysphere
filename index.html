@@ -485,9 +485,13 @@ function showDashboard(role, fullName) {
     document.getElementById('dashCompany').classList.add('active');
     document.getElementById('companyFirstName').textContent = firstName;
     document.getElementById('companyUserName').textContent = fullName || '';
-    if (currentProfile && currentProfile.team_code) {
-      document.getElementById('teamCodeDisplay').textContent = currentProfile.team_code;
-      document.getElementById('teamCodeBanner').style.display = 'flex';
+    // Charger le team_code depuis organizations
+    if (currentProfile && currentProfile.org_id) {
+      const { data: org } = await sb.from('organizations').select('team_code, name').eq('id', currentProfile.org_id).single();
+      if (org && org.team_code) {
+        document.getElementById('teamCodeDisplay').textContent = org.team_code;
+        document.getElementById('teamCodeBanner').style.display = 'flex';
+      }
     }
     loadCompanyStats();
   } else if (role === 'hse') {
@@ -530,35 +534,43 @@ async function handleRegister(e) {
   const teamCodeInput = document.getElementById('regTeamCode').value.toUpperCase().trim();
   if (!role) { showAlert('Veuillez choisir un rôle.'); return; }
 
-  // If worker, validate team code
+  // Si intervenant → valider le code via la table organizations
   let companyProfileId = null;
   if (role === 'worker') {
     if (!teamCodeInput) { showAlert('Veuillez saisir le code de votre employeur.'); return; }
-    const { data: companyProfile } = await sb.from('profiles').select('id').eq('team_code', teamCodeInput).eq('role', 'company').single();
-    if (!companyProfile) { showAlert('Code employeur invalide. Vérifiez auprès de votre société.'); return; }
-    companyProfileId = companyProfile.id;
-  }
-
-  // Generate team code for companies
-  let teamCode = null;
-  if (role === 'company' && companyName) {
-    const prefix = companyName.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 4).padEnd(4, 'X');
-    const suffix = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4).padEnd(4, '0');
-    teamCode = prefix + '-' + suffix;
+    const { data: org } = await sb.from('organizations').select('id, name').eq('team_code', teamCodeInput).single();
+    if (!org) { showAlert('Code employeur invalide. Vérifiez auprès de votre société.'); return; }
+    companyProfileId = org.id;
   }
 
   setLoading('registerBtn', true, 'Créer mon compte');
   const { data, error } = await sb.auth.signUp({ email, password, options: { data: { full_name: name, role } } });
   if (error) { showAlert(error.message); setLoading('registerBtn', false, 'Créer mon compte'); return; }
+
   if (data.user) {
+    let orgId = companyProfileId || null;
+
+    // Si entreprise → créer organization + team_code
+    if (role === 'company' && companyName) {
+      const prefix = companyName.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 4).padEnd(4, 'X');
+      const suffix = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4).padEnd(4, '0');
+      const teamCode = prefix + '-' + suffix;
+      const { data: org } = await sb.from('organizations').insert({
+        name: companyName,
+        team_code: teamCode,
+        type: 'company',
+        created_by: data.user.id
+      }).select().single();
+      if (org) orgId = org.id;
+    }
+
     await sb.from('profiles').insert({
       id: data.user.id,
       full_name: name,
       email,
       role,
       company_name: companyName || null,
-      team_code: teamCode || null,
-      company_id: companyProfileId || null
+      org_id: orgId
     });
   }
   setLoading('registerBtn', false, 'Créer mon compte');
@@ -572,12 +584,12 @@ async function handleLogout() {
 }
 
 async function loadWorkerStats() {
-  // Check company link status
-  if (currentProfile.company_id) {
-    const { data: company } = await sb.from('profiles').select('full_name, company_name').eq('id', currentProfile.company_id).single();
+  // Vérifier le rattachement à une organisation
+  if (currentProfile.org_id) {
+    const { data: org } = await sb.from('organizations').select('name').eq('id', currentProfile.org_id).single();
     document.getElementById('linkCompanyBanner').style.display = 'none';
     document.getElementById('linkedCompanyBanner').style.display = 'flex';
-    if (company) document.getElementById('linkedCompanyName').textContent = company.company_name || company.full_name;
+    if (org) document.getElementById('linkedCompanyName').textContent = org.name;
   } else {
     document.getElementById('linkCompanyBanner').style.display = 'block';
     document.getElementById('linkedCompanyBanner').style.display = 'none';
@@ -640,7 +652,8 @@ async function loadCompanyDocs() {
 
 async function loadCompanyWorkers() {
   const container = document.getElementById('companyWorkersContainer');
-  const { data: workers } = await sb.from('profiles').select('*').eq('company_id', currentProfile.id);
+  // Charger les intervenants rattachés à l'organisation
+  const { data: workers } = await sb.from('profiles').select('*').eq('org_id', currentProfile.org_id);
   if (!workers || workers.length === 0) {
     container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">👷</div><div class="empty-state-text">Aucun intervenant lié pour l'instant.<br>Vos intervenants doivent s'inscrire et renseigner le nom de votre société.</div></div>`;
     return;
@@ -745,15 +758,24 @@ function viewDoc(url) { if (url) window.open(url, '_blank'); }
 async function linkToCompany() {
   const code = document.getElementById('linkTeamCode').value.toUpperCase().trim();
   if (!code) { showToast('Veuillez saisir un code employeur', 'error'); return; }
-  const { data: company } = await sb.from('profiles').select('id, full_name, company_name').eq('team_code', code).eq('role', 'company').single();
-  if (!company) { showToast('Code invalide. Vérifiez auprès de votre employeur.', 'error'); return; }
-  const { error } = await sb.from('profiles').update({ company_id: company.id }).eq('id', currentUser.id);
+
+  // Chercher dans la table organizations
+  const { data: org, error: orgErr } = await sb.from('organizations')
+    .select('id, name')
+    .eq('team_code', code)
+    .single();
+
+  if (orgErr || !org) { showToast('Code invalide. Vérifiez auprès de votre employeur.', 'error'); return; }
+
+  // Rattacher le profil à l'organisation
+  const { error } = await sb.from('profiles').update({ org_id: org.id }).eq('id', currentUser.id);
   if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
-  currentProfile.company_id = company.id;
-  showToast('✓ Rattaché à ' + (company.company_name || company.full_name), 'success');
+
+  currentProfile.org_id = org.id;
+  showToast('✓ Rattaché à ' + org.name, 'success');
   document.getElementById('linkCompanyBanner').style.display = 'none';
   document.getElementById('linkedCompanyBanner').style.display = 'flex';
-  document.getElementById('linkedCompanyName').textContent = company.company_name || company.full_name;
+  document.getElementById('linkedCompanyName').textContent = org.name;
 }
 
 function copyTeamCode() {
