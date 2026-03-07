@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.3.5 — Fix trainer : requêtes séparées au lieu de jointures (profiles!owner_id non supporté)
+       v0.4.0 — Partage de documents : rôle guest, modal partage, dashboard client, révocation
   -->
-  <meta name="app-version" content="0.3.5" />
+  <meta name="app-version" content="0.4.0" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -231,6 +231,7 @@
       <div class="role-pill"><div class="role-pill-icon">🏢</div><div class="role-pill-info"><div class="role-pill-name">Entreprise Sous-Traitante</div><div class="role-pill-desc">Gérez vos intervenants et documents</div></div><div class="role-pill-badge">SOCIÉTÉ</div></div>
       <div class="role-pill"><div class="role-pill-icon">👷</div><div class="role-pill-info"><div class="role-pill-name">Intervenant</div><div class="role-pill-desc">Votre passeport industriel personnel</div></div><div class="role-pill-badge">TERRAIN</div></div>
       <div class="role-pill"><div class="role-pill-icon">🎓</div><div class="role-pill-info"><div class="role-pill-name">Centre de Formation</div><div class="role-pill-desc">Validez les habilitations délivrées</div></div><div class="role-pill-badge">FORMATION</div></div>
+      <div class="role-pill"><div class="role-pill-icon">👁</div><div class="role-pill-info"><div class="role-pill-name">Client / Donneur d'ordre</div><div class="role-pill-desc">Consultez les documents partagés</div></div><div class="role-pill-badge">CLIENT</div></div>
       <div class="role-pill"><div class="role-pill-icon">⚙️</div><div class="role-pill-info"><div class="role-pill-name">Administrateur</div><div class="role-pill-desc">Gestion globale de la plateforme</div></div><div class="role-pill-badge">ADMIN</div></div>
     </div>
   </div>
@@ -247,7 +248,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.3.5</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.4.0</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -267,6 +268,7 @@
             <option value="company">🏢 Entreprise Sous-Traitante</option>
             <option value="worker">👷 Intervenant</option>
             <option value="trainer">🎓 Centre de Formation</option>
+            <option value="guest">👁 Client / Donneur d'ordre</option>
             <option value="admin">⚙️ Administrateur</option>
           </select>
         </div>
@@ -305,6 +307,7 @@
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Worker','overview',this)">🏠 Accueil</button>
     <button class="nav-tab" onclick="switchPage('Worker','docs',this)">📄 Mes Habilitations</button>
+    <button class="nav-tab" onclick="switchPage('Worker','shares',this)">📤 Partages</button>
   </div>
   <div class="dash-body">
     <!-- OVERVIEW -->
@@ -358,6 +361,14 @@
       <div class="dash-welcome">Mes <em>Habilitations</em></div>
       <div class="dash-subtitle">Déposez vos documents — votre employeur et le centre de formation seront notifiés</div>
       <div id="workerDocsContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
+    </div>
+
+    <!-- PARTAGES -->
+    <div class="page-section" id="Worker-shares">
+      <div class="dash-welcome">Mes <em>Partages</em></div>
+      <div class="dash-subtitle">Partagez vos documents avec un client ou donneur d'ordre</div>
+      <button class="btn-sm btn-upload" style="margin-bottom:24px;padding:10px 20px;font-size:13px" onclick="openShareModal()">📤 Nouveau partage</button>
+      <div id="workerSharesContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
   </div>
 </div>
@@ -511,6 +522,56 @@
   </div>
 </div>
 
+<!-- ══ DASHBOARD GUEST (Client Final) ══ -->
+<div class="dashboard" id="dashGuest">
+  <nav class="topbar">
+    <div class="topbar-logo"><div class="topbar-logo-icon">🛡</div><div class="topbar-logo-text">Safety<span>Sphere</span></div></div>
+    <div class="topbar-spacer"></div>
+    <span class="topbar-role-badge" style="background:rgba(20,184,166,.15);color:#5EEAD4;border:1px solid rgba(20,184,166,.3)">👁 Client</span>
+    <span class="topbar-user" id="guestUserName"></span>
+    <button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+  </nav>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchPage('Guest','shared',this)">📂 Documents reçus</button>
+  </div>
+  <div class="dash-body">
+    <div class="page-section active" id="Guest-shared">
+      <div class="dash-welcome">Documents <em>Partagés</em></div>
+      <div class="dash-subtitle">Documents transmis par vos intervenants</div>
+      <div id="guestDocsContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL PARTAGE ══ -->
+<div class="modal-overlay" id="shareModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeShareModal()">✕</button>
+    <div class="modal-title">📤 Partager mes documents</div>
+    <div class="modal-subtitle">Le destinataire devra créer un compte SafetySphere pour accéder aux documents</div>
+    <div class="form-group">
+      <label class="form-label">Email du destinataire</label>
+      <input type="email" class="form-input" id="shareEmail" placeholder="client@entreprise.fr" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Documents à partager</label>
+      <div id="shareDocPicker" style="display:flex;flex-direction:column;gap:8px;margin-top:4px"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Durée du partage (optionnel)</label>
+      <select class="form-select" id="shareExpiry">
+        <option value="">Permanent</option>
+        <option value="7">7 jours</option>
+        <option value="30">30 jours</option>
+        <option value="90">3 mois</option>
+        <option value="180">6 mois</option>
+        <option value="365">1 an</option>
+      </select>
+    </div>
+    <button class="btn-primary" id="shareBtn" onclick="createShare()">📤 Envoyer le partage</button>
+  </div>
+</div>
+
 <!-- ══ MODAL UPLOAD ══ -->
 <div class="modal-overlay" id="uploadModal">
   <div class="modal">
@@ -645,7 +706,7 @@ function switchPage(dash, page, el) {
 // ── SHOW DASHBOARD ──
 function showDashboard(role, fullName) {
   document.getElementById('authScreen').style.display = 'none';
-  ['dashWorker','dashCompany','dashHSE','dashTrainer','dashAdmin'].forEach(id => document.getElementById(id).classList.remove('active'));
+  ['dashWorker','dashCompany','dashHSE','dashTrainer','dashGuest','dashAdmin'].forEach(id => document.getElementById(id).classList.remove('active'));
   const firstName = (fullName || 'Utilisateur').split(' ')[0];
   if (role === 'worker') {
     document.getElementById('dashWorker').classList.add('active');
@@ -666,13 +727,17 @@ function showDashboard(role, fullName) {
     document.getElementById('trainerFirstName').textContent = firstName;
     document.getElementById('trainerUserName').textContent  = fullName || '';
     loadTrainerStats();
+  } else if (role === 'guest') {
+    document.getElementById('dashGuest').classList.add('active');
+    document.getElementById('guestUserName').textContent = fullName || '';
+    loadGuestDocs();
   } else if (role === 'admin') {
     document.getElementById('dashAdmin').classList.add('active');
     document.getElementById('adminUserName').textContent = fullName || '';
   }
 }
 function hideAllDashboards() {
-  ['dashWorker','dashCompany','dashHSE','dashTrainer','dashAdmin'].forEach(id => document.getElementById(id).classList.remove('active'));
+  ['dashWorker','dashCompany','dashHSE','dashTrainer','dashGuest','dashAdmin'].forEach(id => document.getElementById(id).classList.remove('active'));
   document.getElementById('authScreen').style.display = 'flex';
 }
 
@@ -1308,7 +1373,150 @@ async function validateDoc(docId, status) {
   loadCompanyStats();
 }
 
-// ── AUTO LOGIN ──
+// ══════════════════════════════
+// PARTAGE DE DOCUMENTS (WORKER)
+// ══════════════════════════════
+async function openShareModal() {
+  // Charger les docs validés du worker
+  const { data: docs } = await sb.from('documents').select('doc_type, status').eq('owner_id', currentUser.id).eq('category', 'worker');
+  const picker = document.getElementById('shareDocPicker');
+  picker.innerHTML = WORKER_DOCS.map(def => {
+    const doc = docs ? docs.find(d => d.doc_type === def.key) : null;
+    const hasDoc = doc && doc.status === 'validated';
+    return `<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,${hasDoc ? '.1' : '.04'});cursor:${hasDoc ? 'pointer' : 'not-allowed'};opacity:${hasDoc ? '1' : '.4'}">
+      <input type="checkbox" value="${def.key}" ${!hasDoc ? 'disabled' : ''} style="width:16px;height:16px;accent-color:var(--orange)" />
+      <span>${def.icon} ${def.name}</span>
+      ${hasDoc ? '<span style="margin-left:auto;font-size:10px;color:#86EFAC;font-weight:700">✓ Validé</span>' : '<span style="margin-left:auto;font-size:10px;color:var(--muted)">Non disponible</span>'}
+    </label>`;
+  }).join('');
+  document.getElementById('shareEmail').value  = '';
+  document.getElementById('shareExpiry').value = '';
+  document.getElementById('shareModal').classList.add('open');
+}
+
+function closeShareModal() {
+  document.getElementById('shareModal').classList.remove('open');
+}
+
+async function createShare() {
+  const email    = document.getElementById('shareEmail').value.trim();
+  const expDays  = document.getElementById('shareExpiry').value;
+  const checked  = [...document.querySelectorAll('#shareDocPicker input:checked')].map(i => i.value);
+
+  if (!email)          { showToast('Veuillez saisir un email', 'error'); return; }
+  if (!checked.length) { showToast('Sélectionnez au moins un document', 'error'); return; }
+
+  const expiresAt = expDays ? new Date(Date.now() + parseInt(expDays) * 86400000).toISOString().split('T')[0] : null;
+
+  setLoading('shareBtn', true, 'Envoi...');
+  const { error } = await sb.from('document_shares').insert({
+    worker_id:   currentUser.id,
+    guest_email: email.toLowerCase(),
+    doc_types:   checked,
+    expires_at:  expiresAt
+  });
+  setLoading('shareBtn', false, '📤 Envoyer le partage');
+
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  closeShareModal();
+  showToast('✓ Partage créé — ' + email + ' peut maintenant créer son compte', 'success');
+  loadWorkerShares();
+}
+
+async function loadWorkerShares() {
+  const container = document.getElementById('workerSharesContainer');
+  const { data: shares } = await sb.from('document_shares').select('*').eq('worker_id', currentUser.id).order('created_at', { ascending: false });
+
+  if (!shares || !shares.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📤</div><div class="empty-state-text">Aucun partage créé.<br>Partagez vos documents validés avec vos clients.</div></div>`;
+    return;
+  }
+  const now = new Date();
+  const html = '<div class="request-list">' + shares.map(s => {
+    const expired  = s.expires_at && new Date(s.expires_at) < now;
+    const expLabel = s.expires_at ? (expired ? '⛔ Expiré le ' : '📅 Expire le ') + new Date(s.expires_at).toLocaleDateString('fr-FR') : '♾️ Permanent';
+    const docNames = s.doc_types.map(k => WORKER_DOCS.find(d => d.key === k)?.name || k).join(', ');
+    return `<div class="request-card" style="${expired ? 'opacity:.5' : ''}">
+      <div class="request-card-header">
+        <div class="request-card-icon">👁</div>
+        <div class="request-card-info">
+          <div class="request-card-name">📧 ${s.guest_email}</div>
+          <div class="request-card-meta">${docNames} — ${expLabel}</div>
+        </div>
+        <button class="btn-sm btn-reject" onclick="revokeShare('${s.id}')">✕ Révoquer</button>
+      </div>
+    </div>`;
+  }).join('') + '</div>';
+  container.innerHTML = html;
+}
+
+async function revokeShare(shareId) {
+  if (!confirm('Révoquer ce partage ? Le client ne pourra plus accéder aux documents.')) return;
+  const { error } = await sb.from('document_shares').delete().eq('id', shareId);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  showToast('✓ Partage révoqué', 'success');
+  loadWorkerShares();
+}
+
+// ══════════════════════════════
+// GUEST (Client Final)
+// ══════════════════════════════
+async function loadGuestDocs() {
+  const container = document.getElementById('guestDocsContainer');
+  const email = currentProfile.email;
+  const now   = new Date();
+
+  // Charger les partages adressés à cet email (non expirés)
+  const { data: shares } = await sb.from('document_shares')
+    .select('*')
+    .eq('guest_email', email.toLowerCase())
+    .or(`expires_at.is.null,expires_at.gt.${now.toISOString()}`);
+
+  if (!shares || !shares.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📂</div><div class="empty-state-text">Aucun document partagé avec vous pour l'instant.<br>Demandez à votre intervenant de partager son passeport.</div></div>`;
+    return;
+  }
+
+  // Pour chaque partage, charger le worker et ses docs
+  let html = '';
+  for (const share of shares) {
+    const { data: worker } = await sb.from('profiles').select('full_name').eq('id', share.worker_id).single();
+    const { data: docs }   = await sb.from('documents').select('*').eq('owner_id', share.worker_id).eq('category', 'worker').in('doc_type', share.doc_types);
+    const workerName = worker?.full_name || 'Intervenant';
+    const expLabel   = share.expires_at ? 'Expire le ' + new Date(share.expires_at).toLocaleDateString('fr-FR') : 'Partage permanent';
+
+    html += `<div style="margin-bottom:28px">
+      <div class="section-title">👷 ${workerName} <span style="font-size:12px;color:var(--muted);font-weight:400">${expLabel}</span></div>
+      <div class="doc-grid">` +
+      share.doc_types.map(key => {
+        const def = WORKER_DOCS.find(d => d.key === key) || { name: key, icon: '📄', desc: '' };
+        const doc = docs ? docs.find(d => d.doc_type === key) : null;
+        if (!doc) return `<div class="doc-card"><div class="doc-card-header"><div class="doc-card-icon">${def.icon}</div><div class="doc-card-badges"><span class="doc-badge status-empty">Non déposé</span></div></div><div class="doc-card-name">${def.name}</div></div>`;
+        const exp     = doc.expires_at ? new Date(doc.expires_at).toLocaleDateString('fr-FR') : null;
+        const expired = doc.expires_at && new Date(doc.expires_at) < now;
+        return `<div class="doc-card">
+          <div class="doc-card-header"><div class="doc-card-icon">${def.icon}</div><div class="doc-card-badges"><span class="doc-badge status-${doc.status}">${doc.status === 'validated' ? 'Validé ✓' : doc.status}</span></div></div>
+          <div class="doc-card-name">${def.name}</div>
+          ${exp ? `<div class="doc-card-expiry ${expired ? 'urgent' : 'ok'}">📅 ${exp}</div>` : ''}
+          <div class="doc-card-actions">
+            <button class="btn-sm btn-view" onclick="viewDoc('${doc.file_url}')">👁 Voir</button>
+            <a href="${doc.file_url}" download class="btn-sm btn-upload" style="text-decoration:none">⬇ Télécharger</a>
+          </div>
+        </div>`;
+      }).join('') +
+      `</div></div>`;
+  }
+  container.innerHTML = html;
+}
+
+// ── LAZY LOAD PARTAGES ──
+const _origSwitchPage = switchPage;
+function switchPage(dash, page, el) {
+  _origSwitchPage(dash, page, el);
+  if (dash === 'Worker' && page === 'shares') loadWorkerShares();
+}
+
+
 (async () => {
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
