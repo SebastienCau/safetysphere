@@ -211,6 +211,11 @@
           </select>
         </div>
         <div class="form-group" id="companyNameGroup" style="display:none"><label class="form-label">Nom de la société</label><input type="text" class="form-input" id="regCompanyName" placeholder="Ex: Électricité Pro SARL" /></div>
+        <div class="form-group" id="teamCodeGroup" style="display:none">
+          <label class="form-label">Code employeur</label>
+          <input type="text" class="form-input" id="regTeamCode" placeholder="Ex: ELEC-4X9K" style="text-transform:uppercase;letter-spacing:2px" />
+          <div style="font-size:11px;color:var(--muted);margin-top:6px">🔑 Demandez ce code à votre société employeur</div>
+        </div>
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="regPassword" placeholder="Min. 8 caractères" minlength="8" required /></div>
         <button type="submit" class="btn-primary" id="registerBtn">Créer mon compte</button>
       </form>
@@ -268,6 +273,14 @@
     <div class="page-section active" id="Company-overview">
       <div class="dash-welcome">Bonjour, <em id="companyFirstName">—</em> 👋</div>
       <div class="dash-subtitle">Tableau de bord Entreprise Sous-Traitante</div>
+      <div id="teamCodeBanner" style="display:none;background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.25);border-radius:12px;padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;gap:16px">
+        <span style="font-size:28px">🔑</span>
+        <div>
+          <div style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:4px">Code à partager avec vos intervenants</div>
+          <div id="teamCodeDisplay" style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--orange);letter-spacing:3px">—</div>
+        </div>
+        <button onclick="copyTeamCode()" style="margin-left:auto;padding:8px 16px;background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.3);border-radius:8px;color:var(--orange);font-size:13px;font-weight:700;cursor:pointer">📋 Copier</button>
+      </div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon">👷</div><div class="stat-value" id="cStat1">0</div><div class="stat-label">Intervenants</div></div>
         <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value" id="cStat2">0</div><div class="stat-label">Validations en attente</div></div>
@@ -426,6 +439,7 @@ function switchTab(tab, e) {
 
 function onRoleChange(val) {
   document.getElementById('companyNameGroup').style.display = val === 'company' ? 'block' : 'none';
+  document.getElementById('teamCodeGroup').style.display = val === 'worker' ? 'block' : 'none';
 }
 
 function switchPage(dash, page, el) {
@@ -453,6 +467,10 @@ function showDashboard(role, fullName) {
     document.getElementById('dashCompany').classList.add('active');
     document.getElementById('companyFirstName').textContent = firstName;
     document.getElementById('companyUserName').textContent = fullName || '';
+    if (currentProfile && currentProfile.team_code) {
+      document.getElementById('teamCodeDisplay').textContent = currentProfile.team_code;
+      document.getElementById('teamCodeBanner').style.display = 'flex';
+    }
     loadCompanyStats();
   } else if (role === 'hse') {
     document.getElementById('dashHSE').classList.add('active');
@@ -491,12 +509,39 @@ async function handleRegister(e) {
   const role = document.getElementById('regRole').value;
   const password = document.getElementById('regPassword').value;
   const companyName = document.getElementById('regCompanyName').value;
+  const teamCodeInput = document.getElementById('regTeamCode').value.toUpperCase().trim();
   if (!role) { showAlert('Veuillez choisir un rôle.'); return; }
+
+  // If worker, validate team code
+  let companyProfileId = null;
+  if (role === 'worker') {
+    if (!teamCodeInput) { showAlert('Veuillez saisir le code de votre employeur.'); return; }
+    const { data: companyProfile } = await sb.from('profiles').select('id').eq('team_code', teamCodeInput).eq('role', 'company').single();
+    if (!companyProfile) { showAlert('Code employeur invalide. Vérifiez auprès de votre société.'); return; }
+    companyProfileId = companyProfile.id;
+  }
+
+  // Generate team code for companies
+  let teamCode = null;
+  if (role === 'company' && companyName) {
+    const prefix = companyName.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 4).padEnd(4, 'X');
+    const suffix = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4).padEnd(4, '0');
+    teamCode = prefix + '-' + suffix;
+  }
+
   setLoading('registerBtn', true, 'Créer mon compte');
   const { data, error } = await sb.auth.signUp({ email, password, options: { data: { full_name: name, role } } });
   if (error) { showAlert(error.message); setLoading('registerBtn', false, 'Créer mon compte'); return; }
   if (data.user) {
-    await sb.from('profiles').insert({ id: data.user.id, full_name: name, email, role, company_name: companyName || null });
+    await sb.from('profiles').insert({
+      id: data.user.id,
+      full_name: name,
+      email,
+      role,
+      company_name: companyName || null,
+      team_code: teamCode || null,
+      company_id: companyProfileId || null
+    });
   }
   setLoading('registerBtn', false, 'Créer mon compte');
   showAlert('Compte créé ! Confirmez votre email puis connectez-vous.', 'success');
@@ -669,6 +714,11 @@ async function uploadDocument() {
 
 function viewDoc(url) { if (url) window.open(url, '_blank'); }
 
+function copyTeamCode() {
+  const code = document.getElementById('teamCodeDisplay').textContent;
+  navigator.clipboard.writeText(code).then(() => showToast('Code copié : ' + code, 'success'));
+}
+
 async function validateDoc(docId, status) {
   const { error } = await sb.from('documents').update({ status, validated_by: currentUser.id, validated_at: new Date().toISOString() }).eq('id', docId);
   if (error) { showToast('Erreur: ' + error.message, 'error'); return; }
@@ -687,4 +737,3 @@ async function validateDoc(docId, status) {
 </script>
 </body>
 </html>
-
