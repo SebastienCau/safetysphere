@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.4.1 — Fix onglet habilitations : suppression récursion switchPage
+       v0.4.2 — Partage : documents en attente également partageables (validés + pending)
   -->
-  <meta name="app-version" content="0.4.1" />
+  <meta name="app-version" content="0.4.2" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -248,7 +248,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.4.1</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.4.2</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -1378,16 +1378,17 @@ async function validateDoc(docId, status) {
 // PARTAGE DE DOCUMENTS (WORKER)
 // ══════════════════════════════
 async function openShareModal() {
-  // Charger les docs validés du worker
   const { data: docs } = await sb.from('documents').select('doc_type, status').eq('owner_id', currentUser.id).eq('category', 'worker');
   const picker = document.getElementById('shareDocPicker');
   picker.innerHTML = WORKER_DOCS.map(def => {
-    const doc = docs ? docs.find(d => d.doc_type === def.key) : null;
-    const hasDoc = doc && doc.status === 'validated';
+    const doc    = docs ? docs.find(d => d.doc_type === def.key) : null;
+    const hasDoc = doc && (doc.status === 'validated' || doc.status === 'pending');
+    const statusLabel = doc ? (doc.status === 'validated' ? '✓ Validé' : '⏳ En attente') : 'Non déposé';
+    const statusColor = doc ? (doc.status === 'validated' ? '#86EFAC' : '#FCD34D') : 'var(--muted)';
     return `<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,${hasDoc ? '.1' : '.04'});cursor:${hasDoc ? 'pointer' : 'not-allowed'};opacity:${hasDoc ? '1' : '.4'}">
       <input type="checkbox" value="${def.key}" ${!hasDoc ? 'disabled' : ''} style="width:16px;height:16px;accent-color:var(--orange)" />
       <span>${def.icon} ${def.name}</span>
-      ${hasDoc ? '<span style="margin-left:auto;font-size:10px;color:#86EFAC;font-weight:700">✓ Validé</span>' : '<span style="margin-left:auto;font-size:10px;color:var(--muted)">Non disponible</span>'}
+      <span style="margin-left:auto;font-size:10px;color:${statusColor};font-weight:700">${statusLabel}</span>
     </label>`;
   }).join('');
   document.getElementById('shareEmail').value  = '';
