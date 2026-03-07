@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.5.3 — HSE crée son organisation EU à l'inscription (nom entreprise obligatoire)
+       v0.5.4 — Invitation ST : message pré-rempli + bouton mailto + copier presse-papier
   -->
-  <meta name="app-version" content="0.5.3" />
+  <meta name="app-version" content="0.5.4" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -248,7 +248,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.5.3</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.5.4</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -612,6 +612,21 @@
       <div class="dash-welcome">Documents <em>Partagés</em></div>
       <div class="dash-subtitle">Documents transmis par vos intervenants</div>
       <div id="guestDocsContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL CONFIRMATION INVITATION ══ -->
+<div class="modal-overlay" id="inviteConfirmModal">
+  <div class="modal">
+    <button class="modal-close" onclick="document.getElementById('inviteConfirmModal').classList.remove('open')">✕</button>
+    <div class="modal-title">✅ Invitation créée</div>
+    <div class="modal-subtitle">Transmettez ce message à <strong id="inviteConfirmEmail"></strong></div>
+    <div style="margin-bottom:16px">
+      <a id="inviteMailtoBtn" href="#" class="btn-primary" style="display:block;text-align:center;text-decoration:none;margin-bottom:10px">📧 Ouvrir dans ma messagerie</a>
+      <div style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:16px">— ou copiez le message manuellement —</div>
+      <textarea id="inviteCopyText" readonly style="width:100%;height:180px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:var(--white);font-size:12px;line-height:1.6;padding:12px;resize:none;font-family:inherit"></textarea>
+      <button onclick="copyInviteText()" class="btn-sm btn-view" style="width:100%;margin-top:8px;padding:10px">📋 Copier le message</button>
     </div>
   </div>
 </div>
@@ -1654,14 +1669,53 @@ async function sendSTInvite() {
   if (!email) { showToast('Veuillez saisir un email', 'error'); return; }
   if (!currentProfile.org_id) { showToast('Votre organisation n\'est pas configurée', 'error'); return; }
   setLoading('inviteSTBtn', true, 'Envoi...');
+  const { data: euOrg } = await sb.from('organizations').select('name').eq('id', currentProfile.org_id).single();
+  const euName = euOrg?.name || 'notre entreprise';
   const { error } = await sb.from('subcontractor_invites').insert({
     eu_org_id: currentProfile.org_id,
     st_email:  email
   });
   setLoading('inviteSTBtn', false, '✉️ Envoyer l\'invitation');
   if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+
+  // Message à transmettre
+  const subject = encodeURIComponent(`Invitation SafetySphere — ${euName}`);
+  const body    = encodeURIComponent(
+`Bonjour,
+
+${euName} vous invite à rejoindre SafetySphere, notre plateforme de gestion des habilitations et documents de sous-traitance.
+
+Pour accepter cette mise en relation :
+1. Créez votre compte sur https://safetysphere.vercel.app
+2. Choisissez le rôle "Sous-Traitant"
+3. Utilisez cette adresse email : ${email}
+4. Une fois connecté, acceptez la demande de mise en relation dans l'onglet "Invitations"
+
+SafetySphere vous permet de centraliser vos documents (KBIS, RC Pro, URSSAF...) et de les partager facilement avec vos donneurs d'ordre.
+
+Cordialement,
+${currentProfile.full_name}
+${euName}`);
+
   closeInviteSTModal();
-  showToast('✓ Invitation créée pour ' + email, 'success');
+
+  // Afficher modal de confirmation avec message
+  document.getElementById('inviteConfirmEmail').textContent = email;
+  document.getElementById('inviteMailtoBtn').href = `mailto:${email}?subject=${subject}&body=${body}`;
+  document.getElementById('inviteCopyText').value =
+`Bonjour,
+
+${euName} vous invite à rejoindre SafetySphere.
+
+Créez votre compte sur https://safetysphere.vercel.app
+- Rôle : Sous-Traitant
+- Email à utiliser : ${email}
+- Acceptez ensuite la mise en relation dans l'onglet "Invitations"
+
+Cordialement,
+${currentProfile.full_name}`;
+  document.getElementById('inviteConfirmModal').classList.add('open');
+
   const containerId = currentProfile.role === 'hse' ? 'hseSTContainer' : 'companySTContainer';
   loadST(currentProfile.org_id, containerId);
 }
@@ -1717,6 +1771,11 @@ async function loadHSEStats() {
   const { data: pending }  = await sb.from('subcontractor_invites').select('id').eq('eu_org_id', currentProfile.org_id).eq('status','pending');
   document.getElementById('hseStat1').textContent = accepted ? accepted.length : 0;
   document.getElementById('hseStat2').textContent = pending  ? pending.length  : 0;
+}
+
+function copyInviteText() {
+  const text = document.getElementById('inviteCopyText').value;
+  navigator.clipboard.writeText(text).then(() => showToast('✓ Message copié', 'success'));
 }
 
 // ══════════════════════════════════════
