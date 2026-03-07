@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.3.3 — Fix login : retry x3 avec délai pour attendre établissement session auth
+       v0.3.4 — Code employeur optionnel à l'inscription, changer/détacher employeur depuis le dashboard
   -->
-  <meta name="app-version" content="0.3.3" />
+  <meta name="app-version" content="0.3.4" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -247,7 +247,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.3.3</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.3.4</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -280,11 +280,11 @@
           <label class="form-label">Lien prise de RDV (optionnel)</label>
           <input type="url" class="form-input" id="regBookingUrl" placeholder="https://calendly.com/votre-centre" />
         </div>
-        <!-- Champ code employeur (worker uniquement) -->
+        <!-- Champ code employeur (worker uniquement — optionnel) -->
         <div class="form-group" id="teamCodeGroup" style="display:none">
-          <label class="form-label">Code employeur</label>
-          <input type="text" class="form-input" id="regTeamCode" placeholder="Ex: ELEC-4X9K" style="text-transform:uppercase;letter-spacing:2px" />
-          <div style="font-size:11px;color:var(--muted);margin-top:6px">🔑 Demandez ce code à votre société employeur</div>
+          <label class="form-label">Code employeur <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(optionnel)</span></label>
+          <input type="text" class="form-input" id="regTeamCode" placeholder="Ex: ELEC-4X9K — ou laissez vide" style="text-transform:uppercase;letter-spacing:2px" />
+          <div style="font-size:11px;color:var(--muted);margin-top:6px">🔑 Vous pouvez vous rattacher à votre employeur après l'inscription</div>
         </div>
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="regPassword" placeholder="Min. 8 caractères" minlength="8" required /></div>
         <button type="submit" class="btn-primary" id="registerBtn">Créer mon compte</button>
@@ -322,10 +322,24 @@
       </div>
       <div id="linkedCompanyBanner" style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:12px;padding:14px 18px;margin-bottom:24px;display:none;align-items:center;gap:12px">
         <span style="font-size:22px">🏢</span>
-        <div>
+        <div style="flex:1">
           <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700">Société employeur</div>
           <div id="linkedCompanyName" style="font-size:15px;font-weight:700;color:#86EFAC">—</div>
         </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="showChangeEmployer()" class="btn-sm btn-view" style="white-space:nowrap">🔄 Changer</button>
+          <button onclick="detachFromCompany()" class="btn-sm btn-reject" style="white-space:nowrap">✕ Détacher</button>
+        </div>
+      </div>
+      <!-- Panneau changement d'employeur (masqué par défaut) -->
+      <div id="changeEmployerPanel" style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:12px;padding:16px 20px;margin-bottom:24px;display:none">
+        <div style="font-size:13px;font-weight:700;color:#93C5FD;margin-bottom:10px">🔄 Changer de société employeur</div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <input type="text" id="newTeamCode" class="form-input" placeholder="Nouveau code employeur" style="max-width:300px;text-transform:uppercase;letter-spacing:2px;margin:0" />
+          <button onclick="changeEmployer()" class="btn-sm btn-upload" style="white-space:nowrap">✓ Confirmer</button>
+          <button onclick="document.getElementById('changeEmployerPanel').style.display='none'" class="btn-sm btn-view" style="white-space:nowrap">Annuler</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px">⚠️ Vos documents restent les vôtres — vous choisirez ce que vous partagez avec le nouvel employeur</div>
       </div>
 
       <!-- Alertes expiration -->
@@ -698,11 +712,10 @@ async function handleRegister(e) {
   const teamCode   = document.getElementById('regTeamCode').value.toUpperCase().trim();
   if (!role) { showAlert('Veuillez choisir un rôle.'); return; }
 
-  // Worker : valider le code employeur
+  // Worker : valider le code employeur si renseigné (optionnel)
   let orgId = null;
-  if (role === 'worker') {
-    if (!teamCode) { showAlert('Veuillez saisir le code de votre employeur.'); return; }
-    const { data: org } = await sb.from('organizations').select('id').eq('team_code', teamCode).single();
+  if (role === 'worker' && teamCode) {
+    const { data: org } = await sb.from('organizations').select('id').eq('team_code', teamCode).eq('type','company').single();
     if (!org) { showAlert('Code employeur invalide. Vérifiez auprès de votre société.'); return; }
     orgId = org.id;
   }
@@ -1209,7 +1222,7 @@ function viewDoc(url) { if (url) window.open(url, '_blank'); }
 async function linkToCompany() {
   const code = document.getElementById('linkTeamCode').value.toUpperCase().trim();
   if (!code) { showToast('Veuillez saisir un code employeur', 'error'); return; }
-  const { data: org } = await sb.from('organizations').select('id, name').eq('team_code', code).single();
+  const { data: org } = await sb.from('organizations').select('id, name').eq('team_code', code).eq('type','company').single();
   if (!org) { showToast('Code invalide. Vérifiez auprès de votre employeur.', 'error'); return; }
   const { error } = await sb.from('profiles').update({ org_id: org.id }).eq('id', currentUser.id);
   if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
@@ -1218,6 +1231,39 @@ async function linkToCompany() {
   document.getElementById('linkCompanyBanner').style.display   = 'none';
   document.getElementById('linkedCompanyBanner').style.display = 'flex';
   document.getElementById('linkedCompanyName').textContent     = org.name;
+}
+
+function showChangeEmployer() {
+  document.getElementById('changeEmployerPanel').style.display = 'block';
+  document.getElementById('newTeamCode').value = '';
+  document.getElementById('newTeamCode').focus();
+}
+
+async function changeEmployer() {
+  const code = document.getElementById('newTeamCode').value.toUpperCase().trim();
+  if (!code) { showToast('Veuillez saisir un code employeur', 'error'); return; }
+  const { data: org } = await sb.from('organizations').select('id, name').eq('team_code', code).eq('type','company').single();
+  if (!org) { showToast('Code invalide. Vérifiez auprès de votre employeur.', 'error'); return; }
+  if (org.id === currentProfile.org_id) { showToast('Vous êtes déjà rattaché à cette société.', 'error'); return; }
+  const { error } = await sb.from('profiles').update({ org_id: org.id }).eq('id', currentUser.id);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  currentProfile.org_id = org.id;
+  showToast('✓ Employeur mis à jour : ' + org.name, 'success');
+  document.getElementById('changeEmployerPanel').style.display  = 'none';
+  document.getElementById('linkedCompanyBanner').style.display  = 'flex';
+  document.getElementById('linkedCompanyName').textContent      = org.name;
+}
+
+async function detachFromCompany() {
+  if (!confirm('Êtes-vous sûr de vouloir vous détacher de votre employeur ? Vos documents restent les vôtres.')) return;
+  const { error } = await sb.from('profiles').update({ org_id: null }).eq('id', currentUser.id);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  currentProfile.org_id = null;
+  showToast('✓ Détaché de votre employeur', 'success');
+  document.getElementById('linkedCompanyBanner').style.display  = 'none';
+  document.getElementById('changeEmployerPanel').style.display  = 'none';
+  document.getElementById('linkCompanyBanner').style.display    = 'block';
+  document.getElementById('linkTeamCode').value = '';
 }
 
 function copyTeamCode() {
