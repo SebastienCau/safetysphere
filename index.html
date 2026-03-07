@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.3.4 — Code employeur optionnel à l'inscription, changer/détacher employeur depuis le dashboard
+       v0.3.5 — Fix trainer : requêtes séparées au lieu de jointures (profiles!owner_id non supporté)
   -->
-  <meta name="app-version" content="0.3.4" />
+  <meta name="app-version" content="0.3.5" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -247,7 +247,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.3.4</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.3.5</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -1042,18 +1042,30 @@ async function loadTrainerStats() {
 async function loadTrainerRequests() {
   const container = document.getElementById('trainerRequestsContainer');
   const { data: docs, error } = await sb.from('documents')
-    .select('*, profiles!owner_id(full_name, email)')
+    .select('*')
     .eq('training_center_id', currentProfile.org_id)
     .eq('center_status', 'pending');
 
-  if (error || !docs || !docs.length) {
+  if (error) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Erreur chargement : ${error.message}</div></div>`;
+    return;
+  }
+  if (!docs || !docs.length) {
     container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-text">Aucune demande de validation en attente.<br>Les intervenants qui ont suivi vos formations apparaîtront ici.</div></div>`;
     return;
   }
+
+  // Charger les noms des workers séparément
+  const ownerIds = [...new Set(docs.map(d => d.owner_id))];
+  const { data: workers } = await sb.from('profiles').select('id, full_name, email').in('id', ownerIds);
+  const workerMap = {};
+  if (workers) workers.forEach(w => workerMap[w.id] = w);
+
   const html = '<div class="request-list">' + docs.map(doc => {
-    const def      = WORKER_DOCS.find(w => w.key === doc.doc_type) || { name: doc.doc_type, icon: '📄' };
-    const workerName = doc.profiles?.full_name || 'Intervenant inconnu';
-    const expiry   = doc.expires_at ? new Date(doc.expires_at).toLocaleDateString('fr-FR') : 'Non renseignée';
+    const def        = WORKER_DOCS.find(w => w.key === doc.doc_type) || { name: doc.doc_type, icon: '📄' };
+    const worker     = workerMap[doc.owner_id];
+    const workerName = worker?.full_name || 'Intervenant inconnu';
+    const expiry     = doc.expires_at ? new Date(doc.expires_at).toLocaleDateString('fr-FR') : 'Non renseignée';
     return `<div class="request-card">
       <div class="request-card-header">
         <div class="request-card-icon">${def.icon}</div>
@@ -1075,7 +1087,7 @@ async function loadTrainerRequests() {
 async function loadTrainerHistory() {
   const container = document.getElementById('trainerHistoryContainer');
   const { data: docs } = await sb.from('documents')
-    .select('*, profiles!owner_id(full_name)')
+    .select('*')
     .eq('training_center_id', currentProfile.org_id)
     .in('center_status', ['validated', 'rejected'])
     .order('center_validated_at', { ascending: false })
@@ -1085,10 +1097,17 @@ async function loadTrainerHistory() {
     container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">✅</div><div class="empty-state-text">Aucune validation effectuée pour l'instant.</div></div>`;
     return;
   }
+
+  // Charger les noms des workers séparément
+  const ownerIds = [...new Set(docs.map(d => d.owner_id))];
+  const { data: workers } = await sb.from('profiles').select('id, full_name').in('id', ownerIds);
+  const workerMap = {};
+  if (workers) workers.forEach(w => workerMap[w.id] = w);
+
   const centerStatusLabels = { validated: '✓ Validé', rejected: '✗ Refusé' };
   const html = '<div class="request-list">' + docs.map(doc => {
     const def  = WORKER_DOCS.find(w => w.key === doc.doc_type) || { name: doc.doc_type, icon: '📄' };
-    const name = doc.profiles?.full_name || '—';
+    const name = workerMap[doc.owner_id]?.full_name || '—';
     const date = doc.center_validated_at ? new Date(doc.center_validated_at).toLocaleDateString('fr-FR') : '—';
     const exp  = doc.expires_at ? new Date(doc.expires_at).toLocaleDateString('fr-FR') : '—';
     return `<div class="request-card">
