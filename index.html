@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.5.0 — Sous-traitants : invitation EU→ST, dashboard ST, acceptation/refus mise en relation
+       v0.5.1 — Fix syntax error : double fermeture onRoleChange
   -->
-  <meta name="app-version" content="0.5.0" />
+  <meta name="app-version" content="0.5.1" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -248,7 +248,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.5.0</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.5.1</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -770,9 +770,6 @@ function onRoleChange(val) {
   document.getElementById('bookingUrlGroup').style.display = val === 'trainer' ? 'block' : 'none';
   document.getElementById('teamCodeGroup').style.display   = val === 'worker'  ? 'block' : 'none';
   document.getElementById('orgNameLabel').textContent      = val === 'subcontractor' ? 'Nom de la société sous-traitante' : val === 'trainer' ? 'Nom du centre de formation' : 'Nom de la société';
-}
-  const label = document.getElementById('orgNameLabel');
-  if (label) label.textContent = val === 'trainer' ? 'Nom du centre de formation' : 'Nom de la société';
 }
 
 // ── NAV PAGES ──
