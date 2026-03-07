@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.3.0 — Centres de formation : rôle trainer, double badge, alertes expiration, sélecteur centre upload
+       v0.3.1 — Fix inscription : profil créé avant organisation (FK organizations_created_by_fkey)
   -->
-  <meta name="app-version" content="0.3.0" />
+  <meta name="app-version" content="0.3.1" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -247,7 +247,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.3.0</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.3.1</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -704,18 +704,28 @@ async function handleRegister(e) {
   if (error) { showAlert(error.message); setLoading('registerBtn', false, 'Créer mon compte'); return; }
 
   if (data.user) {
-    // Company ou Trainer → créer organization
+    // 1. Créer le profil EN PREMIER (requis par la FK organizations_created_by_fkey)
+    const { error: profileErr } = await sb.from('profiles').insert({ id: data.user.id, full_name: name, email, role, org_id: null });
+    if (profileErr) { showAlert('Erreur création profil : ' + profileErr.message); setLoading('registerBtn', false, 'Créer mon compte'); return; }
+
+    // 2. Company ou Trainer → créer l'organisation (created_by peut maintenant référencer le profil)
     if ((role === 'company' || role === 'trainer') && orgName) {
-      const prefix   = orgName.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 4).padEnd(4, 'X');
-      const suffix   = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4).padEnd(4, '0');
-      const teamCode = prefix + '-' + suffix;
-      const orgPayload = { name: orgName, team_code: teamCode, type: role === 'trainer' ? 'training_center' : 'company', created_by: data.user.id };
+      const prefix    = orgName.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 4).padEnd(4, 'X');
+      const suffix    = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4).padEnd(4, '0');
+      const tCode     = prefix + '-' + suffix;
+      const orgPayload = { name: orgName, team_code: tCode, type: role === 'trainer' ? 'training_center' : 'company', created_by: data.user.id };
       if (role === 'trainer' && bookingUrl) orgPayload.booking_url = bookingUrl;
       const { data: org, error: orgErr } = await sb.from('organizations').insert(orgPayload).select().single();
       if (orgErr) { showAlert('Erreur création organisation : ' + orgErr.message); setLoading('registerBtn', false, 'Créer mon compte'); return; }
-      if (org) orgId = org.id;
+      if (org) {
+        orgId = org.id;
+        // 3. Mettre à jour le profil avec l'org_id
+        await sb.from('profiles').update({ org_id: orgId }).eq('id', data.user.id);
+      }
+    } else if (orgId) {
+      // Worker : mettre à jour le profil avec l'org_id de l'employeur
+      await sb.from('profiles').update({ org_id: orgId }).eq('id', data.user.id);
     }
-    await sb.from('profiles').insert({ id: data.user.id, full_name: name, email, role, org_id: orgId });
   }
   setLoading('registerBtn', false, 'Créer mon compte');
   showAlert('Compte créé ! Confirmez votre email puis connectez-vous.', 'success');
