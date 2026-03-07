@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.5.7 — Workers rattachables aux sous-traitants + onglet intervenants dashboard ST
+       v0.5.8 — ST : invitation intervenants par liste email + import Excel/CSV
   -->
-  <meta name="app-version" content="0.5.7" />
+  <meta name="app-version" content="0.5.8" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -248,7 +248,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.5.7</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.5.8</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -470,6 +470,7 @@
     <div class="page-section" id="Subcontractor-workers">
       <div class="dash-welcome">Mes <em>Intervenants</em></div>
       <div class="dash-subtitle">Intervenants rattachés à votre société</div>
+      <button class="btn-sm btn-upload" style="margin-bottom:24px;padding:10px 20px;font-size:13px" onclick="openInviteWorkersModal()">✉️ Inviter des intervenants</button>
       <div id="stWorkersContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
     <div class="page-section" id="Subcontractor-invites">
@@ -619,6 +620,54 @@
       <div class="dash-subtitle">Documents transmis par vos intervenants</div>
       <div id="guestDocsContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
+  </div>
+</div>
+
+<!-- ══ MODAL INVITATION INTERVENANTS ══ -->
+<div class="modal-overlay" id="inviteWorkersModal">
+  <div class="modal" style="max-width:560px">
+    <button class="modal-close" onclick="closeInviteWorkersModal()">✕</button>
+    <div class="modal-title">✉️ Inviter des Intervenants</div>
+    <div class="modal-subtitle">Envoyez le code de rattachement à vos équipes</div>
+
+    <!-- Onglets saisie / import -->
+    <div class="tabs" style="margin-bottom:20px">
+      <button class="tab active" onclick="switchInviteTab('manual',this)">✏️ Saisie manuelle</button>
+      <button class="tab" onclick="switchInviteTab('import',this)">📊 Import Excel/CSV</button>
+    </div>
+
+    <!-- Saisie manuelle -->
+    <div id="inviteTab-manual">
+      <div class="form-group">
+        <label class="form-label">Emails des intervenants <span style="color:var(--muted);font-weight:400">(un par ligne ou séparés par des virgules)</span></label>
+        <textarea class="form-input" id="workerEmailsList" placeholder="jean.dupont@email.fr&#10;marie.martin@email.fr&#10;pierre.durand@email.fr" style="height:120px;resize:vertical"></textarea>
+      </div>
+    </div>
+
+    <!-- Import Excel/CSV -->
+    <div id="inviteTab-import" style="display:none">
+      <div class="file-drop" id="workerFileDrop" onclick="document.getElementById('workerFileInput').click()">
+        <div class="file-drop-icon">📊</div>
+        <div class="file-drop-text"><strong>Cliquez</strong> ou glissez votre fichier ici<br><small style="font-size:11px">Excel (.xlsx, .xls) ou CSV — colonne "email" requise</small></div>
+        <div class="file-name-preview" id="workerFilePreview"></div>
+      </div>
+      <input type="file" id="workerFileInput" class="file-input-hidden" accept=".xlsx,.xls,.csv" onchange="handleWorkerFileImport(event)" />
+      <div id="workerImportPreview" style="margin-top:12px"></div>
+    </div>
+
+    <div id="workerEmailCount" style="font-size:12px;color:var(--muted);margin-bottom:16px"></div>
+    <button class="btn-primary" id="sendWorkerInvitesBtn" onclick="sendWorkerInvites()">✉️ Préparer les invitations</button>
+  </div>
+</div>
+
+<!-- ══ MODAL RÉSULTAT INVITATIONS INTERVENANTS ══ -->
+<div class="modal-overlay" id="workerInviteResultModal">
+  <div class="modal" style="max-width:560px">
+    <button class="modal-close" onclick="document.getElementById('workerInviteResultModal').classList.remove('open')">✕</button>
+    <div class="modal-title">📬 Invitations prêtes</div>
+    <div class="modal-subtitle" id="workerInviteResultSubtitle"></div>
+    <div id="workerInviteResultList" style="max-height:350px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin-bottom:16px"></div>
+    <button class="btn-primary" onclick="copyAllWorkerInvites()">📋 Copier tous les messages</button>
   </div>
 </div>
 
@@ -1892,6 +1941,122 @@ async function loadSTDocs() {
     </div>`;
   }).join('') + '</div>';
   container.innerHTML = html;
+}
+
+// ══════════════════════════════════════
+// INVITATION INTERVENANTS (ST)
+// ══════════════════════════════════════
+let _workerImportedEmails = [];
+
+async function openInviteWorkersModal() {
+  document.getElementById('workerEmailsList').value = '';
+  document.getElementById('workerEmailCount').textContent = '';
+  document.getElementById('workerImportPreview').innerHTML = '';
+  document.getElementById('workerFilePreview').textContent = '';
+  _workerImportedEmails = [];
+  switchInviteTab('manual', document.querySelector('#inviteWorkersModal .tab'));
+  document.getElementById('inviteWorkersModal').classList.add('open');
+}
+
+function closeInviteWorkersModal() {
+  document.getElementById('inviteWorkersModal').classList.remove('open');
+}
+
+function switchInviteTab(tab, el) {
+  document.querySelectorAll('#inviteWorkersModal .tab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('inviteTab-manual').style.display = tab === 'manual' ? 'block' : 'none';
+  document.getElementById('inviteTab-import').style.display = tab === 'import' ? 'block' : 'none';
+}
+
+async function handleWorkerFileImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  document.getElementById('workerFilePreview').textContent = file.name;
+  _workerImportedEmails = [];
+
+  if (file.name.endsWith('.csv')) {
+    const text = await file.text();
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const header = lines[0].toLowerCase().split(/[,;]/);
+    const emailIdx = header.findIndex(h => h.includes('email') || h.includes('mail'));
+    if (emailIdx === -1) {
+      document.getElementById('workerImportPreview').innerHTML = `<div style="color:#FCA5A5;font-size:13px">⚠️ Colonne "email" introuvable dans le CSV</div>`;
+      return;
+    }
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(/[,;]/);
+      const email = cols[emailIdx]?.replace(/"/g,'').trim().toLowerCase();
+      if (email && email.includes('@')) _workerImportedEmails.push(email);
+    }
+  } else {
+    // Excel via SheetJS CDN
+    try {
+      const { read, utils } = await import('https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs');
+      const buf  = await file.arrayBuffer();
+      const wb   = read(buf);
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = utils.sheet_to_json(ws, { defval: '' });
+      const emailKey = Object.keys(rows[0] || {}).find(k => k.toLowerCase().includes('email') || k.toLowerCase().includes('mail'));
+      if (!emailKey) {
+        document.getElementById('workerImportPreview').innerHTML = `<div style="color:#FCA5A5;font-size:13px">⚠️ Colonne "email" introuvable dans le fichier</div>`;
+        return;
+      }
+      rows.forEach(r => {
+        const email = (r[emailKey] || '').toString().trim().toLowerCase();
+        if (email && email.includes('@')) _workerImportedEmails.push(email);
+      });
+    } catch(e) {
+      document.getElementById('workerImportPreview').innerHTML = `<div style="color:#FCA5A5;font-size:13px">⚠️ Erreur lecture fichier : ${e.message}</div>`;
+      return;
+    }
+  }
+
+  document.getElementById('workerImportPreview').innerHTML =
+    `<div style="color:#86EFAC;font-size:13px">✓ ${_workerImportedEmails.length} email(s) importé(s)</div>` +
+    `<div style="font-size:11px;color:var(--muted);margin-top:4px">${_workerImportedEmails.slice(0,5).join(', ')}${_workerImportedEmails.length > 5 ? '...' : ''}</div>`;
+}
+
+async function sendWorkerInvites() {
+  const { data: org } = await sb.from('organizations').select('name, team_code').eq('id', currentProfile.org_id).single();
+  if (!org) { showToast('Organisation introuvable', 'error'); return; }
+
+  const activeTab = document.getElementById('inviteTab-manual').style.display !== 'none' ? 'manual' : 'import';
+  let emails = [];
+  if (activeTab === 'manual') {
+    const raw = document.getElementById('workerEmailsList').value;
+    emails = raw.split(/[\n,;]+/).map(e => e.trim().toLowerCase()).filter(e => e.includes('@'));
+  } else {
+    emails = _workerImportedEmails;
+  }
+  if (!emails.length) { showToast('Aucun email valide trouvé', 'error'); return; }
+
+  const messages = emails.map(email => {
+    const subject    = encodeURIComponent(`Invitation SafetySphere — ${org.name}`);
+    const bodyShort  = encodeURIComponent(`Bonjour,\n\n${org.name} vous invite sur SafetySphere.\n\nCréez votre compte : https://safetysphere.vercel.app\nRôle : Intervenant | Code employeur : ${org.team_code}\n\nCordialement,\n${currentProfile.full_name}`);
+    const fullMsg    = `Bonjour,\n\n${org.name} vous invite à rejoindre SafetySphere, la plateforme de gestion des habilitations.\n\nCréez votre compte sur https://safetysphere.vercel.app\n- Rôle : Intervenant\n- Code employeur : ${org.team_code}\n\nCordialement,\n${currentProfile.full_name}\n${org.name}`;
+    return { email, fullMsg, mailtoUrl: `mailto:${email}?subject=${subject}&body=${bodyShort}` };
+  });
+
+  closeInviteWorkersModal();
+  window._workerInviteMessages = messages;
+  document.getElementById('workerInviteResultSubtitle').textContent = `${emails.length} invitation(s) — Code équipe : ${org.team_code}`;
+  document.getElementById('workerInviteResultList').innerHTML = messages.map((m, i) =>
+    `<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:700;flex:1">📧 ${m.email}</span>
+        <button onclick="window.open(window._workerInviteMessages[${i}].mailtoUrl,'_self')" class="btn-sm btn-upload" style="white-space:nowrap">📧 Ouvrir</button>
+        <button onclick="navigator.clipboard.writeText(window._workerInviteMessages[${i}].fullMsg).then(()=>showToast('Copié','success'))" class="btn-sm btn-view" style="white-space:nowrap">📋 Copier</button>
+      </div>
+    </div>`
+  ).join('');
+  document.getElementById('workerInviteResultModal').classList.add('open');
+}
+
+function copyAllWorkerInvites() {
+  if (!window._workerInviteMessages) return;
+  const all = window._workerInviteMessages.map(m => `À: ${m.email}\n${m.fullMsg}`).join('\n\n---\n\n');
+  navigator.clipboard.writeText(all).then(() => showToast(`✓ ${window._workerInviteMessages.length} messages copiés`, 'success'));
 }
 
 (async () => {
