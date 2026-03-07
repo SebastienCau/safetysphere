@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.4.2 — Partage : documents en attente également partageables (validés + pending)
+       v0.4.3 — Documents reçus dans tous les dashboards (HSE, company, worker, trainer, guest)
   -->
-  <meta name="app-version" content="0.4.2" />
+  <meta name="app-version" content="0.4.3" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -248,7 +248,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.4.2</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.4.3</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -308,6 +308,7 @@
     <button class="nav-tab active" onclick="switchPage('Worker','overview',this)">🏠 Accueil</button>
     <button class="nav-tab" onclick="switchPage('Worker','docs',this)">📄 Mes Habilitations</button>
     <button class="nav-tab" onclick="switchPage('Worker','shares',this)">📤 Partages</button>
+    <button class="nav-tab" onclick="switchPage('Worker','received',this)">📂 Documents reçus</button>
   </div>
   <div class="dash-body">
     <!-- OVERVIEW -->
@@ -370,6 +371,13 @@
       <button class="btn-sm btn-upload" style="margin-bottom:24px;padding:10px 20px;font-size:13px" onclick="openShareModal()">📤 Nouveau partage</button>
       <div id="workerSharesContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
+
+    <!-- DOCUMENTS REÇUS -->
+    <div class="page-section" id="Worker-received">
+      <div class="dash-welcome">Documents <em>Reçus</em></div>
+      <div class="dash-subtitle">Documents partagés avec vous par d'autres intervenants</div>
+      <div id="Worker-receivedContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
+    </div>
   </div>
 </div>
 
@@ -386,6 +394,7 @@
     <button class="nav-tab active" onclick="switchPage('Company','overview',this)">🏠 Accueil</button>
     <button class="nav-tab" onclick="switchPage('Company','societedocs',this)">🏢 Documents Société</button>
     <button class="nav-tab" onclick="switchPage('Company','workers',this)">👷 Intervenants <span id="pendingBadge" class="notif-badge" style="display:none">!</span></button>
+    <button class="nav-tab" onclick="switchPage('Company','received',this)">📂 Documents reçus</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="Company-overview">
@@ -416,6 +425,11 @@
       <div class="dash-subtitle">Validez les documents de vos intervenants</div>
       <div id="companyWorkersContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
+    <div class="page-section" id="Company-received">
+      <div class="dash-welcome">Documents <em>Reçus</em></div>
+      <div class="dash-subtitle">Documents partagés avec vous par des intervenants</div>
+      <div id="Company-receivedContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
+    </div>
   </div>
 </div>
 
@@ -431,6 +445,7 @@
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('HSE','overview',this)">🏠 Accueil</button>
     <button class="nav-tab" onclick="switchPage('HSE','contractors',this)">👥 Sous-traitants</button>
+    <button class="nav-tab" onclick="switchPage('HSE','received',this)">📂 Documents reçus</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="HSE-overview">
@@ -453,6 +468,11 @@
       <div class="dash-subtitle">Vue conformité de tous vos sous-traitants</div>
       <div class="empty-state"><div class="empty-state-icon">👥</div><div class="empty-state-text">Aucun sous-traitant enregistré pour l'instant</div></div>
     </div>
+    <div class="page-section" id="HSE-received">
+      <div class="dash-welcome">Documents <em>Reçus</em></div>
+      <div class="dash-subtitle">Documents partagés avec vous par des intervenants</div>
+      <div id="HSE-receivedContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
+    </div>
   </div>
 </div>
 
@@ -469,6 +489,7 @@
     <button class="nav-tab active" onclick="switchPage('Trainer','overview',this)">🏠 Accueil</button>
     <button class="nav-tab" onclick="switchPage('Trainer','requests',this)">📋 Demandes de validation <span id="trainerPendingBadge" class="notif-badge" style="display:none">!</span></button>
     <button class="nav-tab" onclick="switchPage('Trainer','validated',this)">✅ Historique</button>
+    <button class="nav-tab" onclick="switchPage('Trainer','received',this)">📂 Documents reçus</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="Trainer-overview">
@@ -497,6 +518,11 @@
       <div class="dash-welcome">Formations <em>Validées</em></div>
       <div class="dash-subtitle">Historique des validations effectuées par votre centre</div>
       <div id="trainerHistoryContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
+    </div>
+    <div class="page-section" id="Trainer-received">
+      <div class="dash-welcome">Documents <em>Reçus</em></div>
+      <div class="dash-subtitle">Documents partagés avec vous par des intervenants</div>
+      <div id="Trainer-receivedContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
   </div>
 </div>
@@ -698,10 +724,14 @@ function switchPage(dash, page, el) {
   // Lazy loads
   if (dash === 'Worker'  && page === 'docs')       loadWorkerDocs();
   if (dash === 'Worker'  && page === 'shares')     loadWorkerShares();
+  if (dash === 'Worker'  && page === 'received')   loadReceivedDocs('Worker-receivedContainer');
   if (dash === 'Company' && page === 'societedocs') loadCompanyDocs();
   if (dash === 'Company' && page === 'workers')    loadCompanyWorkers();
+  if (dash === 'Company' && page === 'received')   loadReceivedDocs('Company-receivedContainer');
+  if (dash === 'HSE'     && page === 'received')   loadReceivedDocs('HSE-receivedContainer');
   if (dash === 'Trainer' && page === 'requests')   loadTrainerRequests();
   if (dash === 'Trainer' && page === 'validated')  loadTrainerHistory();
+  if (dash === 'Trainer' && page === 'received')   loadReceivedDocs('Trainer-receivedContainer');
 }
 
 // ── SHOW DASHBOARD ──
@@ -731,7 +761,7 @@ function showDashboard(role, fullName) {
   } else if (role === 'guest') {
     document.getElementById('dashGuest').classList.add('active');
     document.getElementById('guestUserName').textContent = fullName || '';
-    loadGuestDocs();
+    loadReceivedDocs('guestDocsContainer');
   } else if (role === 'admin') {
     document.getElementById('dashAdmin').classList.add('active');
     document.getElementById('adminUserName').textContent = fullName || '';
@@ -1461,29 +1491,28 @@ async function revokeShare(shareId) {
 }
 
 // ══════════════════════════════
-// GUEST (Client Final)
+// DOCUMENTS REÇUS (tous rôles)
 // ══════════════════════════════
-async function loadGuestDocs() {
-  const container = document.getElementById('guestDocsContainer');
+async function loadReceivedDocs(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
   const email = currentProfile.email;
   const now   = new Date();
 
-  // Charger les partages adressés à cet email (non expirés)
   const { data: shares } = await sb.from('document_shares')
     .select('*')
     .eq('guest_email', email.toLowerCase())
     .or(`expires_at.is.null,expires_at.gt.${now.toISOString()}`);
 
   if (!shares || !shares.length) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📂</div><div class="empty-state-text">Aucun document partagé avec vous pour l'instant.<br>Demandez à votre intervenant de partager son passeport.</div></div>`;
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📂</div><div class="empty-state-text">Aucun document partagé avec vous pour l'instant.</div></div>`;
     return;
   }
 
-  // Pour chaque partage, charger le worker et ses docs
   let html = '';
   for (const share of shares) {
     const { data: worker } = await sb.from('profiles').select('full_name').eq('id', share.worker_id).single();
-    const { data: docs }   = await sb.from('documents').select('*').eq('owner_id', share.worker_id).eq('category', 'worker').in('doc_type', share.doc_types);
+    const { data: docs }   = await sb.from('documents').select('*').eq('owner_id', share.worker_id).eq('category','worker').in('doc_type', share.doc_types);
     const workerName = worker?.full_name || 'Intervenant';
     const expLabel   = share.expires_at ? 'Expire le ' + new Date(share.expires_at).toLocaleDateString('fr-FR') : 'Partage permanent';
 
@@ -1491,13 +1520,13 @@ async function loadGuestDocs() {
       <div class="section-title">👷 ${workerName} <span style="font-size:12px;color:var(--muted);font-weight:400">${expLabel}</span></div>
       <div class="doc-grid">` +
       share.doc_types.map(key => {
-        const def = WORKER_DOCS.find(d => d.key === key) || { name: key, icon: '📄', desc: '' };
+        const def = WORKER_DOCS.find(d => d.key === key) || { name: key, icon: '📄' };
         const doc = docs ? docs.find(d => d.doc_type === key) : null;
         if (!doc) return `<div class="doc-card"><div class="doc-card-header"><div class="doc-card-icon">${def.icon}</div><div class="doc-card-badges"><span class="doc-badge status-empty">Non déposé</span></div></div><div class="doc-card-name">${def.name}</div></div>`;
         const exp     = doc.expires_at ? new Date(doc.expires_at).toLocaleDateString('fr-FR') : null;
         const expired = doc.expires_at && new Date(doc.expires_at) < now;
         return `<div class="doc-card">
-          <div class="doc-card-header"><div class="doc-card-icon">${def.icon}</div><div class="doc-card-badges"><span class="doc-badge status-${doc.status}">${doc.status === 'validated' ? 'Validé ✓' : doc.status}</span></div></div>
+          <div class="doc-card-header"><div class="doc-card-icon">${def.icon}</div><div class="doc-card-badges"><span class="doc-badge status-${doc.status}">${doc.status === 'validated' ? '✓ Validé' : doc.status === 'pending' ? '⏳ En attente' : doc.status}</span></div></div>
           <div class="doc-card-name">${def.name}</div>
           ${exp ? `<div class="doc-card-expiry ${expired ? 'urgent' : 'ok'}">📅 ${exp}</div>` : ''}
           <div class="doc-card-actions">
