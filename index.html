@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.5.9 — ST : invitations intervenants sauvegardées en base, liste rattachés + en attente + relance
+       v0.6.0 — Rattachement ST↔EU par code équipe (org_relationships), suppression invitation/acceptation
   -->
-  <meta name="app-version" content="0.5.9" />
+  <meta name="app-version" content="0.6.0" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -248,7 +248,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.5.9</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.6.0</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -453,7 +453,7 @@
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Subcontractor','overview',this)">🏠 Accueil</button>
     <button class="nav-tab" onclick="switchPage('Subcontractor','workers',this)">👷 Mes Intervenants</button>
-    <button class="nav-tab" onclick="switchPage('Subcontractor','invites',this)">📩 Invitations <span id="stPendingBadge" class="notif-badge" style="display:none">!</span></button>
+    <button class="nav-tab" onclick="switchPage('Subcontractor','eu',this)">🏭 Mes EU</button>
     <button class="nav-tab" onclick="switchPage('Subcontractor','docs',this)">🏢 Mes Documents</button>
   </div>
   <div class="dash-body">
@@ -461,10 +461,9 @@
       <div class="dash-welcome">Bonjour, <em id="stFirstName">—</em> 👋</div>
       <div class="dash-subtitle">Tableau de bord Sous-Traitant</div>
       <div class="stats-grid">
-        <div class="stat-card"><div class="stat-icon">🏢</div><div class="stat-value" id="stStat1">0</div><div class="stat-label">EU partenaires</div></div>
-        <div class="stat-card"><div class="stat-icon">📩</div><div class="stat-value" id="stStat2">0</div><div class="stat-label">Invitations en attente</div></div>
+        <div class="stat-card"><div class="stat-icon">🏭</div><div class="stat-value" id="stStat1">0</div><div class="stat-label">EU partenaires</div></div>
         <div class="stat-card"><div class="stat-icon">👷</div><div class="stat-value" id="stStat3">0</div><div class="stat-label">Intervenants</div></div>
-        <div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value" id="stStat4">0</div><div class="stat-label">Expirations proches</div></div>
+        <div class="stat-card"><div class="stat-icon">📄</div><div class="stat-value" id="stStat4">0</div><div class="stat-label">Documents</div></div>
       </div>
     </div>
     <div class="page-section" id="Subcontractor-workers">
@@ -473,10 +472,17 @@
       <button class="btn-sm btn-upload" style="margin-bottom:24px;padding:10px 20px;font-size:13px" onclick="openInviteWorkersModal()">✉️ Inviter des intervenants</button>
       <div id="stWorkersContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
-    <div class="page-section" id="Subcontractor-invites">
-      <div class="dash-welcome">Mes <em>Invitations</em></div>
-      <div class="dash-subtitle">Demandes de mise en relation des entreprises utilisatrices</div>
-      <div id="stInvitesContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
+    <div class="page-section" id="Subcontractor-eu">
+      <div class="dash-welcome">Mes <em>Entreprises Utilisatrices</em></div>
+      <div class="dash-subtitle">Rattachez-vous à vos donneurs d'ordre via leur code équipe</div>
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:18px;margin-bottom:24px">
+        <div class="form-label" style="margin-bottom:8px">Code équipe de l'EU</div>
+        <div style="display:flex;gap:10px">
+          <input class="form-input" id="euTeamCodeInput" placeholder="Ex: TOTA-0001" style="flex:1;margin:0" maxlength="9" oninput="this.value=this.value.toUpperCase()" />
+          <button class="btn-primary" style="white-space:nowrap" onclick="attachToEU()">🔗 Se rattacher</button>
+        </div>
+      </div>
+      <div id="stEUContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
     <div class="page-section" id="Subcontractor-docs">
       <div class="dash-welcome">Mes <em>Documents</em></div>
@@ -866,7 +872,7 @@ function switchPage(dash, page, el) {
   if (dash === 'HSE'     && page === 'received')   loadReceivedDocs('HSE-receivedContainer');
   if (dash === 'Company' && page === 'subcontractors') loadST(currentProfile.org_id, 'companySTContainer');
   if (dash === 'Subcontractor' && page === 'workers')  loadSTWorkers();
-  if (dash === 'Subcontractor' && page === 'invites')  loadSTInvites();
+  if (dash === 'Subcontractor' && page === 'eu')       loadSTEU();
   if (dash === 'Subcontractor' && page === 'docs')     loadSTDocs();
   if (dash === 'Trainer' && page === 'requests')   loadTrainerRequests();
   if (dash === 'Trainer' && page === 'validated')  loadTrainerHistory();
@@ -976,13 +982,7 @@ async function handleRegister(e) {
       if (role === 'trainer' && bookingUrl) orgPayload.booking_url = bookingUrl;
       const { data: org, error: orgErr } = await sb.from('organizations').insert(orgPayload).select().single();
       if (orgErr) { showAlert('Erreur création organisation : ' + orgErr.message); setLoading('registerBtn', false, 'Créer mon compte'); return; }
-      if (org) {
-        orgId = org.id;
-        // ST → lier automatiquement les invitations en attente à cet email
-        if (role === 'subcontractor') {
-          await sb.from('subcontractor_invites').update({ st_org_id: org.id }).eq('st_email', email.toLowerCase()).eq('status', 'pending');
-        }
-      }
+      if (org) { orgId = org.id; }
     }
 
     // 2. Créer le profil avec org_id déjà connu en un seul insert
@@ -1725,30 +1725,22 @@ async function sendSTInvite() {
   if (!email) { showToast('Veuillez saisir un email', 'error'); return; }
   if (!currentProfile.org_id) { showToast('Votre organisation n\'est pas configurée', 'error'); return; }
   setLoading('inviteSTBtn', true, 'Envoi...');
-  const { data: euOrg } = await sb.from('organizations').select('name').eq('id', currentProfile.org_id).single();
+  const { data: euOrg } = await sb.from('organizations').select('name, team_code').eq('id', currentProfile.org_id).single();
   const euName = euOrg?.name || 'notre entreprise';
-  const { error } = await sb.from('subcontractor_invites').insert({
-    eu_org_id: currentProfile.org_id,
-    st_email:  email
-  });
+  const euCode = euOrg?.team_code || '';
   setLoading('inviteSTBtn', false, '✉️ Envoyer l\'invitation');
-  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
 
-  // Message court pour mailto (limite navigateur ~2000 chars)
-  const subject  = encodeURIComponent(`Invitation SafetySphere — ${euName}`);
-  const bodyShort = encodeURIComponent(`Bonjour,\n\n${euName} vous invite sur SafetySphere.\n\nCréez votre compte : https://safetysphere.vercel.app\nRôle : Sous-Traitant | Email : ${email}\n\nAcceptez ensuite la mise en relation dans "Invitations".\n\nCordialement,\n${currentProfile.full_name}`);
-
-  // Message complet pour copier-coller
-  const fullMsg =
+  const subject   = encodeURIComponent(`Invitation SafetySphere — ${euName}`);
+  const bodyShort = encodeURIComponent(`Bonjour,\n\n${euName} vous invite sur SafetySphere.\n\nCréez votre compte : https://safetysphere.vercel.app\nRôle : Sous-Traitant\nCode équipe EU : ${euCode}\n\nCordialement,\n${currentProfile.full_name}`);
+  const fullMsg   =
 `Bonjour,
 
-${euName} vous invite à rejoindre SafetySphere, notre plateforme de gestion des habilitations et documents de sous-traitance.
+${euName} vous invite à rejoindre SafetySphere, la plateforme de gestion des habilitations.
 
-Pour accepter cette mise en relation :
+Pour vous rattacher :
 1. Créez votre compte sur https://safetysphere.vercel.app
 2. Choisissez le rôle "Sous-Traitant"
-3. Utilisez cette adresse email : ${email}
-4. Une fois connecté, acceptez la demande dans l'onglet "Invitations"
+3. Dans l'onglet "Mes EU", saisissez le code équipe : ${euCode}
 
 Cordialement,
 ${currentProfile.full_name}
@@ -1759,62 +1751,70 @@ ${euName}`;
   window._inviteMailtoUrl = `mailto:${email}?subject=${subject}&body=${bodyShort}`;
   document.getElementById('inviteCopyText').value = fullMsg;
   document.getElementById('inviteConfirmModal').classList.add('open');
-
-  const containerId = currentProfile.role === 'hse' ? 'hseSTContainer' : 'companySTContainer';
-  loadST(currentProfile.org_id, containerId);
 }
 
 async function loadST(orgId, containerId) {
   const container = document.getElementById(containerId);
   if (!container || !orgId) {
-    if (container) container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Organisation non configurée. Complétez votre profil.</div></div>`;
+    if (container) container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Organisation non configurée.</div></div>`;
     return;
   }
-  const { data: invites } = await sb.from('subcontractor_invites')
-    .select('*').eq('eu_org_id', orgId).order('created_at', { ascending: false });
+  const { data: rels } = await sb.from('org_relationships').select('id, st_org_id, created_at').eq('eu_org_id', orgId).order('created_at', { ascending: false });
 
-  if (!invites || !invites.length) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🤝</div><div class="empty-state-text">Aucun sous-traitant invité pour l'instant.<br>Invitez vos partenaires à rejoindre SafetySphere.</div></div>`;
+  if (!rels || !rels.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🤝</div><div class="empty-state-text">Aucun sous-traitant rattaché.<br>Communiquez votre code équipe à vos sous-traitants.</div></div>`;
+    // Afficher le code équipe de l'EU
+    const { data: org } = await sb.from('organizations').select('team_code').eq('id', orgId).single();
+    if (org) container.innerHTML += `<div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.25);border-radius:12px;padding:12px 18px;margin-top:16px;display:flex;align-items:center;gap:14px">
+      <div style="flex:1"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:3px">Votre code équipe</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:#818CF8;letter-spacing:3px">${org.team_code}</div></div>
+      <button onclick="navigator.clipboard.writeText('${org.team_code}').then(()=>showToast('Code copié','success'))" class="btn-sm btn-view">📋 Copier</button>
+    </div>`;
     return;
   }
-  const stOrgIds = invites.filter(i => i.st_org_id).map(i => i.st_org_id);
-  const orgMap   = {};
-  if (stOrgIds.length) {
-    const { data: orgs } = await sb.from('organizations').select('id, name').in('id', stOrgIds);
-    if (orgs) orgs.forEach(o => orgMap[o.id] = o.name);
-  }
-  const statusLabel = { pending: '⏳ En attente', accepted: '✅ Accepté', declined: '❌ Refusé' };
-  const statusColor = { pending: '#FCD34D', accepted: '#86EFAC', declined: '#FCA5A5' };
-  const html = '<div class="request-list">' + invites.map(inv => {
-    const stName = inv.st_org_id ? (orgMap[inv.st_org_id] || 'ST inscrit') : 'Pas encore inscrit';
-    const date   = new Date(inv.created_at).toLocaleDateString('fr-FR');
+
+  const { data: orgs } = await sb.from('organizations').select('id, name').in('id', rels.map(r => r.st_org_id));
+  const orgMap = {};
+  if (orgs) orgs.forEach(o => orgMap[o.id] = o.name);
+
+  // Afficher code équipe EU en haut
+  const { data: euOrg } = await sb.from('organizations').select('team_code').eq('id', orgId).single();
+  let html = '';
+  if (euOrg) html += `<div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.25);border-radius:12px;padding:12px 18px;margin-bottom:20px;display:flex;align-items:center;gap:14px">
+    <div style="flex:1"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:3px">Votre code équipe</div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:#818CF8;letter-spacing:3px">${euOrg.team_code}</div></div>
+    <button onclick="navigator.clipboard.writeText('${euOrg.team_code}').then(()=>showToast('Code copié','success'))" class="btn-sm btn-view">📋 Copier</button>
+  </div>`;
+
+  html += '<div class="request-list">' + rels.map(rel => {
+    const stName = orgMap[rel.st_org_id] || 'Sous-traitant';
+    const date   = new Date(rel.created_at).toLocaleDateString('fr-FR');
     return `<div class="request-card">
       <div class="request-card-header">
         <div class="request-card-icon">🤝</div>
         <div class="request-card-info">
-          <div class="request-card-name">📧 ${inv.st_email}</div>
-          <div class="request-card-meta">${stName} — Invité le ${date} — <span style="color:${statusColor[inv.status]};font-weight:700">${statusLabel[inv.status]}</span></div>
+          <div class="request-card-name">${stName}</div>
+          <div class="request-card-meta">Rattaché le ${date}</div>
         </div>
-        ${inv.status === 'pending' ? `<button class="btn-sm btn-reject" onclick="cancelSTInvite('${inv.id}','${containerId}')">✕ Annuler</button>` : ''}
+        <button onclick="detachST('${rel.id}','${stName}','${containerId}')" class="btn-sm btn-reject" style="white-space:nowrap">✕ Détacher</button>
       </div>
     </div>`;
   }).join('') + '</div>';
   container.innerHTML = html;
 }
 
-async function cancelSTInvite(inviteId, containerId) {
-  if (!confirm('Annuler cette invitation ?')) return;
-  await sb.from('subcontractor_invites').delete().eq('id', inviteId);
-  showToast('✓ Invitation annulée', 'success');
+async function detachST(relId, stName, containerId) {
+  if (!confirm(`Détacher ${stName} ?`)) return;
+  await sb.from('org_relationships').delete().eq('id', relId);
+  showToast('✓ ' + stName + ' détaché', 'success');
   loadST(currentProfile.org_id, containerId);
 }
 
 async function loadHSEStats() {
   if (!currentProfile.org_id) return;
-  const { data: accepted } = await sb.from('subcontractor_invites').select('id').eq('eu_org_id', currentProfile.org_id).eq('status','accepted');
-  const { data: pending }  = await sb.from('subcontractor_invites').select('id').eq('eu_org_id', currentProfile.org_id).eq('status','pending');
-  document.getElementById('hseStat1').textContent = accepted ? accepted.length : 0;
-  document.getElementById('hseStat2').textContent = pending  ? pending.length  : 0;
+  const { data: rels } = await sb.from('org_relationships').select('id').eq('eu_org_id', currentProfile.org_id);
+  document.getElementById('hseStat1').textContent = rels ? rels.length : 0;
+  document.getElementById('hseStat2').textContent = 0;
 }
 
 function openMailto() {
@@ -1830,18 +1830,13 @@ function copyInviteText() {
 // DASHBOARD SOUS-TRAITANT
 // ══════════════════════════════════════
 async function loadSTStats() {
-  const email = currentProfile.email;
-  const { data: pending }  = await sb.from('subcontractor_invites').select('id').eq('st_email', email).eq('status', 'pending');
-  const { data: accepted } = await sb.from('subcontractor_invites').select('id').eq('st_email', email).eq('status', 'accepted');
-  const pCount = pending  ? pending.length  : 0;
-  const aCount = accepted ? accepted.length : 0;
-  document.getElementById('stStat1').textContent = aCount;
-  document.getElementById('stStat2').textContent = pCount;
-  if (pCount > 0) { const b = document.getElementById('stPendingBadge'); b.style.display = 'inline'; b.textContent = pCount; }
-  if (currentProfile.org_id) {
-    const { data: workers } = await sb.from('profiles').select('id').eq('org_id', currentProfile.org_id).eq('role','worker');
-    document.getElementById('stStat3').textContent = workers ? workers.length : 0;
-  }
+  if (!currentProfile.org_id) return;
+  const [{ data: rels }, { data: workers }] = await Promise.all([
+    sb.from('org_relationships').select('id').eq('st_org_id', currentProfile.org_id),
+    sb.from('profiles').select('id').eq('org_id', currentProfile.org_id).eq('role','worker')
+  ]);
+  document.getElementById('stStat1').textContent = rels    ? rels.length    : 0;
+  document.getElementById('stStat3').textContent = workers ? workers.length : 0;
 }
 
 async function loadSTWorkers() {
@@ -1927,54 +1922,61 @@ async function cancelWorkerInvite(inviteId) {
   loadSTWorkers();
 }
 
-async function loadSTInvites() {
-  const container = document.getElementById('stInvitesContainer');
-  const email = currentProfile.email;
-  const { data: invites } = await sb.from('subcontractor_invites')
-    .select('*').eq('st_email', email).order('created_at', { ascending: false });
+async function attachToEU() {
+  const code = document.getElementById('euTeamCodeInput').value.toUpperCase().trim();
+  if (!code) { showToast('Veuillez saisir un code équipe', 'error'); return; }
+  if (!currentProfile.org_id) { showToast('Organisation non configurée', 'error'); return; }
 
-  if (!invites || !invites.length) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📩</div><div class="empty-state-text">Aucune invitation reçue pour l'instant.</div></div>`;
+  // Trouver l'EU par son code équipe (type company)
+  const { data: eu } = await sb.from('organizations').select('id, name').eq('team_code', code).eq('type','company').single();
+  if (!eu) { showToast('Code invalide — vérifiez auprès de votre donneur d\'ordre', 'error'); return; }
+  if (eu.id === currentProfile.org_id) { showToast('Vous ne pouvez pas vous rattacher à votre propre organisation', 'error'); return; }
+
+  const { error } = await sb.from('org_relationships').insert({ eu_org_id: eu.id, st_org_id: currentProfile.org_id });
+  if (error) {
+    if (error.code === '23505') { showToast('Vous êtes déjà rattaché à ' + eu.name, 'error'); return; }
+    showToast('Erreur : ' + error.message, 'error'); return;
+  }
+  document.getElementById('euTeamCodeInput').value = '';
+  showToast('✓ Rattaché à ' + eu.name, 'success');
+  loadSTEU();
+  loadSTStats();
+}
+
+async function loadSTEU() {
+  const container = document.getElementById('stEUContainer');
+  if (!currentProfile.org_id) { container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Organisation non configurée.</div></div>`; return; }
+
+  const { data: rels } = await sb.from('org_relationships').select('id, eu_org_id, created_at').eq('st_org_id', currentProfile.org_id).order('created_at', { ascending: false });
+  if (!rels || !rels.length) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🏭</div><div class="empty-state-text">Aucune EU rattachée.<br>Saisissez le code équipe de votre donneur d'ordre.</div></div>`;
     return;
   }
-  const euIds = [...new Set(invites.map(i => i.eu_org_id))];
-  const { data: orgs } = await sb.from('organizations').select('id, name').in('id', euIds);
+  const { data: orgs } = await sb.from('organizations').select('id, name, team_code').in('id', rels.map(r => r.eu_org_id));
   const orgMap = {};
-  if (orgs) orgs.forEach(o => orgMap[o.id] = o.name);
+  if (orgs) orgs.forEach(o => orgMap[o.id] = o);
 
-  const statusColor = { pending: '#FCD34D', accepted: '#86EFAC', declined: '#FCA5A5' };
-  const statusLabel = { pending: '⏳ En attente de votre réponse', accepted: '✅ Acceptée', declined: '❌ Refusée' };
-  const html = '<div class="request-list">' + invites.map(inv => {
-    const euName = orgMap[inv.eu_org_id] || 'Entreprise';
-    const date   = new Date(inv.created_at).toLocaleDateString('fr-FR');
+  container.innerHTML = '<div class="request-list">' + rels.map(rel => {
+    const eu   = orgMap[rel.eu_org_id] || {};
+    const date = new Date(rel.created_at).toLocaleDateString('fr-FR');
     return `<div class="request-card">
       <div class="request-card-header">
         <div class="request-card-icon">🏭</div>
         <div class="request-card-info">
-          <div class="request-card-name">${euName}</div>
-          <div class="request-card-meta">Invité le ${date} — <span style="color:${statusColor[inv.status]};font-weight:700">${statusLabel[inv.status]}</span></div>
+          <div class="request-card-name">${eu.name || 'Entreprise'}</div>
+          <div class="request-card-meta">Rattaché le ${date}</div>
         </div>
+        <button onclick="detachFromEU('${rel.id}','${eu.name || ''}')" class="btn-sm btn-reject" style="white-space:nowrap">✕ Se détacher</button>
       </div>
-      ${inv.status === 'pending' ? `<div class="request-card-actions">
-        <button class="btn-sm btn-validate" onclick="respondSTInvite('${inv.id}','accepted')">✓ Accepter</button>
-        <button class="btn-sm btn-reject"   onclick="respondSTInvite('${inv.id}','declined')">✗ Refuser</button>
-      </div>` : ''}
     </div>`;
   }).join('') + '</div>';
-  container.innerHTML = html;
 }
 
-async function respondSTInvite(inviteId, status) {
-  if (!confirm(status === 'accepted' ? 'Accepter cette mise en relation ?' : 'Refuser cette invitation ?')) return;
-  const update = { status };
-  if (status === 'accepted') {
-    update.accepted_at = new Date().toISOString();
-    if (currentProfile.org_id) update.st_org_id = currentProfile.org_id;
-  }
-  const { error } = await sb.from('subcontractor_invites').update(update).eq('id', inviteId);
-  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
-  showToast(status === 'accepted' ? '✓ Mise en relation acceptée' : '✓ Invitation refusée', 'success');
-  loadSTInvites();
+async function detachFromEU(relId, euName) {
+  if (!confirm(`Se détacher de ${euName} ?`)) return;
+  await sb.from('org_relationships').delete().eq('id', relId);
+  showToast('✓ Détaché de ' + euName, 'success');
+  loadSTEU();
   loadSTStats();
 }
 
