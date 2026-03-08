@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.7.6 — Onglet Mon Entreprise : coordonnées, SIRET, adresse, forme juridique, code équipe
+       v0.7.7 — Nom société affiché partout : documents reçus, demandes centre de formation
   -->
-  <meta name="app-version" content="0.7.6" />
+  <meta name="app-version" content="0.7.7" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -370,7 +370,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.7.6</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.7.7</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -1995,9 +1995,18 @@ async function loadTrainerRequests() {
     return;
   }
 
-  // Charger les noms des workers séparément
+  // Charger les noms des workers + leur société séparément
   const ownerIds = [...new Set(docs.map(d => d.owner_id))];
-  const { data: workers } = await sb.from('profiles').select('id, full_name, email').in('id', ownerIds);
+  const { data: workers } = await sb.from('profiles').select('id, full_name, email, org_id').in('id', ownerIds);
+
+  // Charger les noms des organisations des workers
+  const orgIds = [...new Set((workers || []).map(w => w.org_id).filter(Boolean))];
+  const orgMap = {};
+  if (orgIds.length) {
+    const { data: orgs } = await sb.from('organizations').select('id, name').in('id', orgIds);
+    if (orgs) orgs.forEach(o => orgMap[o.id] = o.name);
+  }
+
   const workerMap = {};
   if (workers) workers.forEach(w => workerMap[w.id] = w);
 
@@ -2005,13 +2014,14 @@ async function loadTrainerRequests() {
     const def        = WORKER_DOCS.find(w => w.key === doc.doc_type) || { name: doc.doc_type, icon: '📄' };
     const worker     = workerMap[doc.owner_id];
     const workerName = worker?.full_name || 'Intervenant inconnu';
+    const orgName    = worker?.org_id ? orgMap[worker.org_id] || '' : '';
     const expiry     = doc.expires_at ? new Date(doc.expires_at).toLocaleDateString('fr-FR') : 'Non renseignée';
     return `<div class="request-card">
       <div class="request-card-header">
         <div class="request-card-icon">${def.icon}</div>
         <div class="request-card-info">
           <div class="request-card-name">${def.name}</div>
-          <div class="request-card-meta">👷 ${workerName} — Expiration : ${expiry}</div>
+          <div class="request-card-meta">👷 ${workerName}${orgName ? ` — <span style="color:var(--orange)">🏢 ${orgName}</span>` : ''} — Expiration : ${expiry}</div>
         </div>
         <button class="btn-sm btn-view" onclick="viewDoc('${doc.file_url}')">👁 Voir</button>
       </div>
@@ -2414,15 +2424,33 @@ async function loadReceivedDocs(containerId) {
     return;
   }
 
+  // Charger tous les workers + leurs orgs en une seule passe
+  const workerIds = [...new Set(shares.map(s => s.worker_id))];
+  const { data: allWorkers } = await sb.from('profiles').select('id, full_name, org_id').in('id', workerIds);
+  const workerProfileMap = {};
+  if (allWorkers) allWorkers.forEach(w => workerProfileMap[w.id] = w);
+
+  const allOrgIds = [...new Set((allWorkers || []).map(w => w.org_id).filter(Boolean))];
+  const orgNameMap = {};
+  if (allOrgIds.length) {
+    const { data: orgs } = await sb.from('organizations').select('id, name').in('id', allOrgIds);
+    if (orgs) orgs.forEach(o => orgNameMap[o.id] = o.name);
+  }
+
   let html = '';
   for (const share of shares) {
-    const { data: worker } = await sb.from('profiles').select('full_name').eq('id', share.worker_id).single();
-    const { data: docs }   = await sb.from('documents').select('*').eq('owner_id', share.worker_id).eq('category','worker').in('doc_type', share.doc_types);
+    const { data: docs } = await sb.from('documents').select('*').eq('owner_id', share.worker_id).eq('category','worker').in('doc_type', share.doc_types);
+    const worker     = workerProfileMap[share.worker_id];
     const workerName = worker?.full_name || 'Intervenant';
+    const orgName    = worker?.org_id ? orgNameMap[worker.org_id] || '' : '';
     const expLabel   = share.expires_at ? 'Expire le ' + new Date(share.expires_at).toLocaleDateString('fr-FR') : 'Partage permanent';
 
     html += `<div style="margin-bottom:28px">
-      <div class="section-title">👷 ${workerName} <span style="font-size:12px;color:var(--muted);font-weight:400">${expLabel}</span></div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <span class="section-title" style="margin:0">👷 ${workerName}</span>
+        ${orgName ? `<span style="font-size:13px;color:var(--orange);font-weight:700;padding:3px 10px;border-radius:99px;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.25)">🏢 ${orgName}</span>` : ''}
+        <span style="font-size:12px;color:var(--muted)">${expLabel}</span>
+      </div>
       <div class="doc-grid">` +
       share.doc_types.map(key => {
         const def = WORKER_DOCS.find(d => d.key === key) || { name: key, icon: '📄' };
