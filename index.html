@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.6.0 — Rattachement ST↔EU par code équipe (org_relationships), suppression invitation/acceptation
+       v0.6.1 — ST invitations sauvegardées (st_invites), liste invités + rattachés côté EU/HSE
   -->
-  <meta name="app-version" content="0.6.0" />
+  <meta name="app-version" content="0.6.1" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -248,7 +248,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.6.0</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.6.1</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -1728,6 +1728,10 @@ async function sendSTInvite() {
   const { data: euOrg } = await sb.from('organizations').select('name, team_code').eq('id', currentProfile.org_id).single();
   const euName = euOrg?.name || 'notre entreprise';
   const euCode = euOrg?.team_code || '';
+
+  // Sauvegarder l'invitation en base
+  await sb.from('st_invites').upsert({ eu_org_id: currentProfile.org_id, st_email: email }, { onConflict: 'eu_org_id,st_email', ignoreDuplicates: true });
+
   setLoading('inviteSTBtn', false, '✉️ Envoyer l\'invitation');
 
   const subject   = encodeURIComponent(`Invitation SafetySphere — ${euName}`);
@@ -1759,26 +1763,33 @@ async function loadST(orgId, containerId) {
     if (container) container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Organisation non configurée.</div></div>`;
     return;
   }
-  const { data: rels } = await sb.from('org_relationships').select('id, st_org_id, created_at').eq('eu_org_id', orgId).order('created_at', { ascending: false });
 
-  if (!rels || !rels.length) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🤝</div><div class="empty-state-text">Aucun sous-traitant rattaché.<br>Communiquez votre code équipe à vos sous-traitants.</div></div>`;
-    // Afficher le code équipe de l'EU
-    const { data: org } = await sb.from('organizations').select('team_code').eq('id', orgId).single();
-    if (org) container.innerHTML += `<div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.25);border-radius:12px;padding:12px 18px;margin-top:16px;display:flex;align-items:center;gap:14px">
-      <div style="flex:1"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:3px">Votre code équipe</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:#818CF8;letter-spacing:3px">${org.team_code}</div></div>
-      <button onclick="navigator.clipboard.writeText('${org.team_code}').then(()=>showToast('Code copié','success'))" class="btn-sm btn-view">📋 Copier</button>
-    </div>`;
-    return;
+  // Charger relations + invitations + code équipe en parallèle
+  const [{ data: rels }, { data: invites }, { data: euOrg }] = await Promise.all([
+    sb.from('org_relationships').select('id, st_org_id, created_at').eq('eu_org_id', orgId).order('created_at', { ascending: false }),
+    sb.from('st_invites').select('*').eq('eu_org_id', orgId).order('created_at', { ascending: false }),
+    sb.from('organizations').select('team_code').eq('id', orgId).single()
+  ]);
+
+  const attachedEmails = new Set(); // pour filtrer les invités déjà rattachés
+
+  // Charger noms des ST rattachés
+  const stOrgIds = (rels || []).map(r => r.st_org_id);
+  const orgMap = {};
+  if (stOrgIds.length) {
+    const { data: orgs } = await sb.from('organizations').select('id, name').in('id', stOrgIds);
+    if (orgs) orgs.forEach(o => orgMap[o.id] = o);
   }
 
-  const { data: orgs } = await sb.from('organizations').select('id, name').in('id', rels.map(r => r.st_org_id));
-  const orgMap = {};
-  if (orgs) orgs.forEach(o => orgMap[o.id] = o.name);
+  // Charger emails des responsables ST rattachés pour filtrer les invitations
+  if (stOrgIds.length) {
+    const { data: stProfiles } = await sb.from('profiles').select('email, org_id').in('org_id', stOrgIds);
+    if (stProfiles) stProfiles.forEach(p => attachedEmails.add(p.email.toLowerCase()));
+  }
 
-  // Afficher code équipe EU en haut
-  const { data: euOrg } = await sb.from('organizations').select('team_code').eq('id', orgId).single();
+  const pendingInvites = (invites || []).filter(i => !attachedEmails.has(i.st_email.toLowerCase()));
+
+  // Bannière code équipe
   let html = '';
   if (euOrg) html += `<div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.25);border-radius:12px;padding:12px 18px;margin-bottom:20px;display:flex;align-items:center;gap:14px">
     <div style="flex:1"><div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:3px">Votre code équipe</div>
@@ -1786,27 +1797,60 @@ async function loadST(orgId, containerId) {
     <button onclick="navigator.clipboard.writeText('${euOrg.team_code}').then(()=>showToast('Code copié','success'))" class="btn-sm btn-view">📋 Copier</button>
   </div>`;
 
-  html += '<div class="request-list">' + rels.map(rel => {
-    const stName = orgMap[rel.st_org_id] || 'Sous-traitant';
-    const date   = new Date(rel.created_at).toLocaleDateString('fr-FR');
-    return `<div class="request-card">
-      <div class="request-card-header">
-        <div class="request-card-icon">🤝</div>
-        <div class="request-card-info">
-          <div class="request-card-name">${stName}</div>
-          <div class="request-card-meta">Rattaché le ${date}</div>
+  // Section ST rattachés
+  if (rels && rels.length) {
+    html += `<div class="section-title" style="margin-bottom:12px">✅ Rattachés (${rels.length})</div><div class="request-list" style="margin-bottom:24px">` +
+    rels.map(rel => {
+      const st   = orgMap[rel.st_org_id] || {};
+      const date = new Date(rel.created_at).toLocaleDateString('fr-FR');
+      return `<div class="request-card">
+        <div class="request-card-header">
+          <div class="request-card-icon">🤝</div>
+          <div class="request-card-info">
+            <div class="request-card-name">${st.name || 'Sous-traitant'}</div>
+            <div class="request-card-meta">Rattaché le ${date}</div>
+          </div>
+          <span style="font-size:11px;color:#86EFAC;font-weight:700">✓ Actif</span>
         </div>
-        <button onclick="detachST('${rel.id}','${stName}','${containerId}')" class="btn-sm btn-reject" style="white-space:nowrap">✕ Détacher</button>
-      </div>
-    </div>`;
-  }).join('') + '</div>';
+      </div>`;
+    }).join('') + '</div>';
+  }
+
+  // Section invités en attente
+  if (pendingInvites.length) {
+    const { data: euOrgFull } = await sb.from('organizations').select('name, team_code').eq('id', orgId).single();
+    html += `<div class="section-title" style="margin-bottom:12px">⏳ Invités en attente (${pendingInvites.length})</div><div class="request-list">` +
+    pendingInvites.map(inv => {
+      const date      = new Date(inv.created_at).toLocaleDateString('fr-FR');
+      const subject   = encodeURIComponent(`Invitation SafetySphere — ${euOrgFull?.name || ''}`);
+      const bodyShort = encodeURIComponent(`Bonjour,\n\n${euOrgFull?.name} vous invite sur SafetySphere.\n\nCréez votre compte : https://safetysphere.vercel.app\nRôle : Sous-Traitant\nCode équipe EU : ${euOrgFull?.team_code}\n\nCordialement,\n${currentProfile.full_name}`);
+      return `<div class="request-card">
+        <div class="request-card-header">
+          <div class="request-card-icon">📧</div>
+          <div class="request-card-info">
+            <div class="request-card-name">${inv.st_email}</div>
+            <div class="request-card-meta">Invité le ${date}</div>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button onclick="window.open('mailto:${inv.st_email}?subject=${subject}&body=${bodyShort}','_self')" class="btn-sm btn-view" style="white-space:nowrap">🔁 Relancer</button>
+            <button onclick="cancelSTInviteFromList('${inv.id}','${containerId}')" class="btn-sm btn-reject" style="white-space:nowrap">✕</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('') + '</div>';
+  }
+
+  if ((!rels || !rels.length) && !pendingInvites.length) {
+    html += `<div class="empty-state"><div class="empty-state-icon">🤝</div><div class="empty-state-text">Aucun sous-traitant pour l'instant.<br>Cliquez sur "Inviter un sous-traitant" pour commencer.</div></div>`;
+  }
+
   container.innerHTML = html;
 }
 
-async function detachST(relId, stName, containerId) {
-  if (!confirm(`Détacher ${stName} ?`)) return;
-  await sb.from('org_relationships').delete().eq('id', relId);
-  showToast('✓ ' + stName + ' détaché', 'success');
+async function cancelSTInviteFromList(inviteId, containerId) {
+  if (!confirm('Supprimer cette invitation ?')) return;
+  await sb.from('st_invites').delete().eq('id', inviteId);
+  showToast('✓ Invitation supprimée', 'success');
   loadST(currentProfile.org_id, containerId);
 }
 
