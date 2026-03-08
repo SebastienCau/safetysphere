@@ -2292,19 +2292,22 @@ function renderComplianceComponents(details, components) {
   }).join('');
 }
 
-function openComplianceConfig() {
-  getOrCreateComplianceConfig().then(config => {
-    if (!config) return;
-    const comps = config.components;
-    ['st_documents','worker_habilitations','st_ratio'].forEach(k => {
-      const el = document.getElementById(`orgComp_${k}`);
-      if (el) el.checked = !!comps[k];
-    });
-    const mode = config.display_mode || 'percent';
-    const radio = document.querySelector(`input[name="orgDisplayMode"][value="${mode}"]`);
-    if (radio) radio.checked = true;
-    document.getElementById('complianceConfigModal').classList.add('active');
+async function openComplianceConfig() {
+  // Fallback si pas de config en base : valeurs par défaut
+  let comps = { st_documents: true, worker_habilitations: false, st_ratio: false };
+  let mode  = 'percent';
+  try {
+    const config = await getOrCreateComplianceConfig();
+    if (config) { comps = config.components; mode = config.display_mode || 'percent'; }
+  } catch(e) { console.warn('compliance config load error', e); }
+
+  ['st_documents','worker_habilitations','st_ratio'].forEach(k => {
+    const el = document.getElementById(`orgComp_${k}`);
+    if (el) el.checked = !!comps[k];
   });
+  const radio = document.querySelector(`input[name="orgDisplayMode"][value="${mode}"]`);
+  if (radio) radio.checked = true;
+  document.getElementById('complianceConfigModal').classList.add('active');
 }
 
 function closeComplianceConfig() {
