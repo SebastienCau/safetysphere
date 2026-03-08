@@ -373,7 +373,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.9.2</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.9.3</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -625,7 +625,7 @@
     <button class="nav-tab active" onclick="switchPage('Subcontractor','overview',this)">🏠 Accueil</button>
     <button class="nav-tab" onclick="switchPage('Subcontractor','entreprise',this);loadOrgProfile('Subcontractor')">🏢 Mon Entreprise</button>
     <button class="nav-tab" onclick="switchPage('Subcontractor','workers',this)">👷 Mes Intervenants</button>
-    <button class="nav-tab" onclick="switchPage('Subcontractor','eu',this)">🏭 Mes EU</button>
+    <button class="nav-tab" onclick="switchPage('Subcontractor','eu',this);loadSTEU()">🏭 Mes EU</button>
     <button class="nav-tab" onclick="switchPage('Subcontractor','docs',this)">📄 Mes Documents</button>
   </div>
   <div class="dash-body">
@@ -2866,7 +2866,10 @@ async function loadST(orgId, containerId) {
             <div class="request-card-name">${st.name || 'Sous-traitant'}</div>
             <div class="request-card-meta">Rattaché le ${date} · ${stMissions.length} mission(s)</div>
           </div>
-          <span style="font-size:11px;color:#86EFAC;font-weight:700">✓ Actif</span>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button onclick="openCreateMissionAsEU('${rel.st_org_id}','${(st.name||'').replace(/'/g,'')}','${orgId}','${containerId}')" class="btn-sm btn-upload" style="white-space:nowrap;font-size:11px">➕ Mission</button>
+            <span style="font-size:11px;color:#86EFAC;font-weight:700">✓ Actif</span>
+          </div>
         </div>
         <div style="padding:0 4px 4px">${missionsHtml}</div>
       </div>`;
@@ -3562,13 +3565,27 @@ function openEditMissionModal(id, title, desc, startDate, endDate) {
   document.getElementById('missionModal').classList.add('open');
 }
 
+// Création mission côté EU/HSE
+function openCreateMissionAsEU(stOrgId, stName, euOrgId, containerId) {
+  document.getElementById('missionModalTitle').textContent    = 'Nouvelle mission';
+  document.getElementById('missionModalSubtitle').textContent = `Avec ${stName}`;
+  document.getElementById('missionModalId').value    = '';
+  // Format spécial : euOrgId|stOrgId|containerId|eu
+  document.getElementById('missionModalEuId').value  = `${euOrgId}|${stOrgId}|${containerId}|eu`;
+  document.getElementById('missionTitle').value      = '';
+  document.getElementById('missionDesc').value       = '';
+  document.getElementById('missionStartDate').value  = '';
+  document.getElementById('missionEndDate').value    = '';
+  document.getElementById('missionModal').classList.add('open');
+}
+
 function closeMissionModal() {
   document.getElementById('missionModal').classList.remove('open');
 }
 
 async function saveMission() {
   const id        = document.getElementById('missionModalId').value;
-  const euOrgId   = document.getElementById('missionModalEuId').value;
+  const euIdRaw   = document.getElementById('missionModalEuId').value;
   const title     = document.getElementById('missionTitle').value.trim();
   const desc      = document.getElementById('missionDesc').value.trim();
   const startDate = document.getElementById('missionStartDate').value || null;
@@ -3581,12 +3598,34 @@ async function saveMission() {
     const { error } = await sb.from('missions').update({ title, description: desc, start_date: startDate, end_date: endDate }).eq('id', id);
     if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
     showToast('✓ Mission mise à jour', 'success');
+    closeMissionModal();
+    // Recharger selon le rôle
+    if (currentProfile.role === 'subcontractor') loadSTEU();
+    else loadST(currentProfile.org_id, currentProfile.role === 'hse' ? 'hseSTContainer' : 'companySTContainer');
+    return;
+  }
+
+  // Création — détecter si côté EU ou ST
+  const isEU = euIdRaw && euIdRaw.includes('|eu');
+  if (isEU) {
+    const [euOrgId, stOrgId, containerId] = euIdRaw.split('|');
+    const { error } = await sb.from('missions').insert({
+      st_org_id: stOrgId, eu_org_id: euOrgId,
+      title, description: desc,
+      start_date: startDate, end_date: endDate,
+      status: 'approved', // créée par l'EU → directement approuvée
+      created_by: currentUser.id
+    });
+    if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+    showToast('✓ Mission créée et validée', 'success');
+    closeMissionModal();
+    loadST(euOrgId, containerId);
   } else {
-    // Création
+    // Côté ST
+    const euOrgId = euIdRaw;
     if (!euOrgId || !currentProfile.org_id) { showToast('Données manquantes', 'error'); return; }
     const { error } = await sb.from('missions').insert({
-      st_org_id: currentProfile.org_id,
-      eu_org_id: euOrgId,
+      st_org_id: currentProfile.org_id, eu_org_id: euOrgId,
       title, description: desc,
       start_date: startDate, end_date: endDate,
       status: 'draft',
@@ -3594,9 +3633,9 @@ async function saveMission() {
     });
     if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
     showToast('✓ Mission créée', 'success');
+    closeMissionModal();
+    loadSTEU();
   }
-  closeMissionModal();
-  loadSTEU();
 }
 
 async function submitMission(missionId) {
@@ -3807,13 +3846,18 @@ async function viewMissionWorkers(missionId, missionTitle) {
         </div>`;
       }).join('');
 
-  // Réutiliser missionWorkersModal en lecture seule
-  document.getElementById('missionWorkersModalSubtitle').textContent = missionTitle;
-  document.getElementById('missionWorkersList').innerHTML = content;
-  // Masquer les contrôles d'ajout
-  document.querySelector('#missionWorkersModal .modal-title').textContent = '👷 Intervenants — ' + missionTitle;
-  document.getElementById('mwPanelTeam').closest('div').style.display = 'none';
-  document.getElementById('missionWorkersModal').classList.add('open');
+  // Modale dédiée lecture seule EU/HSE
+  const existing = document.getElementById('viewMissionWorkersModal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay open';
+  modal.id = 'viewMissionWorkersModal';
+  modal.innerHTML = `<div class="modal" style="max-width:540px">
+    <button class="modal-close" onclick="document.getElementById('viewMissionWorkersModal').remove()">✕</button>
+    <div class="modal-title">👷 Intervenants — ${missionTitle}</div>
+    <div style="margin-top:16px">${content}</div>
+  </div>`;
+  document.body.appendChild(modal);
 }
 
 // ── Vue docs partagés mission (côté EU/HSE) ──
@@ -3836,10 +3880,17 @@ async function viewMissionDocs(missionId, missionTitle, stOrgId) {
     }).join('');
   }
 
-  document.getElementById('missionDocsModalSubtitle').textContent = missionTitle;
-  document.getElementById('missionDocsList').innerHTML = content;
-  // Passer en mode lecture (pas de bouton partager)
-  document.getElementById('missionDocsModal').classList.add('open');
+  const existing = document.getElementById('viewMissionDocsModal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay open';
+  modal.id = 'viewMissionDocsModal';
+  modal.innerHTML = `<div class="modal" style="max-width:520px">
+    <button class="modal-close" onclick="document.getElementById('viewMissionDocsModal').remove()">✕</button>
+    <div class="modal-title">📄 Documents — ${missionTitle}</div>
+    <div style="margin-top:16px">${content}</div>
+  </div>`;
+  document.body.appendChild(modal);
 }
 
 
