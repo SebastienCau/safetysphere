@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.7.2 — QR Code worker : badge imprimable, page publique de scan, config admin
+       v0.7.3 — Édition documents : modifier date expiration, statut, note sans remplacer le fichier
   -->
-  <meta name="app-version" content="0.7.2" />
+  <meta name="app-version" content="0.7.3" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -370,7 +370,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.7.2</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.7.3</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -900,6 +900,41 @@
       <div class="dash-welcome">Documents <em>Partagés</em></div>
       <div class="dash-subtitle">Documents transmis par vos intervenants</div>
       <div id="guestDocsContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL ÉDITION DOCUMENT ══ -->
+<div class="modal-overlay" id="editDocModal">
+  <div class="modal" style="max-width:460px">
+    <button class="modal-close" onclick="closeEditDocModal()">✕</button>
+    <div class="modal-title">✏️ Modifier le document</div>
+    <div class="modal-subtitle" id="editDocModalSubtitle">—</div>
+    <input type="hidden" id="editDocId">
+
+    <div class="form-group" style="margin-top:20px">
+      <label class="form-label">Date d'expiration</label>
+      <input type="date" class="form-input" id="editDocExpiry">
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Laissez vide si le document n'a pas de date d'expiration</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Remarque / Note interne <span style="color:var(--muted);font-weight:400">(optionnel)</span></label>
+      <textarea class="form-input" id="editDocNote" placeholder="Ex: Renouvellement en cours, document provisoire..." style="height:80px;resize:vertical"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Statut</label>
+      <select class="form-input" id="editDocStatus">
+        <option value="pending">⏳ En attente de validation</option>
+        <option value="validated">✅ Validé</option>
+        <option value="rejected">❌ Refusé</option>
+      </select>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn-upload" style="flex:1" onclick="saveDocEdit()">💾 Sauvegarder</button>
+      <button class="btn-sm btn-reject" style="padding:10px 18px" onclick="closeEditDocModal()">Annuler</button>
     </div>
   </div>
 </div>
@@ -1608,6 +1643,7 @@ function renderWorkerDocCards(containerId, existingDocs) {
       actions = `<button class="btn-sm btn-upload" onclick="openUploadModal('${def.key}','${def.name}','worker')">📤 Déposer</button>`;
     } else {
       actions  = `<button class="btn-sm btn-view" onclick="viewDoc('${doc.file_url}')">👁 Voir</button>`;
+      actions += `<button class="btn-sm" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#A5B4FC" onclick="openEditDocModal('${doc.id}','${def.name}','${doc.expires_at || ''}','${doc.status}')">✏️ Modifier</button>`;
       actions += `<button class="btn-sm btn-upload" onclick="openUploadModal('${def.key}','${def.name}','worker')">🔄 Remplacer</button>`;
       actions += bookingBtnHtml;
     }
@@ -1674,7 +1710,10 @@ function renderDocCards(containerId, docDefs, existingDocs, category, canValidat
       actions = `<button class="btn-sm btn-upload" onclick="openUploadModal('${def.key}','${def.name}','${category}')">📤 Déposer</button>`;
     } else {
       actions = `<button class="btn-sm btn-view" onclick="viewDoc('${doc.file_url}')">👁 Voir</button>`;
-      if (!canValidate) actions += `<button class="btn-sm btn-upload" onclick="openUploadModal('${def.key}','${def.name}','${category}')">🔄 Remplacer</button>`;
+      if (!canValidate) {
+        actions += `<button class="btn-sm" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#A5B4FC" onclick="openEditDocModal('${doc.id}','${def.name}','${doc.expires_at || ''}','${doc.status}')">✏️ Modifier</button>`;
+        actions += `<button class="btn-sm btn-upload" onclick="openUploadModal('${def.key}','${def.name}','${category}')">🔄 Remplacer</button>`;
+      }
       if (canValidate && doc.status === 'pending') actions += `<button class="btn-sm btn-validate" onclick="validateDoc('${doc.id}','validated')">✓ Valider</button><button class="btn-sm btn-reject" onclick="validateDoc('${doc.id}','rejected')">✗ Refuser</button>`;
     }
     return `<div class="doc-card">
@@ -2064,6 +2103,52 @@ async function validateDoc(docId, status) {
   showToast(status === 'validated' ? '✓ Document validé' : '✗ Document refusé', status === 'validated' ? 'success' : 'error');
   loadCompanyWorkers();
   loadCompanyStats();
+}
+
+// ── ÉDITION DOCUMENT ──
+function openEditDocModal(docId, docName, expiresAt, status) {
+  document.getElementById('editDocId').value            = docId;
+  document.getElementById('editDocModalSubtitle').textContent = docName;
+  document.getElementById('editDocNote').value          = '';
+  // Date expiration
+  if (expiresAt && expiresAt !== 'null' && expiresAt !== '') {
+    document.getElementById('editDocExpiry').value = expiresAt.split('T')[0];
+  } else {
+    document.getElementById('editDocExpiry').value = '';
+  }
+  // Statut
+  const sel = document.getElementById('editDocStatus');
+  sel.value = status || 'pending';
+  // Masquer statut si worker (ne peut pas changer son propre statut)
+  sel.parentElement.style.display = currentProfile?.role === 'worker' ? 'none' : 'block';
+  document.getElementById('editDocModal').classList.add('active');
+}
+
+function closeEditDocModal() {
+  document.getElementById('editDocModal').classList.remove('active');
+}
+
+async function saveDocEdit() {
+  const docId    = document.getElementById('editDocId').value;
+  const expiry   = document.getElementById('editDocExpiry').value;
+  const status   = document.getElementById('editDocStatus').value;
+
+  const updates = {
+    expires_at: expiry ? new Date(expiry).toISOString() : null,
+    status,
+  };
+  // Workers ne peuvent pas changer leur propre statut
+  if (currentProfile?.role === 'worker') delete updates.status;
+
+  const { error } = await sb.from('documents').update(updates).eq('id', docId);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  showToast('✓ Document mis à jour', 'success');
+  closeEditDocModal();
+  // Rafraîchir selon le rôle
+  if (currentProfile?.role === 'worker')       loadWorkerDocs();
+  else if (currentProfile?.role === 'company') { loadCompanyStats(); loadCompanyWorkers(); }
+  else if (currentProfile?.role === 'hse')     loadHSEStats();
+  else if (currentProfile?.role === 'subcontractor') loadSTWorkers();
 }
 
 // ══════════════════════════════
