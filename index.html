@@ -203,7 +203,7 @@
 
     /* MODAL */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); padding: 20px; }
-    .modal-overlay.open { display: flex; }
+    .modal-overlay.open, .modal-overlay.active { display: flex; }
     .modal { background: #0F2035; border: 1px solid rgba(255,255,255,.1); border-radius: 20px; padding: 32px; width: 100%; max-width: 500px; position: relative; max-height: 90vh; overflow-y: auto; }
     .modal-title { font-family: 'Barlow Condensed',sans-serif; font-size: 24px; font-weight: 900; margin-bottom: 6px; }
     .modal-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
@@ -544,11 +544,11 @@
       </div>
 
       <!-- ── WIDGET CONFORMITÉ ── -->
-      <div id="complianceWidget" style="display:none;margin-top:28px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-          <div class="section-title" style="margin:0">🎯 Indicateur de Conformité</div>
-          <button class="btn-sm" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted);font-size:12px" onclick="openComplianceConfig()">⚙️ Configurer</button>
-        </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:28px;margin-bottom:16px">
+        <div class="section-title" style="margin:0">🎯 Indicateur de Conformité</div>
+        <button class="btn-sm" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted);font-size:12px" onclick="openComplianceConfig()">⚙️ Configurer</button>
+      </div>
+      <div id="complianceWidget" style="display:none;margin-bottom:28px">
         <div style="display:grid;grid-template-columns:auto 1fr;gap:24px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:24px;align-items:center">
           <!-- Score principal -->
           <div id="complianceScoreDisplay" style="text-align:center;min-width:120px"></div>
@@ -2293,6 +2293,7 @@ function renderComplianceComponents(details, components) {
 }
 
 async function openComplianceConfig() {
+  showToast('Ouverture configuration...', 'info');
   // Fallback si pas de config en base : valeurs par défaut
   let comps = { st_documents: true, worker_habilitations: false, st_ratio: false };
   let mode  = 'percent';
@@ -2307,7 +2308,9 @@ async function openComplianceConfig() {
   });
   const radio = document.querySelector(`input[name="orgDisplayMode"][value="${mode}"]`);
   if (radio) radio.checked = true;
-  document.getElementById('complianceConfigModal').classList.add('active');
+  const modal = document.getElementById('complianceConfigModal');
+  if (!modal) { showToast('Erreur : modal introuvable', 'error'); return; }
+  modal.classList.add('active');
 }
 
 function closeComplianceConfig() {
