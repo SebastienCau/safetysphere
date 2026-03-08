@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.7.0 — Indicateur de conformité : score configurable HSE + panneau admin
+       v0.7.1 — Thème clair/sombre : toggle topbar, défaut light pour trainers, sauvegarde en base
   -->
-  <meta name="app-version" content="0.7.0" />
+  <meta name="app-version" content="0.7.1" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -31,7 +31,89 @@
       --warn:    #F59E0B;
       --purple:  #A855F7;
       --teal:    #14B8A6;
+      /* Theme tokens */
+      --bg:         #0D1B2A;
+      --bg2:        #1B3A5C;
+      --surface:    rgba(255,255,255,.04);
+      --surface2:   rgba(255,255,255,.07);
+      --border:     rgba(255,255,255,.07);
+      --border2:    rgba(255,255,255,.12);
+      --text:       #FFFFFF;
+      --text2:      #94A3B8;
+      --topbar-bg:  rgba(13,27,42,.95);
+      --topbar-border: rgba(255,255,255,.07);
+      --card-hover: rgba(249,115,22,.25);
+      --input-bg:   rgba(255,255,255,.06);
+      --input-border: rgba(255,255,255,.1);
     }
+
+    /* ── LIGHT MODE ── */
+    body.theme-light {
+      --navy:    #F1F5F9;
+      --steel:   #E2E8F0;
+      --bg:      #F1F5F9;
+      --bg2:     #E2E8F0;
+      --surface: rgba(0,0,0,.03);
+      --surface2: rgba(0,0,0,.06);
+      --border:  rgba(0,0,0,.08);
+      --border2: rgba(0,0,0,.15);
+      --text:    #0F172A;
+      --text2:   #64748B;
+      --topbar-bg: rgba(255,255,255,.95);
+      --topbar-border: rgba(0,0,0,.08);
+      --card-hover: rgba(249,115,22,.3);
+      --input-bg:  rgba(0,0,0,.04);
+      --input-border: rgba(0,0,0,.12);
+      --muted:   #64748B;
+      --white:   #0F172A;
+    }
+
+    body.theme-light { background: #F1F5F9; color: #0F172A; }
+    body.theme-light .bg-circle { background: radial-gradient(circle, rgba(249,115,22,.08) 0%, transparent 70%); }
+    body.theme-light .bg-grid { background-image: linear-gradient(rgba(249,115,22,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(249,115,22,.04) 1px,transparent 1px); }
+    body.theme-light .left-panel { background: rgba(255,255,255,.9); border-right: 1px solid rgba(0,0,0,.08); }
+    body.theme-light .topbar { background: rgba(255,255,255,.95); border-bottom: 1px solid rgba(0,0,0,.08); }
+    body.theme-light .topbar-logo-text { color: #0F172A; }
+    body.theme-light .topbar-user { color: #64748B; }
+    body.theme-light .nav-tabs { background: rgba(255,255,255,.8); border-bottom: 1px solid rgba(0,0,0,.08); }
+    body.theme-light .nav-tab { color: #64748B; }
+    body.theme-light .nav-tab:hover { color: #0F172A; }
+    body.theme-light .stat-card { background: rgba(255,255,255,.9); border: 1px solid rgba(0,0,0,.08); box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    body.theme-light .stat-value { color: #0F172A; }
+    body.theme-light .stat-label { color: #64748B; }
+    body.theme-light .stat-icon { color: #0F172A; }
+    body.theme-light .doc-card { background: rgba(255,255,255,.9); border: 1px solid rgba(0,0,0,.08); box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    body.theme-light .doc-card-icon { background: #E2E8F0; }
+    body.theme-light .doc-card-name { color: #0F172A; }
+    body.theme-light .section-card { background: rgba(255,255,255,.9); border: 1px solid rgba(0,0,0,.08); }
+    body.theme-light .section-title { color: #0F172A; }
+    body.theme-light .section-title::after { background: rgba(0,0,0,.08); }
+    body.theme-light .dash-welcome { color: #0F172A; }
+    body.theme-light .dash-welcome em { color: var(--orange); }
+    body.theme-light .dash-subtitle { color: #64748B; }
+    body.theme-light .form-input { background: rgba(0,0,0,.04); border: 1px solid rgba(0,0,0,.12); color: #0F172A; }
+    body.theme-light .form-input::placeholder { color: #94A3B8; }
+    body.theme-light .form-label { color: #334155; }
+    body.theme-light .modal { background: #FFFFFF; border: 1px solid rgba(0,0,0,.1); }
+    body.theme-light .modal-title { color: #0F172A; }
+    body.theme-light .modal-subtitle { color: #64748B; }
+    body.theme-light .modal-close { color: #64748B; }
+    body.theme-light .modal-close:hover { color: #0F172A; background: rgba(0,0,0,.06); }
+    body.theme-light .empty-state-text { color: #64748B; }
+    body.theme-light .pending-banner { background: linear-gradient(135deg,rgba(99,102,241,.1),rgba(20,184,166,.07)); border-color: rgba(99,102,241,.3); }
+    body.theme-light .pending-banner-title { color: #0F172A; }
+    body.theme-light .compliance-toggle-row { background: rgba(0,0,0,.03); border: 1px solid rgba(0,0,0,.08); }
+    body.theme-light .compliance-toggle-row:hover { background: rgba(0,0,0,.06); }
+    body.theme-light .compliance-toggle-label { color: #0F172A; }
+    body.theme-light .btn-logout { background: rgba(0,0,0,.06); color: #64748B; border: 1px solid rgba(0,0,0,.1); }
+    body.theme-light .btn-logout:hover { background: rgba(0,0,0,.1); color: #0F172A; }
+    body.theme-light .toast { background: #1E293B; }
+
+    /* Toggle bouton */
+    .theme-toggle { background: none; border: 1px solid rgba(255,255,255,.15); border-radius: 20px; padding: 5px 12px; cursor: pointer; font-size: 15px; color: var(--muted); transition: all .2s; display: flex; align-items: center; gap: 6px; }
+    .theme-toggle:hover { border-color: var(--orange); color: var(--orange); }
+    body.theme-light .theme-toggle { border-color: rgba(0,0,0,.15); color: #64748B; }
+    body.theme-light .theme-toggle:hover { border-color: var(--orange); color: var(--orange); }
     html, body { height: 100%; font-family: 'Barlow', sans-serif; background: var(--navy); color: var(--white); overflow-x: hidden; }
 
     /* BG */
@@ -274,7 +356,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.7.0</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.7.1</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -329,7 +411,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-worker">👷 Intervenant</span>
     <span class="topbar-user" id="workerUserName"></span>
-    <button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Worker','overview',this)">🏠 Accueil</button>
@@ -415,7 +497,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-company">🏢 Société</span>
     <span class="topbar-user" id="companyUserName"></span>
-    <button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Company','overview',this)">🏠 Accueil</button>
@@ -474,7 +556,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge" style="background:rgba(168,85,247,.15);color:#D8B4FE;border:1px solid rgba(168,85,247,.3)">🤝 Sous-Traitant</span>
     <span class="topbar-user" id="stUserName"></span>
-    <button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Subcontractor','overview',this)">🏠 Accueil</button>
@@ -525,7 +607,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-hse">🏭 HSE</span>
     <span class="topbar-user" id="hseUserName"></span>
-    <button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('HSE','overview',this)">🏠 Accueil</button>
@@ -584,7 +666,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-trainer">🎓 Formation</span>
     <span class="topbar-user" id="trainerUserName"></span>
-    <button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Trainer','overview',this)">🏠 Accueil</button>
@@ -635,7 +717,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-admin">⚙️ Admin</span>
     <span class="topbar-user" id="adminUserName"></span>
-    <button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Admin','overview',this)">📊 Vue globale</button>
@@ -753,7 +835,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge" style="background:rgba(20,184,166,.15);color:#5EEAD4;border:1px solid rgba(20,184,166,.3)">👁 Client</span>
     <span class="topbar-user" id="guestUserName"></span>
-    <button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Guest','shared',this)">📂 Documents reçus</button>
@@ -1212,6 +1294,9 @@ function dismissWorkerBanner(inviteId) {
 function showDashboard(role, fullName) {
   document.getElementById('authScreen').style.display = 'none';
   ['dashWorker','dashCompany','dashHSE','dashTrainer','dashGuest','dashSubcontractor','dashAdmin'].forEach(id => document.getElementById(id).classList.remove('active'));
+  // Appliquer le thème sauvegardé (défaut light pour trainer)
+  const theme = currentProfile?.theme || (role === 'trainer' ? 'light' : 'dark');
+  applyTheme(theme);
   const firstName = (fullName || 'Utilisateur').split(' ')[0];
   if (role === 'worker') {
     document.getElementById('dashWorker').classList.add('active');
@@ -1329,7 +1414,30 @@ async function handleRegister(e) {
 async function handleLogout() {
   await sb.auth.signOut();
   currentUser = null; currentProfile = null;
+  applyTheme('dark'); // reset au dark à la déconnexion
   hideAllDashboards();
+}
+
+// ── THEME ──
+function applyTheme(theme) {
+  if (theme === 'light') {
+    document.body.classList.add('theme-light');
+    document.querySelectorAll('.theme-toggle').forEach(b => b.textContent = '☀️');
+  } else {
+    document.body.classList.remove('theme-light');
+    document.querySelectorAll('.theme-toggle').forEach(b => b.textContent = '🌙');
+  }
+}
+
+async function toggleTheme() {
+  const current = document.body.classList.contains('theme-light') ? 'light' : 'dark';
+  const next    = current === 'light' ? 'dark' : 'light';
+  applyTheme(next);
+  // Sauvegarder en base
+  if (currentUser) {
+    await sb.from('profiles').update({ theme: next }).eq('id', currentUser.id);
+    if (currentProfile) currentProfile.theme = next;
+  }
 }
 
 // ══════════════════════════════
