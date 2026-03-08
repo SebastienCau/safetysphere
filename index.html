@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.7.3 — Édition documents : modifier date expiration, statut, note sans remplacer le fichier
+       v0.7.5 — SIRET : API data.gouv.fr gratuite (recherche-entreprises) sans clé API
   -->
-  <meta name="app-version" content="0.7.3" />
+  <meta name="app-version" content="0.7.5" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -370,7 +370,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.7.3</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.7.5</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -395,22 +395,49 @@
             <option value="admin">⚙️ Administrateur</option>
           </select>
         </div>
-        <!-- Champ nom organisation (company + trainer) -->
+
+        <!-- SIRET + vérification Pappers -->
+        <div class="form-group" id="siretGroup" style="display:none">
+          <label class="form-label">SIRET <span style="color:var(--muted);font-weight:400">(14 chiffres)</span></label>
+          <div style="display:flex;gap:8px">
+            <input type="text" class="form-input" id="regSiret" placeholder="Ex: 12345678901234" maxlength="14" style="flex:1;letter-spacing:2px" oninput="this.value=this.value.replace(/\D/g,'')"/>
+            <button type="button" class="btn-sm btn-upload" id="siretCheckBtn" onclick="lookupSiret()" style="white-space:nowrap;padding:0 16px">🔍 Vérifier</button>
+          </div>
+          <!-- Résultat Pappers -->
+          <div id="papperResult" style="display:none;margin-top:12px;border-radius:12px;padding:14px 16px;border:1px solid"></div>
+        </div>
+
+        <!-- Nom organisation (pré-rempli par Pappers ou saisi manuellement) -->
         <div class="form-group" id="orgNameGroup" style="display:none">
           <label class="form-label" id="orgNameLabel">Nom de la société</label>
           <input type="text" class="form-input" id="regOrgName" placeholder="Ex: Électricité Pro SARL" />
         </div>
-        <!-- Champ URL réservation (trainer uniquement) -->
+
+        <!-- Adresse (pré-remplie par Pappers) -->
+        <div class="form-group" id="orgAddressGroup" style="display:none">
+          <label class="form-label">Adresse du siège</label>
+          <input type="text" class="form-input" id="regOrgAddress" placeholder="Ex: 12 rue de la Paix, 75001 Paris" />
+        </div>
+
+        <!-- Forme juridique (pré-remplie par Pappers) -->
+        <div class="form-group" id="orgLegalGroup" style="display:none">
+          <label class="form-label">Forme juridique</label>
+          <input type="text" class="form-input" id="regOrgLegal" placeholder="Ex: SARL, SAS..." readonly style="opacity:.7" />
+        </div>
+
+        <!-- URL réservation (trainer uniquement) -->
         <div class="form-group" id="bookingUrlGroup" style="display:none">
           <label class="form-label">Lien prise de RDV (optionnel)</label>
           <input type="url" class="form-input" id="regBookingUrl" placeholder="https://calendly.com/votre-centre" />
         </div>
-        <!-- Champ code employeur (worker uniquement — optionnel) -->
+
+        <!-- Code employeur (worker uniquement) -->
         <div class="form-group" id="teamCodeGroup" style="display:none">
           <label class="form-label">Code employeur <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(optionnel)</span></label>
           <input type="text" class="form-input" id="regTeamCode" placeholder="Ex: ELEC-4X9K — ou laissez vide" style="text-transform:uppercase;letter-spacing:2px" />
           <div style="font-size:11px;color:var(--muted);margin-top:6px">🔑 Vous pouvez vous rattacher à votre employeur après l'inscription</div>
         </div>
+
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="regPassword" placeholder="Min. 8 caractères" minlength="8" required /></div>
         <button type="submit" class="btn-primary" id="registerBtn">Créer mon compte</button>
       </form>
@@ -1233,14 +1260,102 @@ async function handleForgotPassword() {
 
 // ── ROLE CHANGE (inscription) ──
 function onRoleChange(val) {
-  document.getElementById('orgNameGroup').style.display    = ['company','subcontractor','trainer','hse'].includes(val) ? 'block' : 'none';
-  document.getElementById('bookingUrlGroup').style.display = val === 'trainer' ? 'block' : 'none';
-  document.getElementById('teamCodeGroup').style.display   = val === 'worker'  ? 'block' : 'none';
-  document.getElementById('orgNameLabel').textContent      =
+  const withSiret   = ['company','subcontractor','trainer','hse'];
+  const withOrg     = ['company','subcontractor','trainer','hse'];
+  document.getElementById('siretGroup').style.display      = withSiret.includes(val) ? 'block' : 'none';
+  document.getElementById('orgNameGroup').style.display    = withOrg.includes(val)   ? 'block' : 'none';
+  document.getElementById('orgAddressGroup').style.display = withOrg.includes(val)   ? 'block' : 'none';
+  document.getElementById('orgLegalGroup').style.display   = withOrg.includes(val)   ? 'block' : 'none';
+  document.getElementById('bookingUrlGroup').style.display = val === 'trainer'        ? 'block' : 'none';
+  document.getElementById('teamCodeGroup').style.display   = val === 'worker'         ? 'block' : 'none';
+  // Reset Pappers result
+  document.getElementById('papperResult').style.display    = 'none';
+  document.getElementById('regOrgName').value    = '';
+  document.getElementById('regOrgAddress').value = '';
+  document.getElementById('regOrgLegal').value   = '';
+  document.getElementById('orgNameLabel').textContent =
     val === 'subcontractor' ? 'Nom de la société sous-traitante' :
     val === 'trainer'       ? 'Nom du centre de formation' :
     val === 'hse'           ? 'Nom de l\'entreprise utilisatrice' :
     'Nom de la société';
+}
+
+// ── NAV PAGES ──
+// ══════════════════════════════════════
+// API ENTREPRISES (data.gouv.fr) — GRATUIT, SANS CLÉ
+// ══════════════════════════════════════
+async function lookupSiret() {
+  const siret  = document.getElementById('regSiret').value.trim().replace(/\s/g, '');
+  const result = document.getElementById('papperResult');
+
+  if (siret.length !== 14) {
+    result.style.display = 'block';
+    result.style.background = 'rgba(239,68,68,.08)';
+    result.style.borderColor = 'rgba(239,68,68,.3)';
+    result.innerHTML = '❌ Le SIRET doit contenir exactement 14 chiffres';
+    return;
+  }
+
+  const btn = document.getElementById('siretCheckBtn');
+  btn.textContent = '⏳'; btn.disabled = true;
+
+  try {
+    const res  = await fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${siret}&page=1&per_page=1`);
+    const data = await res.json();
+    const entreprise = data?.results?.[0];
+
+    if (!entreprise) {
+      result.style.display = 'block';
+      result.style.background = 'rgba(239,68,68,.08)';
+      result.style.borderColor = 'rgba(239,68,68,.3)';
+      result.innerHTML = '❌ Société introuvable — vérifiez le SIRET';
+      btn.textContent = '🔍 Vérifier'; btn.disabled = false;
+      return;
+    }
+
+    // Extraire les données
+    const nom       = entreprise.nom_complet || entreprise.nom_raison_sociale || '';
+    const forme     = entreprise.nature_juridique_libelle || '';
+    const siege     = entreprise.siege || {};
+    const adresse   = [siege.adresse, siege.code_postal, siege.libelle_commune].filter(Boolean).join(', ');
+    const actif     = entreprise.etat_administratif === 'A';
+    const creation  = entreprise.date_creation ? new Date(entreprise.date_creation).toLocaleDateString('fr-FR') : '';
+    const effectif  = entreprise.tranche_effectif_salarie_libelle || '';
+    const activite  = entreprise.activite_principale_libelle || '';
+
+    // Pré-remplir les champs
+    document.getElementById('regOrgName').value    = nom;
+    document.getElementById('regOrgAddress').value = adresse;
+    document.getElementById('regOrgLegal').value   = forme;
+
+    // Afficher le résultat
+    const statusColor = actif ? '#22C55E' : '#EF4444';
+    const statusLabel = actif ? '✅ Société active' : '⚠️ Société radiée ou inactive';
+    result.style.display  = 'block';
+    result.style.background  = actif ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)';
+    result.style.borderColor = actif ? 'rgba(34,197,94,.3)'  : 'rgba(239,68,68,.3)';
+    result.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-size:15px;font-weight:900">${nom}</span>
+        <span style="font-size:12px;font-weight:700;color:${statusColor}">${statusLabel}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted)">
+        ${forme    ? `<div>📋 ${forme}</div>` : ''}
+        ${adresse  ? `<div>📍 ${adresse}</div>` : ''}
+        ${activite ? `<div>🏭 ${activite}</div>` : ''}
+        ${effectif ? `<div>👥 ${effectif}</div>` : ''}
+        ${creation ? `<div>📅 Créée le ${creation}</div>` : ''}
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--muted)">✓ Informations pré-remplies automatiquement — modifiables si besoin</div>`;
+
+  } catch (err) {
+    result.style.display = 'block';
+    result.style.background = 'rgba(239,68,68,.08)';
+    result.style.borderColor = 'rgba(239,68,68,.3)';
+    result.innerHTML = '❌ Erreur de connexion — remplissez manuellement';
+  }
+
+  btn.textContent = '🔍 Vérifier'; btn.disabled = false;
 }
 
 // ── NAV PAGES ──
@@ -1464,9 +1579,12 @@ async function handleRegister(e) {
   const orgName    = document.getElementById('regOrgName').value;
   const bookingUrl = document.getElementById('regBookingUrl').value;
   const teamCode   = document.getElementById('regTeamCode').value.toUpperCase().trim();
+  const siret      = document.getElementById('regSiret')?.value?.trim() || '';
+  const address    = document.getElementById('regOrgAddress')?.value?.trim() || '';
+  const legalForm  = document.getElementById('regOrgLegal')?.value?.trim() || '';
   if (!role) { showAlert('Veuillez choisir un rôle.'); return; }
 
-  // Worker : valider le code employeur si renseigné (optionnel) — company ou sous-traitant
+  // Worker : valider le code employeur si renseigné (optionnel)
   let orgId = null;
   if (role === 'worker' && teamCode) {
     const { data: org } = await sb.from('organizations').select('id').eq('team_code', teamCode).in('type',['company','subcontractor']).single();
@@ -1479,21 +1597,25 @@ async function handleRegister(e) {
   if (error) { showAlert(error.message); setLoading('registerBtn', false, 'Créer mon compte'); return; }
 
   if (data.user) {
-    // 1. Company, Subcontractor ou Trainer → créer l'organisation EN PREMIER
-    if ((role === 'company' || role === 'subcontractor' || role === 'trainer' || role === 'hse') && orgName) {
-      const prefix     = orgName.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 4).padEnd(4, 'X');
-      const suffix     = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4).padEnd(4, '0');
-      const tCode      = prefix + '-' + suffix;
-      let   orgType    = role === 'trainer' ? 'training_center' : role === 'subcontractor' ? 'subcontractor' : role === 'hse' ? 'company' : 'company';
+    // 1. Company, Subcontractor, Trainer, HSE → créer l'organisation
+    if (['company','subcontractor','trainer','hse'].includes(role) && orgName) {
+      const prefix  = orgName.toUpperCase().replace(/[^A-Z]/g, '').substring(0, 4).padEnd(4, 'X');
+      const suffix  = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4).padEnd(4, '0');
+      const tCode   = prefix + '-' + suffix;
+      const orgType = role === 'trainer' ? 'training_center' : role === 'subcontractor' ? 'subcontractor' : 'company';
       const orgPayload = { name: orgName, team_code: tCode, type: orgType };
       if (role === 'trainer' && bookingUrl) orgPayload.booking_url = bookingUrl;
+      if (siret)    orgPayload.siret      = siret;
+      if (address)  orgPayload.address    = address;
+      if (legalForm) orgPayload.legal_form = legalForm;
       const { data: org, error: orgErr } = await sb.from('organizations').insert(orgPayload).select().single();
       if (orgErr) { showAlert('Erreur création organisation : ' + orgErr.message); setLoading('registerBtn', false, 'Créer mon compte'); return; }
       if (org) { orgId = org.id; }
     }
 
-    // 2. Créer le profil avec org_id déjà connu en un seul insert
-    const { error: profileErr } = await sb.from('profiles').insert({ id: data.user.id, full_name: name, email, role, org_id: orgId || null });
+    // 2. Créer le profil
+    const theme = role === 'trainer' ? 'light' : 'dark';
+    const { error: profileErr } = await sb.from('profiles').insert({ id: data.user.id, full_name: name, email, role, org_id: orgId || null, theme });
     if (profileErr) { showAlert('Erreur création profil : ' + profileErr.message); setLoading('registerBtn', false, 'Créer mon compte'); return; }
   }
   setLoading('registerBtn', false, 'Créer mon compte');
