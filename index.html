@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.7.7 — Nom société affiché partout : documents reçus, demandes centre de formation
+       v0.7.8 — Documents reçus : onglets par société, accordéons par intervenant, filtres statut + recherche
   -->
-  <meta name="app-version" content="0.7.7" />
+  <meta name="app-version" content="0.7.8" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -370,7 +370,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.7.7</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.7.8</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -2408,9 +2408,13 @@ async function revokeShare(shareId) {
 // ══════════════════════════════
 // DOCUMENTS REÇUS (tous rôles)
 // ══════════════════════════════
+let _receivedData = null; // cache pour les filtres
+
 async function loadReceivedDocs(containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
+  container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div>`;
+
   const email = currentProfile.email;
   const now   = new Date();
 
@@ -2424,7 +2428,7 @@ async function loadReceivedDocs(containerId) {
     return;
   }
 
-  // Charger tous les workers + leurs orgs en une seule passe
+  // ── Batch load workers + orgs ──
   const workerIds = [...new Set(shares.map(s => s.worker_id))];
   const { data: allWorkers } = await sb.from('profiles').select('id, full_name, org_id').in('id', workerIds);
   const workerProfileMap = {};
@@ -2437,40 +2441,189 @@ async function loadReceivedDocs(containerId) {
     if (orgs) orgs.forEach(o => orgNameMap[o.id] = o.name);
   }
 
-  let html = '';
-  for (const share of shares) {
-    const { data: docs } = await sb.from('documents').select('*').eq('owner_id', share.worker_id).eq('category','worker').in('doc_type', share.doc_types);
-    const worker     = workerProfileMap[share.worker_id];
-    const workerName = worker?.full_name || 'Intervenant';
-    const orgName    = worker?.org_id ? orgNameMap[worker.org_id] || '' : '';
-    const expLabel   = share.expires_at ? 'Expire le ' + new Date(share.expires_at).toLocaleDateString('fr-FR') : 'Partage permanent';
+  // ── Batch load tous les docs ──
+  const { data: allDocs } = await sb.from('documents')
+    .select('*').in('owner_id', workerIds).eq('category', 'worker');
+  const docsMap = {};
+  if (allDocs) allDocs.forEach(d => { if (!docsMap[d.owner_id]) docsMap[d.owner_id] = []; docsMap[d.owner_id].push(d); });
 
-    html += `<div style="margin-bottom:28px">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-        <span class="section-title" style="margin:0">👷 ${workerName}</span>
-        ${orgName ? `<span style="font-size:13px;color:var(--orange);font-weight:700;padding:3px 10px;border-radius:99px;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.25)">🏢 ${orgName}</span>` : ''}
-        <span style="font-size:12px;color:var(--muted)">${expLabel}</span>
-      </div>
-      <div class="doc-grid">` +
-      share.doc_types.map(key => {
-        const def = WORKER_DOCS.find(d => d.key === key) || { name: key, icon: '📄' };
-        const doc = docs ? docs.find(d => d.doc_type === key) : null;
-        if (!doc) return `<div class="doc-card"><div class="doc-card-header"><div class="doc-card-icon">${def.icon}</div><div class="doc-card-badges"><span class="doc-badge status-empty">Non déposé</span></div></div><div class="doc-card-name">${def.name}</div></div>`;
-        const exp     = doc.expires_at ? new Date(doc.expires_at).toLocaleDateString('fr-FR') : null;
-        const expired = doc.expires_at && new Date(doc.expires_at) < now;
-        return `<div class="doc-card">
-          <div class="doc-card-header"><div class="doc-card-icon">${def.icon}</div><div class="doc-card-badges"><span class="doc-badge status-${doc.status}">${doc.status === 'validated' ? '✓ Validé' : doc.status === 'pending' ? '⏳ En attente' : doc.status}</span></div></div>
-          <div class="doc-card-name">${def.name}</div>
-          ${exp ? `<div class="doc-card-expiry ${expired ? 'urgent' : 'ok'}">📅 ${exp}</div>` : ''}
-          <div class="doc-card-actions">
-            <button class="btn-sm btn-view" onclick="viewDoc('${doc.file_url}')">👁 Voir</button>
-            <button class="btn-sm btn-upload" onclick="downloadDoc('${doc.file_url}','${def.name}')">⬇ Télécharger</button>
-          </div>
-        </div>`;
-      }).join('') +
-      `</div></div>`;
+  // ── Construire structure enrichie ──
+  const enriched = shares.map(share => {
+    const worker   = workerProfileMap[share.worker_id] || {};
+    const orgName  = worker.org_id ? orgNameMap[worker.org_id] || '— Sans société —' : '— Sans société —';
+    const orgId    = worker.org_id || '__none__';
+    const docs     = (docsMap[share.worker_id] || []).filter(d => share.doc_types.includes(d.doc_type));
+    const expLabel = share.expires_at ? 'Expire le ' + new Date(share.expires_at).toLocaleDateString('fr-FR') : 'Permanent';
+    // Calculer mini-statut de l'intervenant
+    const validated = docs.filter(d => d.status === 'validated' && (!d.expires_at || new Date(d.expires_at) > now)).length;
+    const pending   = docs.filter(d => d.status === 'pending').length;
+    const expired   = docs.filter(d => d.expires_at && new Date(d.expires_at) <= now).length;
+    const total     = share.doc_types.length;
+    return { share, worker, orgName, orgId, docs, expLabel, validated, pending, expired, total };
+  });
+
+  _receivedData = { enriched, containerId };
+  renderReceivedDocs(containerId, enriched, 'all', '', null);
+}
+
+function renderReceivedDocs(containerId, enriched, activeOrg, searchQ, statusFilter) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const now = new Date();
+  const sf  = statusFilter || '';
+
+  // ── Grouper par org ──
+  const byOrg = {};
+  enriched.forEach(function(e) {
+    if (!byOrg[e.orgId]) byOrg[e.orgId] = { name: e.orgName, items: [] };
+    byOrg[e.orgId].items.push(e);
+  });
+  const orgKeys  = Object.keys(byOrg);
+  const multiOrg = orgKeys.length > 1;
+
+  // ── Filtrer ──
+  let filtered = enriched.slice();
+  if (activeOrg !== 'all') filtered = filtered.filter(function(e) { return e.orgId === activeOrg; });
+  if (searchQ) {
+    const q = searchQ.toLowerCase();
+    filtered = filtered.filter(function(e) {
+      return (e.worker.full_name || '').toLowerCase().includes(q) || e.orgName.toLowerCase().includes(q);
+    });
   }
-  container.innerHTML = html;
+  if (sf === 'validated') filtered = filtered.filter(function(e) { return e.validated === e.total; });
+  if (sf === 'pending')   filtered = filtered.filter(function(e) { return e.pending > 0; });
+  if (sf === 'expiring')  filtered = filtered.filter(function(e) { return e.expired > 0; });
+
+  // ── Helpers styles boutons ──
+  function filterBtnStyle(val, color) {
+    const active = val === sf;
+    const bg     = active ? (color ? color + '22' : 'rgba(255,255,255,.12)') : 'rgba(255,255,255,.04)';
+    const col    = active ? (color || 'var(--white)') : 'var(--muted)';
+    const border = active ? (color ? color + '44' : 'rgba(255,255,255,.2)') : 'rgba(255,255,255,.08)';
+    return 'font-size:12px;padding:5px 12px;border-radius:99px;cursor:pointer;font-weight:600;border:1px solid ' + border + ';background:' + bg + ';color:' + col;
+  }
+  function orgBtnStyle(key) {
+    const active = key === activeOrg;
+    return 'font-size:13px;padding:6px 14px;border-radius:99px;cursor:pointer;font-weight:700;border:1px solid '
+      + (active ? 'rgba(249,115,22,.4)' : 'rgba(255,255,255,.08)') + ';background:'
+      + (active ? 'rgba(249,115,22,.15)' : 'rgba(255,255,255,.04)') + ';color:'
+      + (active ? 'var(--orange)' : 'var(--muted)');
+  }
+
+  // ── Construction HTML ──
+  const parts = [];
+
+  // Barre recherche + filtres
+  const filterDefs = [
+    { val: '',          label: 'Tous',           color: '' },
+    { val: 'validated', label: '✓ Validés',      color: '#22C55E' },
+    { val: 'pending',   label: '⏳ En attente',  color: '#F59E0B' },
+    { val: 'expiring',  label: '⚠️ Expirés',     color: '#EF4444' }
+  ];
+  const filterBtns = filterDefs.map(function(f) {
+    return '<button style="' + filterBtnStyle(f.val, f.color) + '" '
+      + 'onclick="renderReceivedDocs(\'' + containerId + '\',_receivedData.enriched,\'' + activeOrg + '\',\'' + searchQ + '\',\'' + f.val + '\')">'
+      + f.label + '</button>';
+  }).join('');
+
+  parts.push(
+    '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:20px">'
+    + '<input type="text" class="form-input" placeholder="🔍 Rechercher un intervenant ou société..." value="' + searchQ + '" '
+    + 'oninput="renderReceivedDocs(\'' + containerId + '\',_receivedData.enriched,\'' + activeOrg + '\',this.value,\'' + sf + '\')" '
+    + 'style="flex:1;min-width:200px;max-width:320px;padding:8px 12px;font-size:13px"/>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap">' + filterBtns + '</div>'
+    + '</div>'
+  );
+
+  // Onglets sociétés
+  if (multiOrg) {
+    const allBtn = '<button style="' + orgBtnStyle('all') + '" '
+      + 'onclick="renderReceivedDocs(\'' + containerId + '\',_receivedData.enriched,\'all\',\'' + searchQ + '\',\'' + sf + '\')">'
+      + '🏢 Toutes <span style="font-size:11px;opacity:.7">' + enriched.length + '</span></button>';
+    const orgBtns = orgKeys.map(function(key) {
+      const org = byOrg[key];
+      return '<button style="' + orgBtnStyle(key) + '" '
+        + 'onclick="renderReceivedDocs(\'' + containerId + '\',_receivedData.enriched,\'' + key + '\',\'' + searchQ + '\',\'' + sf + '\')">'
+        + '🏢 ' + org.name + ' <span style="font-size:11px;opacity:.7">' + org.items.length + '</span></button>';
+    }).join('');
+    parts.push(
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,.08)">'
+      + allBtn + orgBtns + '</div>'
+    );
+  }
+
+  if (!filtered.length) {
+    parts.push('<div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-text">Aucun résultat pour ces filtres.</div></div>');
+    container.innerHTML = parts.join('');
+    return;
+  }
+
+  // Accordéons
+  filtered.forEach(function(e, idx) {
+    const share      = e.share;
+    const worker     = e.worker;
+    const workerName = worker.full_name || 'Intervenant';
+    const accId      = 'rcv-acc-' + containerId + '-' + idx;
+
+    let statusDot = '#94A3B8';
+    let statusTxt = e.validated + '/' + e.total + ' validés';
+    if (e.validated === e.total && e.total > 0) { statusDot = '#22C55E'; statusTxt = 'Complet ✓'; }
+    else if (e.expired > 0)                     { statusDot = '#EF4444'; statusTxt = e.expired + ' expiré(s)'; }
+    else if (e.pending > 0)                     { statusDot = '#F59E0B'; statusTxt = e.pending + ' en attente'; }
+
+    const orgBadge = (!multiOrg && e.orgName !== '— Sans société —')
+      ? '<span style="color:var(--orange)">🏢 ' + e.orgName + '</span>' : '';
+
+    const docCards = share.doc_types.map(function(key) {
+      const def = WORKER_DOCS.find(function(d) { return d.key === key; }) || { name: key, icon: '📄' };
+      const doc = e.docs.find(function(d) { return d.doc_type === key; });
+      if (!doc) return '<div class="doc-card"><div class="doc-card-header"><div class="doc-card-icon">' + def.icon + '</div>'
+        + '<div class="doc-card-badges"><span class="doc-badge status-empty">Non déposé</span></div></div>'
+        + '<div class="doc-card-name">' + def.name + '</div></div>';
+      const expD  = doc.expires_at ? new Date(doc.expires_at).toLocaleDateString('fr-FR') : null;
+      const isExp = doc.expires_at && new Date(doc.expires_at) <= now;
+      const stLbl = doc.status === 'validated' ? '✓ Validé' : doc.status === 'pending' ? '⏳ En attente' : doc.status;
+      const expHtml = expD ? '<div class="doc-card-expiry ' + (isExp ? 'urgent' : 'ok') + '">📅 ' + expD + '</div>' : '';
+      return '<div class="doc-card">'
+        + '<div class="doc-card-header"><div class="doc-card-icon">' + def.icon + '</div>'
+        + '<div class="doc-card-badges"><span class="doc-badge status-' + doc.status + '">' + stLbl + '</span></div></div>'
+        + '<div class="doc-card-name">' + def.name + '</div>'
+        + expHtml
+        + '<div class="doc-card-actions">'
+        + '<button class="btn-sm btn-view" onclick="viewDoc(\'' + doc.file_url + '\')">👁 Voir</button>'
+        + '<button class="btn-sm btn-upload" onclick="downloadDoc(\'' + doc.file_url + '\',\'' + def.name + '\')">⬇ Télécharger</button>'
+        + '</div></div>';
+    }).join('');
+
+    parts.push(
+      '<div style="margin-bottom:10px;border:1px solid rgba(255,255,255,.08);border-radius:14px;overflow:hidden">'
+      + '<div onclick="toggleAccordion(\'' + accId + '\')" style="display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;background:rgba(255,255,255,.03);user-select:none">'
+      + '<div style="width:36px;height:36px;border-radius:10px;background:rgba(249,115,22,.12);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">👷</div>'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + workerName + '</div>'
+      + '<div style="font-size:12px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+      + orgBadge + '<span>' + e.expLabel + '</span></div></div>'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'
+      + '<div style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:99px;background:' + statusDot + '22;border:1px solid ' + statusDot + '44">'
+      + '<div style="width:6px;height:6px;border-radius:50%;background:' + statusDot + '"></div>'
+      + '<span style="font-size:11px;font-weight:700;color:' + statusDot + '">' + statusTxt + '</span></div>'
+      + '<span id="' + accId + '-chevron" style="color:var(--muted);font-size:12px;transition:transform .2s">▼</span>'
+      + '</div></div>'
+      + '<div id="' + accId + '" style="display:none;padding:16px 18px;border-top:1px solid rgba(255,255,255,.06)">'
+      + '<div class="doc-grid">' + docCards + '</div></div></div>'
+    );
+  });
+
+  container.innerHTML = parts.join('');
+}
+
+function toggleAccordion(id) {
+  const body    = document.getElementById(id);
+  const chevron = document.getElementById(id + '-chevron');
+  if (!body) return;
+  const isOpen = body.style.display !== 'none';
+  body.style.display      = isOpen ? 'none' : 'block';
+  chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
 }
 
 // ── LAZY LOAD PARTAGES ──
