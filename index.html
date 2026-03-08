@@ -14,6 +14,7 @@
        v0.8.1 — Documents reçus : dropdown société à la place des puces, scalable 1 à N sociétés
        v0.9.0 — QR Code entreprise : génération, page publique scan, copie lien & téléchargement
        v0.9.1 — Rattachement par scan QR : Worker→Employeur et ST→EU via caméra ou URL
+       v0.9.2 — Missions ST→EU : création, soumission, validation EU/HSE, intervenants, docs partagés
   -->
   <meta name="app-version" content="0.8.1" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
@@ -372,7 +373,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.9.1</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.9.2</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -1223,6 +1224,86 @@
           <button class="btn-sm btn-upload" onclick="processQrUrl(document.getElementById('qrManualUrl').value)" style="white-space:nowrap">✓ Valider</button>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODALE CRÉATION / ÉDITION MISSION ══ -->
+<div class="modal-overlay" id="missionModal">
+  <div class="modal" style="max-width:520px">
+    <button class="modal-close" onclick="closeMissionModal()">✕</button>
+    <div class="modal-title">📋 <span id="missionModalTitle">Nouvelle mission</span></div>
+    <div class="modal-subtitle" id="missionModalSubtitle">Décrivez les travaux à réaliser</div>
+    <input type="hidden" id="missionModalId" />
+    <input type="hidden" id="missionModalEuId" />
+    <div style="display:flex;flex-direction:column;gap:14px;margin-top:16px">
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Titre de la mission *</label>
+        <input class="form-input" id="missionTitle" placeholder="Ex: Maintenance chaudière Bât C" />
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Description</label>
+        <textarea class="form-input" id="missionDesc" rows="3" placeholder="Nature des travaux, zone d'intervention..." style="resize:vertical"></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Date de début</label>
+          <input type="date" class="form-input" id="missionStartDate" />
+        </div>
+        <div class="form-group" style="margin:0">
+          <label class="form-label">Date de fin</label>
+          <input type="date" class="form-input" id="missionEndDate" />
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button class="btn-upload" style="flex:1" onclick="saveMission()">💾 Enregistrer</button>
+      <button class="btn-sm btn-reject" onclick="closeMissionModal()">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODALE INTERVENANTS MISSION ══ -->
+<div class="modal-overlay" id="missionWorkersModal">
+  <div class="modal" style="max-width:540px">
+    <button class="modal-close" onclick="document.getElementById('missionWorkersModal').classList.remove('open')">✕</button>
+    <div class="modal-title">👷 Intervenants de la mission</div>
+    <div class="modal-subtitle" id="missionWorkersModalSubtitle"></div>
+    <input type="hidden" id="missionWorkersModalId" />
+    <!-- Ajouter un intervenant -->
+    <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px;margin-top:16px">
+      <div class="form-label" style="margin-bottom:10px">Ajouter un intervenant</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="btn-sm" id="mwTabTeam" onclick="switchMWTab('team')" style="background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.5);color:#A5B4FC">👥 Mon équipe</button>
+        <button class="btn-sm" id="mwTabExt" onclick="switchMWTab('ext')" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted)">✉️ Externe</button>
+      </div>
+      <div id="mwPanelTeam">
+        <select class="form-input" id="mwWorkerSelect" style="margin:0">
+          <option value="">— Sélectionner un intervenant —</option>
+        </select>
+        <button class="btn-sm btn-upload" style="margin-top:8px;width:100%" onclick="addMissionWorkerFromTeam()">➕ Ajouter</button>
+      </div>
+      <div id="mwPanelExt" style="display:none">
+        <input class="form-input" id="mwExtName" placeholder="Nom complet" style="margin-bottom:8px" />
+        <input class="form-input" id="mwExtEmail" placeholder="Email (optionnel)" style="margin-bottom:8px" />
+        <button class="btn-sm btn-upload" style="width:100%" onclick="addMissionWorkerExternal()">➕ Ajouter l'externe</button>
+      </div>
+    </div>
+    <!-- Liste intervenants -->
+    <div id="missionWorkersList" style="margin-top:16px"></div>
+  </div>
+</div>
+
+<!-- ══ MODALE DOCS PARTAGÉS MISSION ══ -->
+<div class="modal-overlay" id="missionDocsModal">
+  <div class="modal" style="max-width:520px">
+    <button class="modal-close" onclick="document.getElementById('missionDocsModal').classList.remove('open')">✕</button>
+    <div class="modal-title">📄 Documents partagés</div>
+    <div class="modal-subtitle" id="missionDocsModalSubtitle">Choisissez les documents à exposer à l'EU pour cette mission</div>
+    <input type="hidden" id="missionDocsModalId" />
+    <div id="missionDocsList" style="margin-top:16px"></div>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:var(--muted)">
+      💡 Seuls vos documents validés sont disponibles au partage
     </div>
   </div>
 </div>
@@ -2731,19 +2812,63 @@ async function loadST(orgId, containerId) {
 
   // Section ST rattachés
   if (rels && rels.length) {
+    // Charger missions pour tous les ST rattachés
+    const { data: allMissions } = await sb.from('missions')
+      .select('id, st_org_id, title, status, start_date, end_date, description')
+      .eq('eu_org_id', orgId)
+      .order('created_at', { ascending: false });
+
+    const missionsByOrg = {};
+    (allMissions || []).forEach(m => {
+      if (!missionsByOrg[m.st_org_id]) missionsByOrg[m.st_org_id] = [];
+      missionsByOrg[m.st_org_id].push(m);
+    });
+
+    const statusLabel = { draft:'Brouillon', pending:'⏳ En attente', approved:'✅ Validée', rejected:'❌ Refusée', active:'Active' };
+    const statusColor = { draft:'#94A3B8', pending:'#F59E0B', approved:'#22C55E', rejected:'#EF4444', active:'#22C55E' };
+
     html += `<div class="section-title" style="margin-bottom:12px">✅ Rattachés (${rels.length})</div><div class="request-list" style="margin-bottom:24px">` +
     rels.map(rel => {
       const st   = orgMap[rel.st_org_id] || {};
       const date = new Date(rel.created_at).toLocaleDateString('fr-FR');
-      return `<div class="request-card">
+      const stMissions = missionsByOrg[rel.st_org_id] || [];
+
+      const missionsHtml = stMissions.length ? stMissions.map(m => {
+        const sc = statusColor[m.status] || '#94A3B8';
+        const sl = statusLabel[m.status] || m.status;
+        const dates = m.start_date ? `📅 ${new Date(m.start_date).toLocaleDateString('fr-FR')}${m.end_date ? ' → '+new Date(m.end_date).toLocaleDateString('fr-FR') : ''}` : '';
+        return `<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px;margin-top:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+            <div>
+              <div style="font-size:14px;font-weight:700">${m.title}</div>
+              ${dates ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${dates}</div>` : ''}
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:11px;font-weight:700;color:${sc}">${sl}</span>
+              ${m.status === 'pending' ? `
+                <button onclick="approveMission('${m.id}','${containerId}')" class="btn-sm btn-validate" style="font-size:11px">✓ Valider</button>
+                <button onclick="rejectMission('${m.id}','${containerId}')" class="btn-sm btn-reject" style="font-size:11px">✕ Refuser</button>
+              ` : ''}
+            </div>
+          </div>
+          ${m.status === 'approved' || m.status === 'active' ? `
+          <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+            <button onclick="viewMissionWorkers('${m.id}','${m.title}')" class="btn-sm btn-view" style="font-size:11px">👷 Voir intervenants</button>
+            <button onclick="viewMissionDocs('${m.id}','${m.title}','${rel.st_org_id}')" class="btn-sm btn-view" style="font-size:11px">📄 Voir docs</button>
+          </div>` : ''}
+        </div>`;
+      }).join('') : `<div style="font-size:12px;color:var(--muted);margin-top:10px;font-style:italic">Aucune mission déclarée</div>`;
+
+      return `<div class="request-card" style="flex-direction:column;align-items:stretch">
         <div class="request-card-header">
           <div class="request-card-icon">🤝</div>
           <div class="request-card-info">
             <div class="request-card-name">${st.name || 'Sous-traitant'}</div>
-            <div class="request-card-meta">Rattaché le ${date}</div>
+            <div class="request-card-meta">Rattaché le ${date} · ${stMissions.length} mission(s)</div>
           </div>
           <span style="font-size:11px;color:#86EFAC;font-weight:700">✓ Actif</span>
         </div>
+        <div style="padding:0 4px 4px">${missionsHtml}</div>
       </div>`;
     }).join('') + '</div>';
   }
@@ -3408,6 +3533,316 @@ async function processQrUrl(url) {
 }
 
 
+// ══════════════════════════════════════
+// MISSIONS
+// ══════════════════════════════════════
+
+// ── Modale création / édition ──
+function openCreateMissionModal(euOrgId, euName) {
+  document.getElementById('missionModalTitle').textContent    = 'Nouvelle mission';
+  document.getElementById('missionModalSubtitle').textContent = `Pour ${euName}`;
+  document.getElementById('missionModalId').value    = '';
+  document.getElementById('missionModalEuId').value  = euOrgId;
+  document.getElementById('missionTitle').value      = '';
+  document.getElementById('missionDesc').value       = '';
+  document.getElementById('missionStartDate').value  = '';
+  document.getElementById('missionEndDate').value    = '';
+  document.getElementById('missionModal').classList.add('open');
+}
+
+function openEditMissionModal(id, title, desc, startDate, endDate) {
+  document.getElementById('missionModalTitle').textContent    = 'Modifier la mission';
+  document.getElementById('missionModalSubtitle').textContent = 'Modifiez les informations';
+  document.getElementById('missionModalId').value    = id;
+  document.getElementById('missionModalEuId').value  = '';
+  document.getElementById('missionTitle').value      = title;
+  document.getElementById('missionDesc').value       = desc || '';
+  document.getElementById('missionStartDate').value  = startDate || '';
+  document.getElementById('missionEndDate').value    = endDate || '';
+  document.getElementById('missionModal').classList.add('open');
+}
+
+function closeMissionModal() {
+  document.getElementById('missionModal').classList.remove('open');
+}
+
+async function saveMission() {
+  const id        = document.getElementById('missionModalId').value;
+  const euOrgId   = document.getElementById('missionModalEuId').value;
+  const title     = document.getElementById('missionTitle').value.trim();
+  const desc      = document.getElementById('missionDesc').value.trim();
+  const startDate = document.getElementById('missionStartDate').value || null;
+  const endDate   = document.getElementById('missionEndDate').value || null;
+
+  if (!title) { showToast('Le titre est obligatoire', 'error'); return; }
+
+  if (id) {
+    // Édition
+    const { error } = await sb.from('missions').update({ title, description: desc, start_date: startDate, end_date: endDate }).eq('id', id);
+    if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+    showToast('✓ Mission mise à jour', 'success');
+  } else {
+    // Création
+    if (!euOrgId || !currentProfile.org_id) { showToast('Données manquantes', 'error'); return; }
+    const { error } = await sb.from('missions').insert({
+      st_org_id: currentProfile.org_id,
+      eu_org_id: euOrgId,
+      title, description: desc,
+      start_date: startDate, end_date: endDate,
+      status: 'draft',
+      created_by: currentUser.id
+    });
+    if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+    showToast('✓ Mission créée', 'success');
+  }
+  closeMissionModal();
+  loadSTEU();
+}
+
+async function submitMission(missionId) {
+  if (!confirm('Soumettre cette mission à validation de l\'EU ?')) return;
+  const { error } = await sb.from('missions').update({ status: 'pending' }).eq('id', missionId);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  showToast('✓ Mission soumise — en attente de validation', 'success');
+  loadSTEU();
+}
+
+async function deleteMission(missionId) {
+  if (!confirm('Supprimer définitivement cette mission ?')) return;
+  await sb.from('mission_workers').delete().eq('mission_id', missionId);
+  await sb.from('mission_doc_shares').delete().eq('mission_id', missionId);
+  await sb.from('missions').delete().eq('id', missionId);
+  showToast('✓ Mission supprimée', 'success');
+  loadSTEU();
+}
+
+// ── Validation EU/HSE ──
+async function approveMission(missionId, containerId) {
+  const { error } = await sb.from('missions').update({ status: 'approved' }).eq('id', missionId);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  showToast('✓ Mission validée', 'success');
+  loadST(currentProfile.org_id, containerId);
+}
+
+async function rejectMission(missionId, containerId) {
+  const reason = prompt('Motif du refus (optionnel) :');
+  if (reason === null) return;
+  const { error } = await sb.from('missions').update({ status: 'rejected' }).eq('id', missionId);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  showToast('✓ Mission refusée', 'success');
+  loadST(currentProfile.org_id, containerId);
+}
+
+// ── Gestion intervenants mission (côté ST) ──
+let _mwMissionId = null;
+
+async function openMissionWorkersModal(missionId, missionTitle) {
+  _mwMissionId = missionId;
+  document.getElementById('missionWorkersModalId').value       = missionId;
+  document.getElementById('missionWorkersModalSubtitle').textContent = missionTitle;
+  switchMWTab('team');
+
+  // Charger workers de l'équipe ST dans le select
+  const { data: workers } = await sb.from('profiles').select('id, full_name, email').eq('org_id', currentProfile.org_id).eq('role','worker');
+  const sel = document.getElementById('mwWorkerSelect');
+  sel.innerHTML = '<option value="">— Sélectionner un intervenant —</option>' +
+    (workers || []).map(w => `<option value="${w.id}">${w.full_name} (${w.email})</option>`).join('');
+
+  document.getElementById('missionWorkersModal').classList.add('open');
+  await refreshMissionWorkersList(missionId);
+}
+
+function switchMWTab(tab) {
+  const isTeam = tab === 'team';
+  document.getElementById('mwPanelTeam').style.display = isTeam ? '' : 'none';
+  document.getElementById('mwPanelExt').style.display  = isTeam ? 'none' : '';
+  document.getElementById('mwTabTeam').style.background = isTeam ? 'rgba(99,102,241,.2)' : 'rgba(255,255,255,.06)';
+  document.getElementById('mwTabTeam').style.color      = isTeam ? '#A5B4FC' : 'var(--muted)';
+  document.getElementById('mwTabExt').style.background  = !isTeam ? 'rgba(99,102,241,.2)' : 'rgba(255,255,255,.06)';
+  document.getElementById('mwTabExt').style.color       = !isTeam ? '#A5B4FC' : 'var(--muted)';
+}
+
+async function refreshMissionWorkersList(missionId) {
+  const { data: mw } = await sb.from('mission_workers').select('id, worker_id, name_external, email_external').eq('mission_id', missionId);
+  const workerIds = (mw || []).filter(w => w.worker_id).map(w => w.worker_id);
+  let profileMap = {};
+  if (workerIds.length) {
+    const { data: profiles } = await sb.from('profiles').select('id, full_name, email').in('id', workerIds);
+    (profiles || []).forEach(p => profileMap[p.id] = p);
+  }
+  const list = document.getElementById('missionWorkersList');
+  if (!mw || !mw.length) { list.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0">Aucun intervenant ajouté</div>'; return; }
+  list.innerHTML = '<div class="section-title" style="margin-bottom:10px">Intervenants ('+mw.length+')</div>' +
+    mw.map(w => {
+      const name  = w.worker_id ? (profileMap[w.worker_id]?.full_name || '—') : (w.name_external || 'Externe');
+      const email = w.worker_id ? (profileMap[w.worker_id]?.email || '') : (w.email_external || '');
+      const tag   = w.worker_id ? '<span style="font-size:10px;color:#86EFAC;font-weight:700">✓ Équipe</span>' : '<span style="font-size:10px;color:#A5B4FC;font-weight:700">Externe</span>';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;margin-bottom:6px">
+        <div style="font-size:20px">👷</div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:700">${name}</div>${email ? `<div style="font-size:11px;color:var(--muted)">${email}</div>` : ''}</div>
+        ${tag}
+        <button onclick="removeMissionWorker('${w.id}')" class="btn-sm btn-reject" style="font-size:11px;padding:4px 8px">✕</button>
+      </div>`;
+    }).join('');
+}
+
+async function addMissionWorkerFromTeam() {
+  const workerId = document.getElementById('mwWorkerSelect').value;
+  if (!workerId) { showToast('Sélectionnez un intervenant', 'error'); return; }
+  const { error } = await sb.from('mission_workers').insert({ mission_id: _mwMissionId, worker_id: workerId });
+  if (error) { if (error.code === '23505') { showToast('Déjà ajouté', 'error'); } else { showToast('Erreur : ' + error.message, 'error'); } return; }
+  showToast('✓ Intervenant ajouté', 'success');
+  await refreshMissionWorkersList(_mwMissionId);
+}
+
+async function addMissionWorkerExternal() {
+  const name  = document.getElementById('mwExtName').value.trim();
+  const email = document.getElementById('mwExtEmail').value.trim();
+  if (!name) { showToast('Le nom est obligatoire', 'error'); return; }
+  const { error } = await sb.from('mission_workers').insert({ mission_id: _mwMissionId, name_external: name, email_external: email || null });
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  document.getElementById('mwExtName').value  = '';
+  document.getElementById('mwExtEmail').value = '';
+  showToast('✓ Externe ajouté', 'success');
+  await refreshMissionWorkersList(_mwMissionId);
+}
+
+async function removeMissionWorker(mwId) {
+  await sb.from('mission_workers').delete().eq('id', mwId);
+  showToast('✓ Retiré de la mission', 'success');
+  await refreshMissionWorkersList(_mwMissionId);
+}
+
+// ── Gestion docs partagés mission (côté ST) ──
+async function openMissionDocsModal(missionId, missionTitle) {
+  document.getElementById('missionDocsModalId').value              = missionId;
+  document.getElementById('missionDocsModalSubtitle').textContent  = missionTitle;
+  document.getElementById('missionDocsModal').classList.add('open');
+  await refreshMissionDocsList(missionId);
+}
+
+async function refreshMissionDocsList(missionId) {
+  const list = document.getElementById('missionDocsList');
+  list.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px">Chargement...</div>';
+
+  // Docs validés du ST (company category)
+  const { data: myDocs } = await sb.from('documents').select('id, doc_type, status, expires_at')
+    .eq('owner_id', currentUser.id).eq('category','company').eq('status','validated');
+
+  // Docs déjà partagés sur cette mission
+  const { data: shared } = await sb.from('mission_doc_shares').select('id, doc_id').eq('mission_id', missionId);
+  const sharedDocIds = new Set((shared || []).map(s => s.doc_id));
+  const sharedMap    = {};
+  (shared || []).forEach(s => sharedMap[s.doc_id] = s.id);
+
+  if (!myDocs || !myDocs.length) {
+    list.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0">Aucun document validé disponible</div>';
+    return;
+  }
+
+  list.innerHTML = myDocs.map(doc => {
+    const isShared = sharedDocIds.has(doc.id);
+    const exp = doc.expires_at ? new Date(doc.expires_at).toLocaleDateString('fr-FR') : null;
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid ${isShared ? 'rgba(34,197,94,.3)' : 'rgba(255,255,255,.08)'};border-radius:10px;margin-bottom:8px">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700">${doc.doc_type}</div>
+        ${exp ? `<div style="font-size:11px;color:var(--muted)">Expire le ${exp}</div>` : ''}
+      </div>
+      ${isShared
+        ? `<span style="font-size:11px;color:#86EFAC;font-weight:700">✓ Partagé</span>
+           <button onclick="unshareDoc('${sharedMap[doc.id]}','${missionId}')" class="btn-sm btn-reject" style="font-size:11px">Retirer</button>`
+        : `<button onclick="shareDoc('${doc.id}','${missionId}')" class="btn-sm btn-upload" style="font-size:11px">Partager</button>`
+      }
+    </div>`;
+  }).join('');
+}
+
+async function shareDoc(docId, missionId) {
+  const { error } = await sb.from('mission_doc_shares').insert({ mission_id: missionId, doc_id: docId, shared_by: currentUser.id });
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  showToast('✓ Document partagé', 'success');
+  await refreshMissionDocsList(missionId);
+}
+
+async function unshareDoc(shareId, missionId) {
+  await sb.from('mission_doc_shares').delete().eq('id', shareId);
+  showToast('✓ Partage retiré', 'success');
+  await refreshMissionDocsList(missionId);
+}
+
+// ── Vue intervenants mission (côté EU/HSE) ──
+async function viewMissionWorkers(missionId, missionTitle) {
+  const { data: mw } = await sb.from('mission_workers').select('id, worker_id, name_external, email_external').eq('mission_id', missionId);
+  const workerIds = (mw || []).filter(w => w.worker_id).map(w => w.worker_id);
+  let profileMap = {}, habsMap = {};
+
+  if (workerIds.length) {
+    const [{ data: profiles }, { data: habs }] = await Promise.all([
+      sb.from('profiles').select('id, full_name, email').in('id', workerIds),
+      sb.from('documents').select('owner_id, doc_type, expires_at, status').in('owner_id', workerIds).eq('category','worker').eq('status','validated')
+    ]);
+    (profiles || []).forEach(p => profileMap[p.id] = p);
+    (habs || []).forEach(h => {
+      if (!habsMap[h.owner_id]) habsMap[h.owner_id] = [];
+      habsMap[h.owner_id].push(h);
+    });
+  }
+
+  const now = new Date().toISOString();
+  const content = (!mw || !mw.length)
+    ? '<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px 0">Aucun intervenant déclaré</div>'
+    : mw.map(w => {
+        const profile = w.worker_id ? profileMap[w.worker_id] : null;
+        const name    = profile ? profile.full_name : (w.name_external || 'Externe');
+        const email   = profile ? profile.email     : (w.email_external || '');
+        const habs    = w.worker_id ? (habsMap[w.worker_id] || []).filter(h => !h.expires_at || h.expires_at > now) : [];
+        const tag     = w.worker_id ? '<span style="font-size:10px;color:#86EFAC;font-weight:700">✓ SafetySphere</span>' : '<span style="font-size:10px;color:#A5B4FC;font-weight:700">Externe</span>';
+        return `<div style="padding:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:${habs.length ? 10 : 0}px">
+            <div style="font-size:22px">👷</div>
+            <div style="flex:1"><div style="font-size:14px;font-weight:700">${name}</div>${email ? `<div style="font-size:11px;color:var(--muted)">${email}</div>` : ''}</div>
+            ${tag}
+          </div>
+          ${habs.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px">${habs.map(h => `<span style="font-size:11px;padding:3px 10px;border-radius:99px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#86EFAC">${h.doc_type}</span>`).join('')}</div>` : (w.worker_id ? '<div style="font-size:11px;color:#F59E0B">⚠️ Aucune habilitation validée</div>' : '')}
+        </div>`;
+      }).join('');
+
+  // Réutiliser missionWorkersModal en lecture seule
+  document.getElementById('missionWorkersModalSubtitle').textContent = missionTitle;
+  document.getElementById('missionWorkersList').innerHTML = content;
+  // Masquer les contrôles d'ajout
+  document.querySelector('#missionWorkersModal .modal-title').textContent = '👷 Intervenants — ' + missionTitle;
+  document.getElementById('mwPanelTeam').closest('div').style.display = 'none';
+  document.getElementById('missionWorkersModal').classList.add('open');
+}
+
+// ── Vue docs partagés mission (côté EU/HSE) ──
+async function viewMissionDocs(missionId, missionTitle, stOrgId) {
+  const { data: shares } = await sb.from('mission_doc_shares').select('doc_id').eq('mission_id', missionId);
+  const docIds = (shares || []).map(s => s.doc_id);
+
+  let content = '';
+  if (!docIds.length) {
+    content = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px 0">Aucun document partagé pour cette mission</div>';
+  } else {
+    const { data: docs } = await sb.from('documents').select('id, doc_type, expires_at, file_url').in('id', docIds);
+    content = (docs || []).map(doc => {
+      const exp = doc.expires_at ? new Date(doc.expires_at).toLocaleDateString('fr-FR') : null;
+      return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(34,197,94,.25);border-radius:10px;margin-bottom:8px">
+        <div style="font-size:20px">📄</div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:700">${doc.doc_type}</div>${exp ? `<div style="font-size:11px;color:var(--muted)">Expire le ${exp}</div>` : ''}</div>
+        ${doc.file_url ? `<button onclick="window.open('${doc.file_url}','_blank')" class="btn-sm btn-view" style="font-size:11px">👁 Voir</button>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  document.getElementById('missionDocsModalSubtitle').textContent = missionTitle;
+  document.getElementById('missionDocsList').innerHTML = content;
+  // Passer en mode lecture (pas de bouton partager)
+  document.getElementById('missionDocsModal').classList.add('open');
+}
+
+
 function copyOrgQrLink(token) {
   const url = `${window.location.origin}/?org=${token}`;
   navigator.clipboard.writeText(url).then(() => showToast('✓ Lien QR copié', 'success'));
@@ -3733,18 +4168,61 @@ async function loadSTEU() {
   const orgMap = {};
   if (orgs) orgs.forEach(o => orgMap[o.id] = o);
 
+  // Charger toutes les missions du ST
+  const { data: missions } = await sb.from('missions')
+    .select('id, eu_org_id, title, status, start_date, end_date')
+    .eq('st_org_id', currentProfile.org_id)
+    .order('created_at', { ascending: false });
+
+  const missionsByEU = {};
+  (missions || []).forEach(m => {
+    if (!missionsByEU[m.eu_org_id]) missionsByEU[m.eu_org_id] = [];
+    missionsByEU[m.eu_org_id].push(m);
+  });
+
+  const statusLabel = { draft:'Brouillon', pending:'En attente EU', approved:'✅ Validée', rejected:'❌ Refusée', active:'Active' };
+  const statusColor = { draft:'#94A3B8', pending:'#F59E0B', approved:'#22C55E', rejected:'#EF4444', active:'#22C55E' };
+
   container.innerHTML = '<div class="request-list">' + rels.map(rel => {
     const eu   = orgMap[rel.eu_org_id] || {};
     const date = new Date(rel.created_at).toLocaleDateString('fr-FR');
-    return `<div class="request-card">
+    const euMissions = missionsByEU[rel.eu_org_id] || [];
+
+    const missionsHtml = euMissions.length ? euMissions.map(m => {
+      const sc = statusColor[m.status] || '#94A3B8';
+      const sl = statusLabel[m.status] || m.status;
+      const dates = m.start_date ? `📅 ${new Date(m.start_date).toLocaleDateString('fr-FR')}${m.end_date ? ' → '+new Date(m.end_date).toLocaleDateString('fr-FR') : ''}` : '';
+      return `<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px;margin-top:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:14px;font-weight:700">${m.title}</div>
+            ${dates ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${dates}</div>` : ''}
+          </div>
+          <span style="font-size:11px;font-weight:700;color:${sc};white-space:nowrap">${sl}</span>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+          <button onclick="openMissionWorkersModal('${m.id}','${m.title}')" class="btn-sm btn-view" style="font-size:11px">👷 Intervenants</button>
+          <button onclick="openMissionDocsModal('${m.id}','${m.title}')" class="btn-sm btn-view" style="font-size:11px">📄 Docs partagés</button>
+          ${m.status === 'draft' || m.status === 'rejected' ? `<button onclick="submitMission('${m.id}')" class="btn-sm btn-upload" style="font-size:11px">📤 Soumettre</button>` : ''}
+          <button onclick="openEditMissionModal('${m.id}','${m.title}','${(m.description||'').replace(/'/g,'')}','${m.start_date||''}','${m.end_date||''}')" class="btn-sm" style="font-size:11px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted)">✏️</button>
+          <button onclick="deleteMission('${m.id}')" class="btn-sm btn-reject" style="font-size:11px">🗑</button>
+        </div>
+      </div>`;
+    }).join('') : `<div style="font-size:12px;color:var(--muted);margin-top:10px;font-style:italic">Aucune mission — créez-en une pour déclarer vos travaux</div>`;
+
+    return `<div class="request-card" style="flex-direction:column;align-items:stretch">
       <div class="request-card-header">
         <div class="request-card-icon">🏭</div>
         <div class="request-card-info">
           <div class="request-card-name">${eu.name || 'Entreprise'}</div>
-          <div class="request-card-meta">Rattaché le ${date}</div>
+          <div class="request-card-meta">Rattaché le ${date} · ${euMissions.length} mission(s)</div>
         </div>
-        <button onclick="detachFromEU('${rel.id}','${eu.name || ''}')" class="btn-sm btn-reject" style="white-space:nowrap">✕ Se détacher</button>
+        <div style="display:flex;gap:6px">
+          <button onclick="openCreateMissionModal('${rel.eu_org_id}','${eu.name||''}')" class="btn-sm btn-upload" style="white-space:nowrap;font-size:11px">➕ Mission</button>
+          <button onclick="detachFromEU('${rel.id}','${eu.name || ''}')" class="btn-sm btn-reject" style="white-space:nowrap;font-size:11px">✕</button>
+        </div>
       </div>
+      <div style="padding:0 4px 4px">${missionsHtml}</div>
     </div>`;
   }).join('') + '</div>';
 }
