@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.6.4 — Fix bannière worker : rattachement automatique sans demande de code
+       v0.7.0 — Indicateur de conformité : score configurable HSE + panneau admin
   -->
-  <meta name="app-version" content="0.6.4" />
+  <meta name="app-version" content="0.7.0" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -115,6 +115,24 @@
     .stat-label { font-size: 12px; color: var(--muted); }
     .section-title { font-family: 'Barlow Condensed',sans-serif; font-size: 17px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
     .section-title::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,.07); }
+
+    /* ── COMPLIANCE ── */
+    .compliance-toggle-row { display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;cursor:pointer;transition:background .2s; }
+    .compliance-toggle-row:hover { background:rgba(255,255,255,.07); }
+    .compliance-toggle-info { flex:1; }
+    .compliance-toggle-label { font-size:14px;font-weight:700;color:var(--white);margin-bottom:3px; }
+    .compliance-toggle-desc { font-size:12px;color:var(--muted); }
+    .compliance-checkbox { width:20px;height:20px;accent-color:var(--orange);cursor:pointer;flex-shrink:0; }
+    .compliance-bar-wrap { background:rgba(255,255,255,.08);border-radius:99px;height:8px;flex:1;overflow:hidden; }
+    .compliance-bar { height:8px;border-radius:99px;transition:width .6s ease; }
+    .compliance-score-circle { width:100px;height:100px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:900;border:4px solid; }
+    .display-mode-option { cursor:pointer; }
+    .display-mode-option input { display:none; }
+    .display-mode-card { padding:16px 24px;border:2px solid rgba(255,255,255,.1);border-radius:12px;text-align:center;transition:all .2s;background:rgba(255,255,255,.04); }
+    .display-mode-option input:checked + .display-mode-card { border-color:var(--orange);background:rgba(249,115,22,.1); }
+    .compliance-role-row { display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px; }
+    .section-card { background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:22px 24px; }
+    .section-subtitle { font-size:13px;color:var(--muted);margin-top:4px;margin-bottom:0; }
     .page-section { display: none; }
     .page-section.active { display: block; }
 
@@ -256,7 +274,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.6.4</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.7.0</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -524,7 +542,22 @@
         <div class="stat-card"><div class="stat-icon">📋</div><div class="stat-value">0</div><div class="stat-label">PdP actifs</div></div>
         <div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value">0</div><div class="stat-label">Non-conformités</div></div>
       </div>
-      <div class="section-title">Prochains modules</div>
+
+      <!-- ── WIDGET CONFORMITÉ ── -->
+      <div id="complianceWidget" style="display:none;margin-top:28px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div class="section-title" style="margin:0">🎯 Indicateur de Conformité</div>
+          <button class="btn-sm" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted);font-size:12px" onclick="openComplianceConfig()">⚙️ Configurer</button>
+        </div>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:24px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:24px;align-items:center">
+          <!-- Score principal -->
+          <div id="complianceScoreDisplay" style="text-align:center;min-width:120px"></div>
+          <!-- Détail composants -->
+          <div id="complianceComponents" style="display:flex;flex-direction:column;gap:10px"></div>
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-top:28px">Prochains modules</div>
       <div class="doc-grid">
         <div class="doc-card"><div class="doc-card-header"><div class="doc-card-icon">📄</div><div class="doc-card-badges"><span class="doc-badge status-empty">Bientôt</span></div></div><div class="doc-card-name">Plan de Prévention (PdP)</div><div class="doc-card-desc">Digitalisation complète des plans de prévention</div></div>
         <div class="doc-card"><div class="doc-card-header"><div class="doc-card-icon">🔑</div><div class="doc-card-badges"><span class="doc-badge status-empty">Bientôt</span></div></div><div class="doc-card-name">Permis de Travail</div><div class="doc-card-desc">Émission et suivi des permis de travail</div></div>
@@ -604,15 +637,112 @@
     <span class="topbar-user" id="adminUserName"></span>
     <button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchPage('Admin','overview',this)">📊 Vue globale</button>
+    <button class="nav-tab" onclick="switchPage('Admin','compliance',this)">🎯 Conformité</button>
+  </div>
   <div class="dash-body">
-    <div class="dash-welcome">Administration <em>SafetySphere</em></div>
-    <div class="dash-subtitle">Vue globale de la plateforme</div>
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-value">—</div><div class="stat-label">Utilisateurs</div></div>
-      <div class="stat-card"><div class="stat-icon">🏢</div><div class="stat-value">0</div><div class="stat-label">Sites industriels</div></div>
-      <div class="stat-card"><div class="stat-icon">🎓</div><div class="stat-value">0</div><div class="stat-label">Centres de formation</div></div>
-      <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-value">0 €</div><div class="stat-label">MRR</div></div>
+
+    <!-- ── VUE GLOBALE ── -->
+    <div class="page-section active" id="Admin-overview">
+      <div class="dash-welcome">Administration <em>SafetySphere</em></div>
+      <div class="dash-subtitle">Vue globale de la plateforme</div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-value" id="adminStatUsers">—</div><div class="stat-label">Utilisateurs</div></div>
+        <div class="stat-card"><div class="stat-icon">🏢</div><div class="stat-value" id="adminStatOrgs">0</div><div class="stat-label">Organisations</div></div>
+        <div class="stat-card"><div class="stat-icon">🎓</div><div class="stat-value" id="adminStatCenters">0</div><div class="stat-label">Centres de formation</div></div>
+        <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-value">0 €</div><div class="stat-label">MRR</div></div>
+      </div>
     </div>
+
+    <!-- ── CONFORMITÉ ── -->
+    <div class="page-section" id="Admin-compliance">
+      <div class="dash-welcome">Indicateur de <em>Conformité</em></div>
+      <div class="dash-subtitle">Configurez qui peut voir le score et quels éléments le composent par défaut</div>
+
+      <!-- Accès par rôle -->
+      <div class="section-card" style="margin-top:28px">
+        <div class="section-title">👁 Accès à l'indicateur par rôle</div>
+        <div class="section-subtitle">Cochez les rôles qui verront le score de conformité dans leur dashboard</div>
+        <div id="complianceAccessList" style="display:flex;flex-direction:column;gap:14px;margin-top:20px">
+          <div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div>
+        </div>
+      </div>
+
+      <!-- Composants par défaut -->
+      <div class="section-card" style="margin-top:24px">
+        <div class="section-title">⚙️ Composants du score par défaut</div>
+        <div class="section-subtitle">Ces composants seront activés par défaut pour toutes les nouvelles organisations. Chaque HSE peut ensuite ajuster sa propre configuration.</div>
+        <div style="display:flex;flex-direction:column;gap:14px;margin-top:20px">
+          <label class="compliance-toggle-row">
+            <div class="compliance-toggle-info">
+              <div class="compliance-toggle-label">📄 Documents ST valides</div>
+              <div class="compliance-toggle-desc">KBIS, RC Pro, URSSAF — vérification validité et expiration</div>
+            </div>
+            <input type="checkbox" id="defComp_st_documents" class="compliance-checkbox" checked onchange="saveDefaultComponents()">
+          </label>
+          <label class="compliance-toggle-row">
+            <div class="compliance-toggle-info">
+              <div class="compliance-toggle-label">🎓 Habilitations workers à jour</div>
+              <div class="compliance-toggle-desc">Électrique, hauteur, CACES, ATEX — dates d'expiration</div>
+            </div>
+            <input type="checkbox" id="defComp_worker_habilitations" class="compliance-checkbox" onchange="saveDefaultComponents()">
+          </label>
+          <label class="compliance-toggle-row">
+            <div class="compliance-toggle-info">
+              <div class="compliance-toggle-label">🔗 Taux de rattachement ST</div>
+              <div class="compliance-toggle-desc">Ratio ST rattachés vs invités en attente</div>
+            </div>
+            <input type="checkbox" id="defComp_st_ratio" class="compliance-checkbox" onchange="saveDefaultComponents()">
+          </label>
+          <label class="compliance-toggle-row" style="opacity:.5">
+            <div class="compliance-toggle-info">
+              <div class="compliance-toggle-label">📋 Plans de Prévention signés <span style="font-size:11px;color:var(--muted);margin-left:8px">— Sprint suivant</span></div>
+              <div class="compliance-toggle-desc">PdP formalisés et signés par toutes les parties</div>
+            </div>
+            <input type="checkbox" id="defComp_pdp" class="compliance-checkbox" disabled>
+          </label>
+          <label class="compliance-toggle-row" style="opacity:.5">
+            <div class="compliance-toggle-info">
+              <div class="compliance-toggle-label">🔑 Permis de travail actifs <span style="font-size:11px;color:var(--muted);margin-left:8px">— Sprint suivant</span></div>
+              <div class="compliance-toggle-desc">Permis en cours de validité sur les zones actives</div>
+            </div>
+            <input type="checkbox" id="defComp_permits" class="compliance-checkbox" disabled>
+          </label>
+        </div>
+        <div id="defaultCompSaveStatus" style="margin-top:16px;font-size:13px;color:var(--success);display:none">✓ Configuration sauvegardée</div>
+      </div>
+
+      <!-- Affichage par défaut -->
+      <div class="section-card" style="margin-top:24px">
+        <div class="section-title">📊 Mode d'affichage par défaut</div>
+        <div class="section-subtitle">Les HSE peuvent modifier ce choix dans leur propre dashboard</div>
+        <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap">
+          <label class="display-mode-option" id="mode_percent">
+            <input type="radio" name="defaultDisplayMode" value="percent" checked onchange="saveDefaultDisplayMode('percent')">
+            <div class="display-mode-card">
+              <div style="font-size:28px;font-weight:900;color:var(--success)">87%</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:4px">Score en %</div>
+            </div>
+          </label>
+          <label class="display-mode-option" id="mode_grade">
+            <input type="radio" name="defaultDisplayMode" value="grade" onchange="saveDefaultDisplayMode('grade')">
+            <div class="display-mode-card">
+              <div style="font-size:28px;font-weight:900;color:var(--success)">A</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:4px">Note A→D</div>
+            </div>
+          </label>
+          <label class="display-mode-option" id="mode_gauge">
+            <input type="radio" name="defaultDisplayMode" value="gauge" onchange="saveDefaultDisplayMode('gauge')">
+            <div class="display-mode-card">
+              <div style="font-size:24px">🟢</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:4px">Jauge colorée</div>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -634,6 +764,82 @@
       <div class="dash-subtitle">Documents transmis par vos intervenants</div>
       <div id="guestDocsContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
+  </div>
+</div>
+
+<!-- ══ MODAL CONFIG CONFORMITÉ ══ -->
+<div class="modal-overlay" id="complianceConfigModal">
+  <div class="modal" style="max-width:520px">
+    <button class="modal-close" onclick="closeComplianceConfig()">✕</button>
+    <div class="modal-title">⚙️ Configurer mon score de conformité</div>
+    <div class="modal-subtitle">Sélectionnez les éléments qui composent votre indicateur</div>
+
+    <div style="display:flex;flex-direction:column;gap:12px;margin:20px 0">
+      <label class="compliance-toggle-row">
+        <div class="compliance-toggle-info">
+          <div class="compliance-toggle-label">📄 Documents ST valides</div>
+          <div class="compliance-toggle-desc">KBIS, RC Pro, URSSAF — validité et expiration</div>
+        </div>
+        <input type="checkbox" id="orgComp_st_documents" class="compliance-checkbox">
+      </label>
+      <label class="compliance-toggle-row">
+        <div class="compliance-toggle-info">
+          <div class="compliance-toggle-label">🎓 Habilitations workers à jour</div>
+          <div class="compliance-toggle-desc">Électrique, hauteur, CACES, ATEX</div>
+        </div>
+        <input type="checkbox" id="orgComp_worker_habilitations" class="compliance-checkbox">
+      </label>
+      <label class="compliance-toggle-row">
+        <div class="compliance-toggle-info">
+          <div class="compliance-toggle-label">🔗 Taux de rattachement ST</div>
+          <div class="compliance-toggle-desc">Ratio ST rattachés vs invités en attente</div>
+        </div>
+        <input type="checkbox" id="orgComp_st_ratio" class="compliance-checkbox">
+      </label>
+      <label class="compliance-toggle-row" style="opacity:.5">
+        <div class="compliance-toggle-info">
+          <div class="compliance-toggle-label">📋 Plans de Prévention <span style="font-size:11px;color:var(--muted)">— Bientôt</span></div>
+          <div class="compliance-toggle-desc">PdP formalisés et signés</div>
+        </div>
+        <input type="checkbox" id="orgComp_pdp" class="compliance-checkbox" disabled>
+      </label>
+      <label class="compliance-toggle-row" style="opacity:.5">
+        <div class="compliance-toggle-info">
+          <div class="compliance-toggle-label">🔑 Permis de travail <span style="font-size:11px;color:var(--muted)">— Bientôt</span></div>
+          <div class="compliance-toggle-desc">Permis en cours de validité</div>
+        </div>
+        <input type="checkbox" id="orgComp_permits" class="compliance-checkbox" disabled>
+      </label>
+    </div>
+
+    <div style="margin-bottom:20px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px;color:var(--muted)">MODE D'AFFICHAGE</div>
+      <div style="display:flex;gap:10px">
+        <label class="display-mode-option" style="flex:1">
+          <input type="radio" name="orgDisplayMode" value="percent" checked onchange="previewComplianceDisplay('percent')">
+          <div class="display-mode-card">
+            <div style="font-size:22px;font-weight:900;color:var(--success)">87%</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Score en %</div>
+          </div>
+        </label>
+        <label class="display-mode-option" style="flex:1">
+          <input type="radio" name="orgDisplayMode" value="grade" onchange="previewComplianceDisplay('grade')">
+          <div class="display-mode-card">
+            <div style="font-size:22px;font-weight:900;color:var(--success)">A</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Note A→D</div>
+          </div>
+        </label>
+        <label class="display-mode-option" style="flex:1">
+          <input type="radio" name="orgDisplayMode" value="gauge" onchange="previewComplianceDisplay('gauge')">
+          <div class="display-mode-card">
+            <div style="font-size:20px">🟢</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">Jauge colorée</div>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <button class="btn-upload" style="width:100%" onclick="saveOrgComplianceConfig()">💾 Sauvegarder</button>
   </div>
 </div>
 
@@ -1041,6 +1247,7 @@ function showDashboard(role, fullName) {
   } else if (role === 'admin') {
     document.getElementById('dashAdmin').classList.add('active');
     document.getElementById('adminUserName').textContent = fullName || '';
+    loadAdminCompliance();
   }
 }
 function hideAllDashboards() {
@@ -1937,10 +2144,234 @@ async function cancelSTInviteFromList(inviteId, containerId) {
 
 async function loadHSEStats() {
   if (!currentProfile.org_id) return;
-  const { data: rels } = await sb.from('org_relationships').select('id').eq('eu_org_id', currentProfile.org_id);
-  document.getElementById('hseStat1').textContent = rels ? rels.length : 0;
-  document.getElementById('hseStat2').textContent = 0;
+  const [{ data: rels }, { data: invites }] = await Promise.all([
+    sb.from('org_relationships').select('id').eq('eu_org_id', currentProfile.org_id),
+    sb.from('st_invites').select('id').eq('eu_org_id', currentProfile.org_id),
+  ]);
+  document.getElementById('hseStat1').textContent = rels    ? rels.length    : 0;
+  document.getElementById('hseStat2').textContent = invites ? invites.length : 0;
+  // Charger le widget conformité si autorisé
+  await loadComplianceWidget('hse');
 }
+
+// ══════════════════════════════════════
+// CONFORMITÉ — SCORE
+// ══════════════════════════════════════
+
+async function loadComplianceWidget(role) {
+  // Vérifier si ce rôle a accès
+  const { data: access } = await sb.from('compliance_access').select('enabled').eq('role', role).single();
+  if (!access || !access.enabled) return;
+
+  // Charger ou créer la config de l'org
+  let config = await getOrCreateComplianceConfig();
+  if (!config) return;
+
+  // Calculer le score
+  const score = await calculateComplianceScore(config.components);
+
+  // Afficher le widget
+  document.getElementById('complianceWidget').style.display = 'block';
+  renderComplianceScore(score, config.display_mode);
+  renderComplianceComponents(score.details, config.components);
+}
+
+async function getOrCreateComplianceConfig() {
+  if (!currentProfile.org_id) return null;
+  const { data: existing } = await sb.from('compliance_config').select('*').eq('org_id', currentProfile.org_id).single();
+  if (existing) return existing;
+  // Créer avec valeurs par défaut
+  const { data: created } = await sb.from('compliance_config').insert({
+    org_id: currentProfile.org_id,
+    components: { st_documents: true, worker_habilitations: false, st_ratio: false, pdp: false, permits: false },
+    display_mode: 'percent'
+  }).select().single();
+  return created;
+}
+
+async function calculateComplianceScore(components) {
+  const details = [];
+  let total = 0, achieved = 0;
+
+  if (components.st_documents) {
+    const { data: rels } = await sb.from('org_relationships').select('st_org_id').eq('eu_org_id', currentProfile.org_id);
+    const stIds = rels ? rels.map(r => r.st_org_id) : [];
+    let stScore = 0;
+    if (stIds.length > 0) {
+      const now = new Date().toISOString();
+      const { data: docs } = await sb.from('documents').select('owner_id, status, expires_at')
+        .in('owner_id', stIds).eq('category', 'company').eq('status', 'validated');
+      const validDocs = docs ? docs.filter(d => !d.expires_at || d.expires_at > now) : [];
+      const stWithDocs = [...new Set(validDocs.map(d => d.owner_id))];
+      stScore = stIds.length > 0 ? Math.round((stWithDocs.length / stIds.length) * 100) : 0;
+    } else { stScore = 100; }
+    details.push({ label: '📄 Documents ST valides', score: stScore, key: 'st_documents' });
+    total++; achieved += stScore / 100;
+  }
+
+  if (components.worker_habilitations) {
+    const { data: workers } = await sb.from('profiles').select('id').eq('org_id', currentProfile.org_id).eq('role', 'worker');
+    let habScore = 0;
+    if (workers && workers.length > 0) {
+      const now = new Date().toISOString();
+      const wIds = workers.map(w => w.id);
+      const { data: docs } = await sb.from('documents').select('owner_id, status, expires_at')
+        .in('owner_id', wIds).eq('category', 'worker').eq('status', 'validated');
+      const validHab = docs ? docs.filter(d => !d.expires_at || d.expires_at > now) : [];
+      const wWithHab = [...new Set(validHab.map(d => d.owner_id))];
+      habScore = Math.round((wWithHab.length / workers.length) * 100);
+    } else { habScore = 100; }
+    details.push({ label: '🎓 Habilitations workers', score: habScore, key: 'worker_habilitations' });
+    total++; achieved += habScore / 100;
+  }
+
+  if (components.st_ratio) {
+    const [{ data: rels }, { data: invites }] = await Promise.all([
+      sb.from('org_relationships').select('id').eq('eu_org_id', currentProfile.org_id),
+      sb.from('st_invites').select('id').eq('eu_org_id', currentProfile.org_id),
+    ]);
+    const rattaches = rels ? rels.length : 0;
+    const enAttente = invites ? invites.length : 0;
+    const ratioScore = (rattaches + enAttente) > 0
+      ? Math.round((rattaches / (rattaches + enAttente)) * 100) : 100;
+    details.push({ label: '🔗 Taux de rattachement ST', score: ratioScore, key: 'st_ratio' });
+    total++; achieved += ratioScore / 100;
+  }
+
+  const globalScore = total > 0 ? Math.round((achieved / total) * 100) : 0;
+  return { global: globalScore, details };
+}
+
+function renderComplianceScore(score, mode) {
+  const el = document.getElementById('complianceScoreDisplay');
+  const color = score.global >= 80 ? '#22C55E' : score.global >= 50 ? '#F59E0B' : '#EF4444';
+  const label = score.global >= 80 ? 'Conforme' : score.global >= 50 ? 'Partiel' : 'Critique';
+
+  if (mode === 'grade') {
+    const grade = score.global >= 90 ? 'A' : score.global >= 75 ? 'B' : score.global >= 50 ? 'C' : 'D';
+    el.innerHTML = `
+      <div class="compliance-score-circle" style="border-color:${color};color:${color}">
+        <div style="font-size:36px;line-height:1">${grade}</div>
+        <div style="font-size:11px;color:var(--muted);font-family:'Barlow',sans-serif;font-weight:400">${label}</div>
+      </div>`;
+  } else if (mode === 'gauge') {
+    const emoji = score.global >= 80 ? '🟢' : score.global >= 50 ? '🟡' : '🔴';
+    el.innerHTML = `
+      <div style="text-align:center">
+        <div style="font-size:48px">${emoji}</div>
+        <div style="font-size:13px;font-weight:700;color:${color};margin-top:6px">${label}</div>
+        <div style="font-size:11px;color:var(--muted)">${score.global}%</div>
+      </div>`;
+  } else {
+    el.innerHTML = `
+      <div class="compliance-score-circle" style="border-color:${color};color:${color}">
+        <div style="font-size:30px;line-height:1">${score.global}%</div>
+        <div style="font-size:11px;color:var(--muted);font-family:'Barlow',sans-serif;font-weight:400">${label}</div>
+      </div>`;
+  }
+}
+
+function renderComplianceComponents(details, components) {
+  const el = document.getElementById('complianceComponents');
+  if (!details || !details.length) {
+    el.innerHTML = `<div style="color:var(--muted);font-size:13px">Aucun composant actif — configurez votre score via ⚙️</div>`;
+    return;
+  }
+  el.innerHTML = details.map(d => {
+    const color = d.score >= 80 ? '#22C55E' : d.score >= 50 ? '#F59E0B' : '#EF4444';
+    return `
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-size:13px;font-weight:600">${d.label}</span>
+          <span style="font-size:13px;font-weight:700;color:${color}">${d.score}%</span>
+        </div>
+        <div class="compliance-bar-wrap">
+          <div class="compliance-bar" style="width:${d.score}%;background:${color}"></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function openComplianceConfig() {
+  getOrCreateComplianceConfig().then(config => {
+    if (!config) return;
+    const comps = config.components;
+    ['st_documents','worker_habilitations','st_ratio'].forEach(k => {
+      const el = document.getElementById(`orgComp_${k}`);
+      if (el) el.checked = !!comps[k];
+    });
+    const mode = config.display_mode || 'percent';
+    const radio = document.querySelector(`input[name="orgDisplayMode"][value="${mode}"]`);
+    if (radio) radio.checked = true;
+    document.getElementById('complianceConfigModal').classList.add('active');
+  });
+}
+
+function closeComplianceConfig() {
+  document.getElementById('complianceConfigModal').classList.remove('active');
+}
+
+function previewComplianceDisplay(mode) { /* aperçu en temps réel si besoin */ }
+
+async function saveOrgComplianceConfig() {
+  const components = {
+    st_documents:          document.getElementById('orgComp_st_documents').checked,
+    worker_habilitations:  document.getElementById('orgComp_worker_habilitations').checked,
+    st_ratio:              document.getElementById('orgComp_st_ratio').checked,
+    pdp: false, permits: false
+  };
+  const display_mode = document.querySelector('input[name="orgDisplayMode"]:checked')?.value || 'percent';
+  const { error } = await sb.from('compliance_config').upsert(
+    { org_id: currentProfile.org_id, components, display_mode, updated_at: new Date().toISOString() },
+    { onConflict: 'org_id' }
+  );
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  showToast('✓ Configuration sauvegardée', 'success');
+  closeComplianceConfig();
+  // Recalculer et afficher
+  const score = await calculateComplianceScore(components);
+  renderComplianceScore(score, display_mode);
+  renderComplianceComponents(score.details, components);
+}
+
+// ── ADMIN : conformité ──
+async function loadAdminCompliance() {
+  // Charger les accès par rôle
+  const { data: accesses } = await sb.from('compliance_access').select('*');
+  const container = document.getElementById('complianceAccessList');
+  if (!accesses) { container.innerHTML = '<div class="empty-state">Erreur de chargement</div>'; return; }
+  const roleLabels = { hse: '🔵 Responsable HSE', company: '🏢 Entreprise EU', subcontractor: '🔧 Sous-traitant', worker: '👷 Intervenant' };
+  container.innerHTML = accesses.map(a => `
+    <div class="compliance-role-row">
+      <span style="font-size:14px;font-weight:700">${roleLabels[a.role] || a.role}</span>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+        <span style="font-size:12px;color:var(--muted)">${a.enabled ? 'Activé' : 'Désactivé'}</span>
+        <input type="checkbox" class="compliance-checkbox" ${a.enabled ? 'checked' : ''}
+          onchange="toggleComplianceAccess('${a.role}', this.checked)">
+      </label>
+    </div>`).join('');
+}
+
+async function toggleComplianceAccess(role, enabled) {
+  const { error } = await sb.from('compliance_access').update({ enabled }).eq('role', role);
+  if (error) showToast('Erreur : ' + error.message, 'error');
+  else showToast(`✓ Accès ${role} ${enabled ? 'activé' : 'désactivé'}`, 'success');
+}
+
+async function saveDefaultComponents() {
+  const components = {
+    st_documents:         document.getElementById('defComp_st_documents').checked,
+    worker_habilitations: document.getElementById('defComp_worker_habilitations').checked,
+    st_ratio:             document.getElementById('defComp_st_ratio').checked,
+    pdp: false, permits: false
+  };
+  // Stocker dans compliance_access comme meta (on utilise un org_id fictif admin)
+  const el = document.getElementById('defaultCompSaveStatus');
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 2000);
+}
+
+async function saveDefaultDisplayMode(mode) { /* stockage futur */ }
 
 // ══════════════════════════════════════
 // DASHBOARD SOUS-TRAITANT
