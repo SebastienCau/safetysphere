@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.7.1 — Thème clair/sombre : toggle topbar, défaut light pour trainers, sauvegarde en base
+       v0.7.2 — QR Code worker : badge imprimable, page publique de scan, config admin
   -->
-  <meta name="app-version" content="0.7.1" />
+  <meta name="app-version" content="0.7.2" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -328,6 +328,20 @@
 <body>
 <div class="bg-layer"><div class="bg-circle c1"></div><div class="bg-circle c2"></div><div class="bg-grid"></div></div>
 
+<!-- ══ PAGE PUBLIQUE SCAN QR ══ -->
+<div id="publicScanPage" style="display:none;position:relative;z-index:1;min-height:100vh;padding:24px 16px;max-width:480px;margin:0 auto">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:28px">
+    <div style="width:32px;height:32px;background:var(--orange);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;font-size:14px">🛡</div>
+    <span style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900">Safety<span style="color:var(--orange)">Sphere</span></span>
+  </div>
+  <div id="publicScanContent">
+    <div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement du badge...</div></div>
+  </div>
+  <div style="margin-top:32px;text-align:center">
+    <a href="/" style="font-size:12px;color:var(--muted);text-decoration:none">🔐 Connexion SafetySphere</a>
+  </div>
+</div>
+
 <!-- ══ AUTH ══ -->
 <div class="app" id="authScreen">
   <div class="left-panel">
@@ -356,7 +370,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.7.1</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.7.2</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -416,6 +430,7 @@
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Worker','overview',this)">🏠 Accueil</button>
     <button class="nav-tab" onclick="switchPage('Worker','docs',this)">📄 Mes Habilitations</button>
+    <button class="nav-tab" onclick="switchPage('Worker','badge',this);loadWorkerBadge()">📱 Mon Badge</button>
     <button class="nav-tab" onclick="switchPage('Worker','shares',this)">📤 Partages</button>
     <button class="nav-tab" onclick="switchPage('Worker','received',this)">📂 Documents reçus</button>
   </div>
@@ -467,6 +482,14 @@
     </div>
 
     <!-- DOCUMENTS -->
+    <div class="page-section" id="Worker-badge">
+      <div class="dash-welcome">Mon <em>Badge</em> Industriel</div>
+      <div class="dash-subtitle">Présentez ce QR code pour vérification rapide sur chantier</div>
+      <div id="workerBadgeContainer" style="margin-top:28px">
+        <div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div>
+      </div>
+    </div>
+
     <div class="page-section" id="Worker-docs">
       <div class="dash-welcome">Mes <em>Habilitations</em></div>
       <div class="dash-subtitle">Déposez vos documents — votre employeur et le centre de formation seront notifiés</div>
@@ -722,6 +745,7 @@
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Admin','overview',this)">📊 Vue globale</button>
     <button class="nav-tab" onclick="switchPage('Admin','compliance',this)">🎯 Conformité</button>
+    <button class="nav-tab" onclick="switchPage('Admin','qr',this);loadAdminQRConfig()">📱 QR Code</button>
   </div>
   <div class="dash-body">
 
@@ -821,6 +845,37 @@
               <div style="font-size:12px;color:var(--muted);margin-top:4px">Jauge colorée</div>
             </div>
           </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── QR CODE CONFIG ── -->
+    <div class="page-section" id="Admin-qr">
+      <div class="dash-welcome">Configuration <em>QR Code</em></div>
+      <div class="dash-subtitle">Choisissez les informations exposées lors du scan d'un badge worker</div>
+
+      <div class="section-card" style="margin-top:28px">
+        <div class="section-title">📋 Données visibles sans connexion</div>
+        <div class="section-subtitle">Ces informations seront accessibles à toute personne scannant le QR code (agent de sécurité, HSE externe, prestataire...)</div>
+        <div style="display:flex;flex-direction:column;gap:14px;margin-top:20px" id="qrConfigList">
+          <div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div>
+        </div>
+        <button class="btn-upload" style="margin-top:20px" onclick="saveQRConfig()">💾 Sauvegarder</button>
+        <div id="qrConfigSaveStatus" style="margin-top:12px;font-size:13px;color:var(--success);display:none">✓ Configuration sauvegardée</div>
+      </div>
+
+      <div class="section-card" style="margin-top:24px">
+        <div class="section-title">🔒 Données visibles uniquement connecté</div>
+        <div class="section-subtitle">Les utilisateurs SafetySphere connectés voient toujours la fiche complète — documents, historique, contacts</div>
+        <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:10px">
+            <span style="font-size:18px">✅</span>
+            <span style="font-size:13px;color:var(--success);font-weight:600">Fiche complète worker (documents, habilitations, entreprise)</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:10px">
+            <span style="font-size:18px">✅</span>
+            <span style="font-size:13px;color:var(--success);font-weight:600">Statut de conformité en temps réel</span>
+          </div>
         </div>
       </div>
     </div>
@@ -2488,6 +2543,214 @@ async function saveDefaultComponents() {
 async function saveDefaultDisplayMode(mode) { /* stockage futur */ }
 
 // ══════════════════════════════════════
+// QR CODE
+// ══════════════════════════════════════
+
+// Charger QRCode.js dynamiquement
+function loadQRLib() {
+  return new Promise((resolve) => {
+    if (window.QRCode) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    s.onload = resolve;
+    document.head.appendChild(s);
+  });
+}
+
+async function loadWorkerBadge() {
+  const container = document.getElementById('workerBadgeContainer');
+  if (!container) return;
+  container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Génération du badge...</div></div>';
+
+  // Récupérer qr_token du profil courant
+  const { data: profile } = await sb.from('profiles').select('qr_token, full_name, org_id').eq('id', currentUser.id).single();
+  if (!profile?.qr_token) { container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Badge non disponible</div></div>'; return; }
+
+  // Récupérer config QR
+  const { data: qrConf } = await sb.from('qr_config').select('*').single();
+  const conf = qrConf || { show_identity: true, show_company: true, show_habilitations: true, show_profile_link: false };
+
+  // Récupérer org si besoin
+  let orgName = '';
+  if (conf.show_company && profile.org_id) {
+    const { data: org } = await sb.from('organizations').select('name').eq('id', profile.org_id).single();
+    orgName = org?.name || '';
+  }
+
+  // Récupérer habilitations si besoin
+  let habilitations = [];
+  if (conf.show_habilitations) {
+    const now = new Date().toISOString();
+    const { data: docs } = await sb.from('documents').select('doc_type, expires_at, status')
+      .eq('owner_id', currentUser.id).eq('category', 'worker').eq('status', 'validated');
+    habilitations = (docs || []).filter(d => !d.expires_at || d.expires_at > now);
+  }
+
+  const publicUrl = `${window.location.origin}/?worker=${profile.qr_token}`;
+  await loadQRLib();
+
+  // Rendu du badge
+  const statusColor = habilitations.length > 0 || !conf.show_habilitations ? '#22C55E' : '#F59E0B';
+  const statusLabel = habilitations.length > 0 || !conf.show_habilitations ? 'Conforme' : 'Habilitations manquantes';
+
+  container.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;gap:24px">
+      <!-- Badge carte -->
+      <div style="background:linear-gradient(135deg,#1B3A5C,#0D1B2A);border:2px solid rgba(249,115,22,.4);border-radius:20px;padding:28px 32px;width:100%;max-width:360px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.4)">
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:20px">
+          <div style="width:24px;height:24px;background:var(--orange);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;font-size:11px">🛡</div>
+          <span style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:900;color:var(--orange)">BADGE INDUSTRIEL</span>
+        </div>
+        ${conf.show_identity ? `<div style="font-size:22px;font-weight:900;margin-bottom:4px">${profile.full_name || '—'}</div>` : ''}
+        ${conf.show_company && orgName ? `<div style="font-size:14px;color:#94A3B8;margin-bottom:16px">🏢 ${orgName}</div>` : '<div style="margin-bottom:16px"></div>'}
+        <!-- QR Code -->
+        <div id="qrCodeCanvas" style="display:inline-block;background:#fff;padding:10px;border-radius:10px;margin-bottom:16px"></div>
+        <!-- Statut conformité -->
+        <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 18px;border-radius:99px;background:${statusColor}22;border:1px solid ${statusColor}44">
+          <div style="width:8px;height:8px;border-radius:50%;background:${statusColor}"></div>
+          <span style="font-size:13px;font-weight:700;color:${statusColor}">${statusLabel}</span>
+        </div>
+        ${conf.show_habilitations && habilitations.length > 0 ? `
+        <div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center">
+          ${habilitations.slice(0,4).map(h => `<span style="font-size:11px;padding:3px 10px;border-radius:99px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);color:#86EFAC">${h.doc_type || 'Habilitation'}</span>`).join('')}
+          ${habilitations.length > 4 ? `<span style="font-size:11px;padding:3px 10px;border-radius:99px;background:rgba(255,255,255,.06);color:#94A3B8">+${habilitations.length - 4}</span>` : ''}
+        </div>` : ''}
+      </div>
+      <!-- Actions -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+        <button class="btn-sm btn-upload" onclick="printWorkerBadge()">🖨 Imprimer</button>
+        <button class="btn-sm" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted)" onclick="copyBadgeLink('${publicUrl}')">🔗 Copier le lien</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);text-align:center">Ce QR code pointe vers une page publique de vérification</div>
+    </div>`;
+
+  // Générer le QR
+  new QRCode(document.getElementById('qrCodeCanvas'), {
+    text: publicUrl, width: 140, height: 140,
+    colorDark: '#000000', colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+}
+
+function copyBadgeLink(url) {
+  navigator.clipboard.writeText(url).then(() => showToast('✓ Lien copié', 'success'));
+}
+
+function printWorkerBadge() {
+  window.print();
+}
+
+// ── PAGE PUBLIQUE ──
+async function loadPublicWorkerPage(token) {
+  document.getElementById('authScreen').style.display    = 'none';
+  document.getElementById('publicScanPage').style.display = 'block';
+  const content = document.getElementById('publicScanContent');
+
+  // Charger le profil via token
+  const { data: profile } = await sb.from('profiles').select('full_name, org_id, role').eq('qr_token', token).single();
+  if (!profile || profile.role !== 'worker') {
+    content.innerHTML = '<div style="text-align:center;padding:40px 0"><div style="font-size:48px">❌</div><div style="margin-top:12px;color:#EF4444;font-weight:700">Badge invalide</div><div style="color:#94A3B8;font-size:13px;margin-top:8px">Ce QR code n\'est pas reconnu</div></div>';
+    return;
+  }
+
+  const { data: qrConf } = await sb.from('qr_config').select('*').single();
+  const conf = qrConf || { show_identity: true, show_company: true, show_habilitations: true };
+
+  let orgName = '';
+  if (conf.show_company && profile.org_id) {
+    const { data: org } = await sb.from('organizations').select('name').eq('id', profile.org_id).single();
+    orgName = org?.name || '';
+  }
+
+  let habsHtml = '';
+  if (conf.show_habilitations) {
+    const now = new Date().toISOString();
+    // Récupérer l'id du worker via token
+    const { data: wp } = await sb.from('profiles').select('id').eq('qr_token', token).single();
+    if (wp) {
+      const { data: docs } = await sb.from('documents').select('doc_type, expires_at, status')
+        .eq('owner_id', wp.id).eq('category', 'worker').eq('status', 'validated');
+      const valid = (docs || []).filter(d => !d.expires_at || d.expires_at > now);
+      if (valid.length > 0) {
+        habsHtml = `
+          <div style="margin-top:20px">
+            <div style="font-size:12px;font-weight:700;color:#94A3B8;letter-spacing:.5px;margin-bottom:10px">HABILITATIONS VALIDES</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              ${valid.map(h => `<span style="font-size:12px;padding:5px 12px;border-radius:99px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);color:#86EFAC;font-weight:600">${h.doc_type || 'Habilitation'}</span>`).join('')}
+            </div>
+          </div>`;
+      } else {
+        habsHtml = `<div style="margin-top:20px;padding:12px;border-radius:10px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:#FCD34D;font-size:13px">⚠️ Aucune habilitation validée</div>`;
+      }
+    }
+  }
+
+  content.innerHTML = `
+    <div style="background:linear-gradient(135deg,#1B3A5C,#0D1B2A);border:2px solid rgba(249,115,22,.3);border-radius:20px;padding:28px 24px">
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:40px;margin-bottom:8px">👷</div>
+        ${conf.show_identity ? `<div style="font-size:24px;font-weight:900">${profile.full_name || '—'}</div>` : ''}
+        ${conf.show_company && orgName ? `<div style="font-size:14px;color:#94A3B8;margin-top:4px">🏢 ${orgName}</div>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border-radius:99px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3)">
+        <div style="width:8px;height:8px;border-radius:50%;background:#22C55E"></div>
+        <span style="font-size:14px;font-weight:700;color:#22C55E">Intervenant enregistré SafetySphere</span>
+      </div>
+      ${habsHtml}
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(255,255,255,.08);text-align:center">
+        <div style="font-size:11px;color:#64748B">Vérifié le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</div>
+      </div>
+    </div>`;
+}
+
+// ── ADMIN QR CONFIG ──
+async function loadAdminQRConfig() {
+  const container = document.getElementById('qrConfigList');
+  if (!container) return;
+  const { data: conf } = await sb.from('qr_config').select('*').single();
+  const c = conf || { show_identity: true, show_company: true, show_habilitations: true, show_profile_link: false };
+
+  const options = [
+    { key: 'show_identity',      label: '👤 Identité',           desc: 'Nom et prénom du travailleur' },
+    { key: 'show_company',       label: '🏢 Entreprise ST',       desc: 'Nom de la société sous-traitante' },
+    { key: 'show_habilitations', label: '🎓 Habilitations',       desc: 'Liste des habilitations valides' },
+    { key: 'show_profile_link',  label: '🔗 Lien fiche complète', desc: 'Bouton vers la fiche connectée SafetySphere' },
+  ];
+
+  container.innerHTML = options.map(o => `
+    <label class="compliance-toggle-row">
+      <div class="compliance-toggle-info">
+        <div class="compliance-toggle-label">${o.label}</div>
+        <div class="compliance-toggle-desc">${o.desc}</div>
+      </div>
+      <input type="checkbox" id="qrOpt_${o.key}" class="compliance-checkbox" ${c[o.key] ? 'checked' : ''}>
+    </label>`).join('');
+}
+
+async function saveQRConfig() {
+  const data = {
+    show_identity:       document.getElementById('qrOpt_show_identity').checked,
+    show_company:        document.getElementById('qrOpt_show_company').checked,
+    show_habilitations:  document.getElementById('qrOpt_show_habilitations').checked,
+    show_profile_link:   document.getElementById('qrOpt_show_profile_link').checked,
+    updated_at:          new Date().toISOString()
+  };
+  // Upsert (une seule ligne de config)
+  const { data: existing } = await sb.from('qr_config').select('id').single();
+  let error;
+  if (existing) {
+    ({ error } = await sb.from('qr_config').update(data).eq('id', existing.id));
+  } else {
+    ({ error } = await sb.from('qr_config').insert(data));
+  }
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  const el = document.getElementById('qrConfigSaveStatus');
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 2500);
+  showToast('✓ Configuration QR sauvegardée', 'success');
+}
+
+// ══════════════════════════════════════
 // DASHBOARD SOUS-TRAITANT
 // ══════════════════════════════════════
 async function loadSTStats() {
@@ -2884,6 +3147,14 @@ function copyAllWorkerInvites() {
 }
 
 (async () => {
+  // Détecter page publique de scan QR
+  const urlParams = new URLSearchParams(window.location.search);
+  const workerToken = urlParams.get('worker');
+  if (workerToken) {
+    await loadPublicWorkerPage(workerToken);
+    return;
+  }
+
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
     currentUser = session.user;
