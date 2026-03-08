@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.7.8 — Documents reçus : onglets par société, accordéons par intervenant, filtres statut + recherche
+       v0.7.9 — Documents reçus : fusion des partages multiples d'un même intervenant
   -->
-  <meta name="app-version" content="0.7.8" />
+  <meta name="app-version" content="0.7.9" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -370,7 +370,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.7.8</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.7.9</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -2447,18 +2447,45 @@ async function loadReceivedDocs(containerId) {
   const docsMap = {};
   if (allDocs) allDocs.forEach(d => { if (!docsMap[d.owner_id]) docsMap[d.owner_id] = []; docsMap[d.owner_id].push(d); });
 
-  // ── Construire structure enrichie ──
-  const enriched = shares.map(share => {
-    const worker   = workerProfileMap[share.worker_id] || {};
+  // ── Fusionner les partages du même worker ──
+  // Un worker peut avoir fait plusieurs partages séparés → on regroupe en un seul
+  const mergedMap = {};
+  shares.forEach(share => {
+    const wid = share.worker_id;
+    if (!mergedMap[wid]) {
+      mergedMap[wid] = {
+        worker_id: wid,
+        doc_types: [...share.doc_types],
+        expires_at: share.expires_at // on garde la plus lointaine
+      };
+    } else {
+      // Ajouter les doc_types sans doublons
+      share.doc_types.forEach(dt => {
+        if (!mergedMap[wid].doc_types.includes(dt)) mergedMap[wid].doc_types.push(dt);
+      });
+      // Garder la date d'expiration la plus lointaine (ou null = permanent)
+      if (!share.expires_at) {
+        mergedMap[wid].expires_at = null;
+      } else if (mergedMap[wid].expires_at && new Date(share.expires_at) > new Date(mergedMap[wid].expires_at)) {
+        mergedMap[wid].expires_at = share.expires_at;
+      }
+    }
+  });
+
+  // ── Construire structure enrichie (1 entrée par worker) ──
+  const enriched = Object.values(mergedMap).map(function(merged) {
+    const worker   = workerProfileMap[merged.worker_id] || {};
     const orgName  = worker.org_id ? orgNameMap[worker.org_id] || '— Sans société —' : '— Sans société —';
     const orgId    = worker.org_id || '__none__';
-    const docs     = (docsMap[share.worker_id] || []).filter(d => share.doc_types.includes(d.doc_type));
-    const expLabel = share.expires_at ? 'Expire le ' + new Date(share.expires_at).toLocaleDateString('fr-FR') : 'Permanent';
-    // Calculer mini-statut de l'intervenant
+    const allDocTypes = merged.doc_types;
+    const docs     = (docsMap[merged.worker_id] || []).filter(d => allDocTypes.includes(d.doc_type));
+    const expLabel = merged.expires_at ? 'Expire le ' + new Date(merged.expires_at).toLocaleDateString('fr-FR') : 'Permanent';
     const validated = docs.filter(d => d.status === 'validated' && (!d.expires_at || new Date(d.expires_at) > now)).length;
     const pending   = docs.filter(d => d.status === 'pending').length;
     const expired   = docs.filter(d => d.expires_at && new Date(d.expires_at) <= now).length;
-    const total     = share.doc_types.length;
+    const total     = allDocTypes.length;
+    // On garde une référence share synthétique avec tous les doc_types fusionnés
+    const share = { worker_id: merged.worker_id, doc_types: allDocTypes, expires_at: merged.expires_at };
     return { share, worker, orgName, orgId, docs, expLabel, validated, pending, expired, total };
   });
 
