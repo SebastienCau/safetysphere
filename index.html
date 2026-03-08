@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.7.9 — Documents reçus : fusion des partages multiples d'un même intervenant
+       v0.8.1 — Documents reçus : dropdown société à la place des puces, scalable 1 à N sociétés
   -->
-  <meta name="app-version" content="0.7.9" />
+  <meta name="app-version" content="0.8.1" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -370,7 +370,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.7.9</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.8.1</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -2529,23 +2529,15 @@ function renderReceivedDocs(containerId, enriched, activeOrg, searchQ, statusFil
     const border = active ? (color ? color + '44' : 'rgba(255,255,255,.2)') : 'rgba(255,255,255,.08)';
     return 'font-size:12px;padding:5px 12px;border-radius:99px;cursor:pointer;font-weight:600;border:1px solid ' + border + ';background:' + bg + ';color:' + col;
   }
-  function orgBtnStyle(key) {
-    const active = key === activeOrg;
-    return 'font-size:13px;padding:6px 14px;border-radius:99px;cursor:pointer;font-weight:700;border:1px solid '
-      + (active ? 'rgba(249,115,22,.4)' : 'rgba(255,255,255,.08)') + ';background:'
-      + (active ? 'rgba(249,115,22,.15)' : 'rgba(255,255,255,.04)') + ';color:'
-      + (active ? 'var(--orange)' : 'var(--muted)');
-  }
-
   // ── Construction HTML ──
   const parts = [];
 
-  // Barre recherche + filtres
+  // Barre de contrôle : recherche + dropdown société + filtres statut
   const filterDefs = [
-    { val: '',          label: 'Tous',           color: '' },
-    { val: 'validated', label: '✓ Validés',      color: '#22C55E' },
-    { val: 'pending',   label: '⏳ En attente',  color: '#F59E0B' },
-    { val: 'expiring',  label: '⚠️ Expirés',     color: '#EF4444' }
+    { val: '',          label: 'Tous statuts',  color: '' },
+    { val: 'validated', label: '✓ Validés',     color: '#22C55E' },
+    { val: 'pending',   label: '⏳ En attente', color: '#F59E0B' },
+    { val: 'expiring',  label: '⚠️ Expirés',    color: '#EF4444' }
   ];
   const filterBtns = filterDefs.map(function(f) {
     return '<button style="' + filterBtnStyle(f.val, f.color) + '" '
@@ -2553,31 +2545,31 @@ function renderReceivedDocs(containerId, enriched, activeOrg, searchQ, statusFil
       + f.label + '</button>';
   }).join('');
 
+  // Dropdown société — scalable quel que soit le nombre de sociétés
+  let orgSelect = '';
+  if (multiOrg) {
+    const options = '<option value="all">🏢 Toutes les sociétés (' + enriched.length + ')</option>'
+      + orgKeys.map(function(key) {
+          const org = byOrg[key];
+          return '<option value="' + key + '"' + (key === activeOrg ? ' selected' : '') + '>'
+            + org.name + ' — ' + org.items.length + ' intervenant' + (org.items.length > 1 ? 's' : '')
+            + '</option>';
+        }).join('');
+    orgSelect = '<select class="form-input" '
+      + 'onchange="renderReceivedDocs(\'' + containerId + '\',_receivedData.enriched,this.value,\'' + searchQ + '\',\'' + sf + '\')" '
+      + 'style="min-width:200px;max-width:260px;padding:8px 12px;font-size:13px">'
+      + options + '</select>';
+  }
+
   parts.push(
     '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:20px">'
-    + '<input type="text" class="form-input" placeholder="🔍 Rechercher un intervenant ou société..." value="' + searchQ + '" '
+    + '<input type="text" class="form-input" placeholder="🔍 Rechercher un intervenant..." value="' + searchQ + '" '
     + 'oninput="renderReceivedDocs(\'' + containerId + '\',_receivedData.enriched,\'' + activeOrg + '\',this.value,\'' + sf + '\')" '
-    + 'style="flex:1;min-width:200px;max-width:320px;padding:8px 12px;font-size:13px"/>'
+    + 'style="flex:1;min-width:180px;max-width:240px;padding:8px 12px;font-size:13px"/>'
+    + orgSelect
     + '<div style="display:flex;gap:6px;flex-wrap:wrap">' + filterBtns + '</div>'
     + '</div>'
   );
-
-  // Onglets sociétés
-  if (multiOrg) {
-    const allBtn = '<button style="' + orgBtnStyle('all') + '" '
-      + 'onclick="renderReceivedDocs(\'' + containerId + '\',_receivedData.enriched,\'all\',\'' + searchQ + '\',\'' + sf + '\')">'
-      + '🏢 Toutes <span style="font-size:11px;opacity:.7">' + enriched.length + '</span></button>';
-    const orgBtns = orgKeys.map(function(key) {
-      const org = byOrg[key];
-      return '<button style="' + orgBtnStyle(key) + '" '
-        + 'onclick="renderReceivedDocs(\'' + containerId + '\',_receivedData.enriched,\'' + key + '\',\'' + searchQ + '\',\'' + sf + '\')">'
-        + '🏢 ' + org.name + ' <span style="font-size:11px;opacity:.7">' + org.items.length + '</span></button>';
-    }).join('');
-    parts.push(
-      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid rgba(255,255,255,.08)">'
-      + allBtn + orgBtns + '</div>'
-    );
-  }
 
   if (!filtered.length) {
     parts.push('<div class="empty-state"><div class="empty-state-icon">🔍</div><div class="empty-state-text">Aucun résultat pour ces filtres.</div></div>');
@@ -2598,8 +2590,8 @@ function renderReceivedDocs(containerId, enriched, activeOrg, searchQ, statusFil
     else if (e.expired > 0)                     { statusDot = '#EF4444'; statusTxt = e.expired + ' expiré(s)'; }
     else if (e.pending > 0)                     { statusDot = '#F59E0B'; statusTxt = e.pending + ' en attente'; }
 
-    const orgBadge = (!multiOrg && e.orgName !== '— Sans société —')
-      ? '<span style="color:var(--orange)">🏢 ' + e.orgName + '</span>' : '';
+    const orgBadge = e.orgName !== '— Sans société —'
+      ? '<span style="font-size:12px;font-weight:700;color:var(--orange);padding:2px 8px;border-radius:99px;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.2)">🏢 ' + e.orgName + '</span>' : '';
 
     const docCards = share.doc_types.map(function(key) {
       const def = WORKER_DOCS.find(function(d) { return d.key === key; }) || { name: key, icon: '📄' };
