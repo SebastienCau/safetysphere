@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.6.3 — Bannières notification mise en relation : ST voit EU, Worker voit ST invitant
+       v0.6.4 — Fix bannière worker : rattachement automatique sans demande de code
   -->
-  <meta name="app-version" content="0.6.3" />
+  <meta name="app-version" content="0.6.4" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -256,7 +256,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.6.3</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.6.4</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -952,15 +952,13 @@ async function checkPendingWorkerInvites() {
   if (!currentProfile.email) return;
   const email = currentProfile.email.toLowerCase();
 
-  // Trouver les ST qui ont invité cet email
   const { data: invites } = await sb.from('worker_invites').select('id, org_id, created_at').eq('worker_email', email);
   if (!invites || !invites.length) return;
 
-  // Filtrer celles déjà acceptées (worker déjà rattaché à cet org)
+  // Filtrer : ignorer les orgs auxquelles le worker est déjà rattaché
   const pending = invites.filter(i => i.org_id !== currentProfile.org_id);
   if (!pending.length) return;
 
-  // Charger les noms des ST
   const { data: orgs } = await sb.from('organizations').select('id, name').in('id', pending.map(i => i.org_id));
   const orgMap = {};
   if (orgs) orgs.forEach(o => orgMap[o.id] = o.name);
@@ -991,8 +989,9 @@ async function acceptWorkerInvite(inviteId, orgId, stName) {
   if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
   currentProfile.org_id = orgId;
   showToast(`✓ Rattaché à ${stName}`, 'success');
-  document.getElementById(`worker-banner-${inviteId}`)?.remove();
-  // Mettre à jour l'affichage employeur
+  // Supprimer toutes les bannières d'invitation worker (une seule acceptée suffit)
+  document.querySelectorAll('[id^="worker-banner-"]').forEach(b => b.remove());
+  // Mettre à jour le banner employeur sans recharger toute la page
   document.getElementById('linkCompanyBanner').style.display   = 'none';
   document.getElementById('linkedCompanyBanner').style.display = 'flex';
   document.getElementById('linkedCompanyName').textContent     = stName;
