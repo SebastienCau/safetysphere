@@ -13,6 +13,7 @@
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
        v0.8.1 — Documents reçus : dropdown société à la place des puces, scalable 1 à N sociétés
        v0.9.0 — QR Code entreprise : génération, page publique scan, copie lien & téléchargement
+       v0.9.1 — Rattachement par scan QR : Worker→Employeur et ST→EU via caméra ou URL
   -->
   <meta name="app-version" content="0.8.1" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
@@ -371,7 +372,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.9.0</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.9.1</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -474,6 +475,7 @@
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <input type="text" id="linkTeamCode" class="form-input" placeholder="Code employeur (ex: ELEC-4X9K)" style="max-width:300px;text-transform:uppercase;letter-spacing:2px;margin:0" />
           <button onclick="linkToCompany()" class="btn-sm btn-upload" style="white-space:nowrap">🔗 Me rattacher</button>
+          <button onclick="openQrScanModal('worker')" class="btn-sm" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.4);color:#A5B4FC;white-space:nowrap">📷 Scanner QR</button>
         </div>
       </div>
       <div id="linkedCompanyBanner" style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:12px;padding:14px 18px;margin-bottom:24px;display:none;align-items:center;gap:12px">
@@ -654,9 +656,10 @@
       <div class="dash-subtitle">Rattachez-vous à vos donneurs d'ordre via leur code équipe</div>
       <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:18px;margin-bottom:24px">
         <div class="form-label" style="margin-bottom:8px">Code équipe de l'EU</div>
-        <div style="display:flex;gap:10px">
-          <input class="form-input" id="euTeamCodeInput" placeholder="Ex: TOTA-0001" style="flex:1;margin:0" maxlength="9" oninput="this.value=this.value.toUpperCase()" />
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <input class="form-input" id="euTeamCodeInput" placeholder="Ex: TOTA-0001" style="flex:1;margin:0;min-width:160px" maxlength="9" oninput="this.value=this.value.toUpperCase()" />
           <button class="btn-primary" style="white-space:nowrap" onclick="attachToEU()">🔗 Se rattacher</button>
+          <button onclick="openQrScanModal('st')" class="btn-sm" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.4);color:#A5B4FC;white-space:nowrap">📷 Scanner QR</button>
         </div>
       </div>
       <div id="stEUContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
@@ -1190,6 +1193,40 @@
 </div>
 
 <!-- ══ MODAL UPLOAD ══ -->
+<!-- ══ MODALE SCAN QR ══ -->
+<div class="modal-overlay" id="qrScanModal">
+  <div class="modal" style="max-width:420px">
+    <button class="modal-close" onclick="closeQrScanModal()">✕</button>
+    <div class="modal-title">📷 Scanner un QR Code</div>
+    <div class="modal-subtitle">Pointez la caméra vers le QR code de l'organisation</div>
+    <div style="margin-top:16px">
+      <!-- Aperçu caméra -->
+      <div style="position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:1;max-width:320px;margin:0 auto">
+        <video id="qrScanVideo" style="width:100%;height:100%;object-fit:cover" autoplay playsinline muted></video>
+        <canvas id="qrScanCanvas" style="display:none"></canvas>
+        <!-- Viseur -->
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+          <div style="width:200px;height:200px;border:2px solid rgba(99,102,241,.8);border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.4)">
+            <div style="position:absolute;top:0;left:0;width:24px;height:24px;border-top:3px solid #818CF8;border-left:3px solid #818CF8;border-radius:4px 0 0 0"></div>
+            <div style="position:absolute;top:0;right:0;width:24px;height:24px;border-top:3px solid #818CF8;border-right:3px solid #818CF8;border-radius:0 4px 0 0"></div>
+            <div style="position:absolute;bottom:0;left:0;width:24px;height:24px;border-bottom:3px solid #818CF8;border-left:3px solid #818CF8;border-radius:0 0 0 4px"></div>
+            <div style="position:absolute;bottom:0;right:0;width:24px;height:24px;border-bottom:3px solid #818CF8;border-right:3px solid #818CF8;border-radius:0 0 4px 0"></div>
+          </div>
+        </div>
+      </div>
+      <div id="qrScanStatus" style="text-align:center;margin-top:14px;font-size:13px;color:var(--muted)">Initialisation de la caméra...</div>
+      <!-- Fallback : saisie manuelle URL -->
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,.08)">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Ou collez l'URL du QR code :</div>
+        <div style="display:flex;gap:8px">
+          <input class="form-input" id="qrManualUrl" placeholder="https://safetysphere.vercel.app/?org=..." style="flex:1;margin:0;font-size:12px" />
+          <button class="btn-sm btn-upload" onclick="processQrUrl(document.getElementById('qrManualUrl').value)" style="white-space:nowrap">✓ Valider</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="uploadModal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal()">✕</button>
@@ -3230,6 +3267,146 @@ async function loadWorkerBadge() {
 function copyBadgeLink(url) {
   navigator.clipboard.writeText(url).then(() => showToast('✓ Lien copié', 'success'));
 }
+
+// ── SCAN QR CAMÉRA ──
+let _qrScanContext = null; // 'worker' | 'st'
+let _qrScanStream  = null;
+let _qrScanTimer   = null;
+
+async function openQrScanModal(context) {
+  _qrScanContext = context;
+  document.getElementById('qrScanModal').classList.add('open');
+  document.getElementById('qrScanStatus').textContent = 'Initialisation de la caméra...';
+  document.getElementById('qrManualUrl').value = '';
+  await startQrCamera();
+}
+
+function closeQrScanModal() {
+  stopQrCamera();
+  document.getElementById('qrScanModal').classList.remove('open');
+  _qrScanContext = null;
+}
+
+async function startQrCamera() {
+  try {
+    _qrScanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const video = document.getElementById('qrScanVideo');
+    video.srcObject = _qrScanStream;
+    await video.play();
+    document.getElementById('qrScanStatus').textContent = 'Caméra active — pointez vers le QR code';
+    scheduleQrScan();
+  } catch(e) {
+    document.getElementById('qrScanStatus').textContent = '⚠️ Caméra indisponible — utilisez le champ manuel ci-dessous';
+  }
+}
+
+function stopQrCamera() {
+  if (_qrScanTimer) { clearInterval(_qrScanTimer); _qrScanTimer = null; }
+  if (_qrScanStream) { _qrScanStream.getTracks().forEach(t => t.stop()); _qrScanStream = null; }
+}
+
+function scheduleQrScan() {
+  _qrScanTimer = setInterval(async () => {
+    const video  = document.getElementById('qrScanVideo');
+    const canvas = document.getElementById('qrScanCanvas');
+    if (!video || video.readyState < 2) return;
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+
+    // Essayer BarcodeDetector natif (Chrome mobile)
+    if ('BarcodeDetector' in window) {
+      try {
+        const detector = new BarcodeDetector({ formats: ['qr_code'] });
+        const codes = await detector.detect(canvas);
+        if (codes.length > 0) { processQrUrl(codes[0].rawValue); return; }
+      } catch(e) {}
+    }
+
+    // Fallback jsQR
+    try {
+      if (!window.jsQR) await loadJsQR();
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height);
+      if (code?.data) processQrUrl(code.data);
+    } catch(e) {}
+  }, 400);
+}
+
+async function loadJsQR() {
+  return new Promise((res, rej) => {
+    if (window.jsQR) return res();
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js';
+    s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+async function processQrUrl(url) {
+  if (!url) return;
+  stopQrCamera();
+  // Extraire le token org de l'URL
+  let orgToken = null;
+  try {
+    const u = new URL(url);
+    orgToken = u.searchParams.get('org');
+  } catch(e) {
+    // Peut-être c'est directement le token
+    orgToken = url.trim();
+  }
+  if (!orgToken) {
+    document.getElementById('qrScanStatus').textContent = '❌ QR code non reconnu — essayez le champ manuel';
+    await startQrCamera();
+    return;
+  }
+
+  document.getElementById('qrScanStatus').textContent = '🔍 Identification de l\'organisation...';
+
+  const { data: org } = await sb.from('organizations')
+    .select('id, name, type, team_code')
+    .eq('org_qr_token', orgToken).single();
+
+  if (!org) {
+    document.getElementById('qrScanStatus').textContent = '❌ Organisation introuvable';
+    await startQrCamera();
+    return;
+  }
+
+  // Rattachement selon contexte
+  if (_qrScanContext === 'worker') {
+    // Worker → Employeur
+    closeQrScanModal();
+    const { error } = await sb.from('profiles').update({ org_id: org.id }).eq('id', currentUser.id);
+    if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+    currentProfile.org_id = org.id;
+    showToast('✓ Rattaché à ' + org.name, 'success');
+    document.getElementById('linkCompanyBanner').style.display   = 'none';
+    document.getElementById('linkedCompanyBanner').style.display = 'flex';
+    document.getElementById('linkedCompanyName').textContent     = org.name;
+
+  } else if (_qrScanContext === 'st') {
+    // ST → EU
+    if (org.type !== 'company') {
+      document.getElementById('qrScanStatus').textContent = '❌ Ce QR code ne correspond pas à une Entreprise Utilisatrice';
+      await startQrCamera(); return;
+    }
+    if (org.id === currentProfile.org_id) {
+      document.getElementById('qrScanStatus').textContent = '❌ Vous ne pouvez pas vous rattacher à votre propre organisation';
+      await startQrCamera(); return;
+    }
+    closeQrScanModal();
+    const { error } = await sb.from('org_relationships').insert({ eu_org_id: org.id, st_org_id: currentProfile.org_id });
+    if (error) {
+      if (error.code === '23505') { showToast('Déjà rattaché à ' + org.name, 'error'); return; }
+      showToast('Erreur : ' + error.message, 'error'); return;
+    }
+    showToast('✓ Rattaché à ' + org.name, 'success');
+    loadSTEU(); loadSTStats();
+  }
+}
+
 
 function copyOrgQrLink(token) {
   const url = `${window.location.origin}/?org=${token}`;
