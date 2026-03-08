@@ -11,9 +11,9 @@
        PATCH  = correction de bug / ajustement mineur
        v0.1.0 — MVP initial : auth, worker, company, HSE, admin
        v0.2.0 — Corrections : loadCompanyStats, garde anti-auto-validation SDR 2.3
-       v0.7.5 — SIRET : API data.gouv.fr gratuite (recherche-entreprises) sans clé API
+       v0.7.6 — Onglet Mon Entreprise : coordonnées, SIRET, adresse, forme juridique, code équipe
   -->
-  <meta name="app-version" content="0.7.5" />
+  <meta name="app-version" content="0.7.6" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -370,7 +370,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.7.5</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.7.6</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -551,7 +551,8 @@
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Company','overview',this)">🏠 Accueil</button>
-    <button class="nav-tab" onclick="switchPage('Company','societedocs',this)">🏢 Documents Société</button>
+    <button class="nav-tab" onclick="switchPage('Company','entreprise',this);loadOrgProfile('Company')">🏢 Mon Entreprise</button>
+    <button class="nav-tab" onclick="switchPage('Company','societedocs',this)">📄 Documents Société</button>
     <button class="nav-tab" onclick="switchPage('Company','workers',this)">👷 Intervenants <span id="pendingBadge" class="notif-badge" style="display:none">!</span></button>
     <button class="nav-tab" onclick="switchPage('Company','subcontractors',this)">🤝 Sous-Traitants <span id="stInviteBadge" class="notif-badge" style="display:none">!</span></button>
     <button class="nav-tab" onclick="switchPage('Company','received',this)">📂 Documents reçus</button>
@@ -575,6 +576,14 @@
         <div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value" id="cStat4">0</div><div class="stat-label">Expirations proches</div></div>
       </div>
     </div>
+    <div class="page-section" id="Company-entreprise">
+      <div class="dash-welcome">Mon <em>Entreprise</em></div>
+      <div class="dash-subtitle">Informations de votre organisation — modifiables à tout moment</div>
+      <div id="Company-orgProfileContainer" style="margin-top:28px">
+        <div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div>
+      </div>
+    </div>
+
     <div class="page-section" id="Company-societedocs">
       <div class="dash-welcome">Documents <em>Société</em></div>
       <div class="dash-subtitle">KBIS, RC Pro, URSSAF, Accord de sous-traitance</div>
@@ -610,9 +619,10 @@
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Subcontractor','overview',this)">🏠 Accueil</button>
+    <button class="nav-tab" onclick="switchPage('Subcontractor','entreprise',this);loadOrgProfile('Subcontractor')">🏢 Mon Entreprise</button>
     <button class="nav-tab" onclick="switchPage('Subcontractor','workers',this)">👷 Mes Intervenants</button>
     <button class="nav-tab" onclick="switchPage('Subcontractor','eu',this)">🏭 Mes EU</button>
-    <button class="nav-tab" onclick="switchPage('Subcontractor','docs',this)">🏢 Mes Documents</button>
+    <button class="nav-tab" onclick="switchPage('Subcontractor','docs',this)">📄 Mes Documents</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="Subcontractor-overview">
@@ -624,6 +634,14 @@
         <div class="stat-card"><div class="stat-icon">📄</div><div class="stat-value" id="stStat4">0</div><div class="stat-label">Documents</div></div>
       </div>
     </div>
+    <div class="page-section" id="Subcontractor-entreprise">
+      <div class="dash-welcome">Mon <em>Entreprise</em></div>
+      <div class="dash-subtitle">Informations de votre organisation — modifiables à tout moment</div>
+      <div id="Subcontractor-orgProfileContainer" style="margin-top:28px">
+        <div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div>
+      </div>
+    </div>
+
     <div class="page-section" id="Subcontractor-workers">
       <div class="dash-welcome">Mes <em>Intervenants</em></div>
       <div class="dash-subtitle">Intervenants rattachés à votre société</div>
@@ -661,6 +679,7 @@
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('HSE','overview',this)">🏠 Accueil</button>
+    <button class="nav-tab" onclick="switchPage('HSE','entreprise',this);loadOrgProfile('HSE')">🏢 Mon Entreprise</button>
     <button class="nav-tab" onclick="switchPage('HSE','contractors',this)">🤝 Sous-traitants <span id="hseSTBadge" class="notif-badge" style="display:none">!</span></button>
     <button class="nav-tab" onclick="switchPage('HSE','received',this)">📂 Documents reçus</button>
   </div>
@@ -695,6 +714,14 @@
         <div class="doc-card"><div class="doc-card-header"><div class="doc-card-icon">🔑</div><div class="doc-card-badges"><span class="doc-badge status-empty">Bientôt</span></div></div><div class="doc-card-name">Permis de Travail</div><div class="doc-card-desc">Émission et suivi des permis de travail</div></div>
       </div>
     </div>
+    <div class="page-section" id="HSE-entreprise">
+      <div class="dash-welcome">Mon <em>Entreprise</em></div>
+      <div class="dash-subtitle">Informations de votre organisation — modifiables à tout moment</div>
+      <div id="HSE-orgProfileContainer" style="margin-top:28px">
+        <div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div>
+      </div>
+    </div>
+
     <div class="page-section" id="HSE-contractors">
       <div class="dash-welcome">Mes <em>Sous-Traitants</em></div>
       <div class="dash-subtitle">Invitez vos sous-traitants à rejoindre SafetySphere</div>
@@ -720,6 +747,7 @@
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Trainer','overview',this)">🏠 Accueil</button>
+    <button class="nav-tab" onclick="switchPage('Trainer','entreprise',this);loadOrgProfile('Trainer')">🏢 Mon Centre</button>
     <button class="nav-tab" onclick="switchPage('Trainer','requests',this)">📋 Demandes de validation <span id="trainerPendingBadge" class="notif-badge" style="display:none">!</span></button>
     <button class="nav-tab" onclick="switchPage('Trainer','validated',this)">✅ Historique</button>
     <button class="nav-tab" onclick="switchPage('Trainer','received',this)">📂 Documents reçus</button>
@@ -742,6 +770,14 @@
         <div class="stat-card"><div class="stat-icon">👷</div><div class="stat-value" id="tStat4">0</div><div class="stat-label">Stagiaires suivis</div></div>
       </div>
     </div>
+    <div class="page-section" id="Trainer-entreprise">
+      <div class="dash-welcome">Mon <em>Centre de Formation</em></div>
+      <div class="dash-subtitle">Informations de votre centre — modifiables à tout moment</div>
+      <div id="Trainer-orgProfileContainer" style="margin-top:28px">
+        <div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div>
+      </div>
+    </div>
+
     <div class="page-section" id="Trainer-requests">
       <div class="dash-welcome">Demandes de <em>Validation</em></div>
       <div class="dash-subtitle">Intervenants en attente de validation de leur habilitation</div>
@@ -2711,6 +2747,123 @@ async function saveOrgComplianceConfig() {
 }
 
 // ── ADMIN : conformité ──
+// ══════════════════════════════════════
+// PROFIL ORGANISATION
+// ══════════════════════════════════════
+async function loadOrgProfile(dash) {
+  const container = document.getElementById(`${dash}-orgProfileContainer`);
+  if (!container || !currentProfile?.org_id) return;
+
+  const { data: org } = await sb.from('organizations')
+    .select('id, name, siret, address, legal_form, team_code, type, booking_url')
+    .eq('id', currentProfile.org_id).single();
+
+  if (!org) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Organisation introuvable</div></div>';
+    return;
+  }
+
+  const isTrainer = org.type === 'training_center';
+  const siretFormatted = org.siret ? org.siret.replace(/(\d{3})(\d{3})(\d{3})(\d{5})/, '$1 $2 $3 $4') : '';
+
+  container.innerHTML = `
+    <div style="display:grid;gap:20px;max-width:700px">
+
+      <!-- Carte infos principales -->
+      <div class="section-card">
+        <div class="section-title">📋 Informations générales</div>
+        <div style="display:flex;flex-direction:column;gap:16px;margin-top:4px">
+
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Raison sociale</label>
+            <input type="text" class="form-input" id="orgEdit_name" value="${org.name || ''}" placeholder="Nom de l'entreprise" />
+          </div>
+
+          <div class="form-group" style="margin:0">
+            <label class="form-label">SIRET</label>
+            <div style="display:flex;gap:8px">
+              <input type="text" class="form-input" id="orgEdit_siret" value="${org.siret || ''}" placeholder="14 chiffres" maxlength="14" style="flex:1;letter-spacing:2px" oninput="this.value=this.value.replace(/\D/g,'')" />
+              <button type="button" class="btn-sm btn-upload" onclick="lookupSiretEdit('${dash}')" style="white-space:nowrap;padding:0 14px">🔍 Vérifier</button>
+            </div>
+            <div id="siretEditResult" style="display:none;margin-top:10px;border-radius:10px;padding:12px 14px;border:1px solid;font-size:12px"></div>
+          </div>
+
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Forme juridique</label>
+            <input type="text" class="form-input" id="orgEdit_legal_form" value="${org.legal_form || ''}" placeholder="Ex: SAS, SARL, SA..." />
+          </div>
+
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Adresse du siège</label>
+            <input type="text" class="form-input" id="orgEdit_address" value="${org.address || ''}" placeholder="12 rue de la Paix, 75001 Paris" />
+          </div>
+
+          ${isTrainer ? `
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Lien prise de RDV</label>
+            <input type="url" class="form-input" id="orgEdit_booking_url" value="${org.booking_url || ''}" placeholder="https://calendly.com/votre-centre" />
+          </div>` : ''}
+        </div>
+      </div>
+
+      <!-- Carte code équipe -->
+      <div class="section-card">
+        <div class="section-title">🔑 Code équipe</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Partagez ce code à vos intervenants pour qu'ils se rattachent à votre organisation</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;letter-spacing:3px;color:var(--orange)">${org.team_code || '—'}</div>
+          <button class="btn-sm" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted)" onclick="navigator.clipboard.writeText('${org.team_code||''}').then(()=>showToast('✓ Code copié','success'))">📋 Copier</button>
+        </div>
+      </div>
+
+      <!-- Bouton sauvegarder -->
+      <button class="btn-upload" style="max-width:240px" onclick="saveOrgProfile('${org.id}','${dash}','${isTrainer}')">💾 Sauvegarder les modifications</button>
+    </div>`;
+}
+
+async function lookupSiretEdit(dash) {
+  const siret  = document.getElementById('orgEdit_siret').value.trim().replace(/\s/g, '');
+  const result = document.getElementById('siretEditResult');
+  if (siret.length !== 14) { result.style.display='block'; result.style.background='rgba(239,68,68,.08)'; result.style.borderColor='rgba(239,68,68,.3)'; result.innerHTML='❌ 14 chiffres requis'; return; }
+  result.style.display='block'; result.style.background='rgba(255,255,255,.04)'; result.style.borderColor='rgba(255,255,255,.1)'; result.innerHTML='⏳ Vérification...';
+  try {
+    const res  = await fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${siret}&page=1&per_page=1`);
+    const data = await res.json();
+    const e    = data?.results?.[0];
+    if (!e) { result.style.background='rgba(239,68,68,.08)'; result.style.borderColor='rgba(239,68,68,.3)'; result.innerHTML='❌ Société introuvable'; return; }
+    const actif   = e.etat_administratif === 'A';
+    const nom     = e.nom_complet || e.nom_raison_sociale || '';
+    const forme   = e.nature_juridique_libelle || '';
+    const siege   = e.siege || {};
+    const adresse = [siege.adresse, siege.code_postal, siege.libelle_commune].filter(Boolean).join(', ');
+    // Pré-remplir
+    document.getElementById('orgEdit_name').value       = nom;
+    document.getElementById('orgEdit_legal_form').value = forme;
+    document.getElementById('orgEdit_address').value    = adresse;
+    result.style.background  = actif ? 'rgba(34,197,94,.08)' : 'rgba(239,68,68,.08)';
+    result.style.borderColor = actif ? 'rgba(34,197,94,.3)'  : 'rgba(239,68,68,.3)';
+    result.innerHTML = `${actif ? '✅' : '⚠️'} <strong>${nom}</strong> — ${forme}${adresse ? ' — ' + adresse : ''}`;
+  } catch { result.style.background='rgba(239,68,68,.08)'; result.style.borderColor='rgba(239,68,68,.3)'; result.innerHTML='❌ Erreur de connexion'; }
+}
+
+async function saveOrgProfile(orgId, dash, isTrainer) {
+  const updates = {
+    name:       document.getElementById('orgEdit_name').value.trim(),
+    siret:      document.getElementById('orgEdit_siret').value.trim(),
+    legal_form: document.getElementById('orgEdit_legal_form').value.trim(),
+    address:    document.getElementById('orgEdit_address').value.trim(),
+  };
+  if (isTrainer === 'true') {
+    updates.booking_url = document.getElementById('orgEdit_booking_url')?.value?.trim() || null;
+  }
+  if (!updates.name) { showToast('La raison sociale est obligatoire', 'error'); return; }
+  const { error } = await sb.from('organizations').update(updates).eq('id', orgId);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
+  showToast('✓ Entreprise mise à jour', 'success');
+  // Mettre à jour le nom dans la topbar si changé
+  if (updates.name !== currentProfile.company_name) currentProfile.company_name = updates.name;
+}
+
 async function loadAdminCompliance() {
   // Charger les accès par rôle
   const { data: accesses } = await sb.from('compliance_access').select('*');
