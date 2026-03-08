@@ -677,32 +677,36 @@
   </div>
 </div>
 
-<!-- ══ MODAL CONFIRMATION INVITATION ══ -->
-<div class="modal-overlay" id="inviteConfirmModal">
-  <div class="modal">
-    <button class="modal-close" onclick="document.getElementById('inviteConfirmModal').classList.remove('open')">✕</button>
-    <div class="modal-title">✅ Invitation créée</div>
-    <div class="modal-subtitle">Transmettez ce message à <strong id="inviteConfirmEmail"></strong></div>
-    <div style="margin-bottom:16px">
-      <button id="inviteMailtoBtn" onclick="openMailto()" class="btn-primary" style="width:100%;margin-bottom:10px">📧 Ouvrir dans ma messagerie</button>
-      <div style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:16px">— ou copiez le message manuellement —</div>
-      <textarea id="inviteCopyText" readonly style="width:100%;height:180px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:var(--white);font-size:12px;line-height:1.6;padding:12px;resize:none;font-family:inherit"></textarea>
-      <button onclick="copyInviteText()" class="btn-sm btn-view" style="width:100%;margin-top:8px;padding:10px">📋 Copier le message</button>
-    </div>
-  </div>
-</div>
-
 <!-- ══ MODAL INVITATION ST ══ -->
 <div class="modal-overlay" id="inviteSTModal">
-  <div class="modal">
+  <div class="modal" style="max-width:560px">
     <button class="modal-close" onclick="closeInviteSTModal()">✕</button>
-    <div class="modal-title">✉️ Inviter un Sous-Traitant</div>
-    <div class="modal-subtitle">Le sous-traitant recevra une invitation à créer son compte SafetySphere</div>
-    <div class="form-group">
-      <label class="form-label">Email du responsable ST</label>
-      <input type="email" class="form-input" id="inviteSTEmail" placeholder="responsable@sous-traitant.fr" />
+    <div class="modal-title">✉️ Inviter des Sous-Traitants</div>
+    <div class="modal-subtitle">Envoyez votre code équipe à vos sous-traitants</div>
+
+    <div class="tabs" style="margin-bottom:20px">
+      <button class="tab active" onclick="switchSTInviteTab('manual',this)">✏️ Saisie manuelle</button>
+      <button class="tab" onclick="switchSTInviteTab('import',this)">📊 Import Excel/CSV</button>
     </div>
-    <button class="btn-primary" id="inviteSTBtn" onclick="sendSTInvite()">✉️ Envoyer l'invitation</button>
+
+    <div id="stInviteTab-manual">
+      <div class="form-group">
+        <label class="form-label">Emails des responsables ST <span style="color:var(--muted);font-weight:400">(un par ligne ou séparés par des virgules)</span></label>
+        <textarea class="form-input" id="stEmailsList" placeholder="responsable@societe1.fr&#10;contact@societe2.fr" style="height:120px;resize:vertical"></textarea>
+      </div>
+    </div>
+
+    <div id="stInviteTab-import" style="display:none">
+      <div class="file-drop" id="stFileDrop" onclick="document.getElementById('stFileInput').click()">
+        <div class="file-drop-icon">📊</div>
+        <div class="file-drop-text"><strong>Cliquez</strong> ou glissez votre fichier ici<br><small style="font-size:11px">Excel (.xlsx, .xls) ou CSV — colonne "email" requise</small></div>
+        <div class="file-name-preview" id="stFilePreview"></div>
+      </div>
+      <input type="file" id="stFileInput" class="file-input-hidden" accept=".xlsx,.xls,.csv" onchange="handleSTFileImport(event)" />
+      <div id="stImportPreview" style="margin-top:12px"></div>
+    </div>
+
+    <button class="btn-primary" id="inviteSTBtn" onclick="sendSTInvites()">✉️ Préparer les invitations</button>
   </div>
 </div>
 
@@ -1712,50 +1716,6 @@ async function loadReceivedDocs(containerId) {
 // ══════════════════════════════════════
 // INVITATION SOUS-TRAITANT (côté EU)
 // ══════════════════════════════════════
-function openInviteSTModal() {
-  document.getElementById('inviteSTEmail').value = '';
-  document.getElementById('inviteSTModal').classList.add('open');
-}
-function closeInviteSTModal() {
-  document.getElementById('inviteSTModal').classList.remove('open');
-}
-
-async function sendSTInvite() {
-  const email = document.getElementById('inviteSTEmail').value.trim().toLowerCase();
-  if (!email) { showToast('Veuillez saisir un email', 'error'); return; }
-  if (!currentProfile.org_id) { showToast('Votre organisation n\'est pas configurée', 'error'); return; }
-  setLoading('inviteSTBtn', true, 'Envoi...');
-  const { data: euOrg } = await sb.from('organizations').select('name, team_code').eq('id', currentProfile.org_id).single();
-  const euName = euOrg?.name || 'notre entreprise';
-  const euCode = euOrg?.team_code || '';
-
-  // Sauvegarder l'invitation en base
-  await sb.from('st_invites').upsert({ eu_org_id: currentProfile.org_id, st_email: email }, { onConflict: 'eu_org_id,st_email', ignoreDuplicates: true });
-
-  setLoading('inviteSTBtn', false, '✉️ Envoyer l\'invitation');
-
-  const subject   = encodeURIComponent(`Invitation SafetySphere — ${euName}`);
-  const bodyShort = encodeURIComponent(`Bonjour,\n\n${euName} vous invite sur SafetySphere.\n\nCréez votre compte : https://safetysphere.vercel.app\nRôle : Sous-Traitant\nCode équipe EU : ${euCode}\n\nCordialement,\n${currentProfile.full_name}`);
-  const fullMsg   =
-`Bonjour,
-
-${euName} vous invite à rejoindre SafetySphere, la plateforme de gestion des habilitations.
-
-Pour vous rattacher :
-1. Créez votre compte sur https://safetysphere.vercel.app
-2. Choisissez le rôle "Sous-Traitant"
-3. Dans l'onglet "Mes EU", saisissez le code équipe : ${euCode}
-
-Cordialement,
-${currentProfile.full_name}
-${euName}`;
-
-  closeInviteSTModal();
-  document.getElementById('inviteConfirmEmail').textContent = email;
-  window._inviteMailtoUrl = `mailto:${email}?subject=${subject}&body=${bodyShort}`;
-  document.getElementById('inviteCopyText').value = fullMsg;
-  document.getElementById('inviteConfirmModal').classList.add('open');
-}
 
 async function loadST(orgId, containerId) {
   const container = document.getElementById(containerId);
@@ -1859,15 +1819,6 @@ async function loadHSEStats() {
   const { data: rels } = await sb.from('org_relationships').select('id').eq('eu_org_id', currentProfile.org_id);
   document.getElementById('hseStat1').textContent = rels ? rels.length : 0;
   document.getElementById('hseStat2').textContent = 0;
-}
-
-function openMailto() {
-  if (window._inviteMailtoUrl) window.open(window._inviteMailtoUrl, '_blank');
-}
-
-function copyInviteText() {
-  const text = document.getElementById('inviteCopyText').value;
-  navigator.clipboard.writeText(text).then(() => showToast('✓ Message copié', 'success'));
 }
 
 // ══════════════════════════════════════
@@ -2048,7 +1999,107 @@ async function loadSTDocs() {
 // ══════════════════════════════════════
 // INVITATION INTERVENANTS (ST)
 // ══════════════════════════════════════
-let _workerImportedEmails = [];
+let _stImportedEmails = [];
+
+function openInviteSTModal() {
+  document.getElementById('stEmailsList').value = '';
+  document.getElementById('stImportPreview').innerHTML = '';
+  document.getElementById('stFilePreview').textContent = '';
+  _stImportedEmails = [];
+  switchSTInviteTab('manual', document.querySelector('#inviteSTModal .tab'));
+  document.getElementById('inviteSTModal').classList.add('open');
+}
+function closeInviteSTModal() {
+  document.getElementById('inviteSTModal').classList.remove('open');
+}
+
+function switchSTInviteTab(tab, el) {
+  document.querySelectorAll('#inviteSTModal .tab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('stInviteTab-manual').style.display = tab === 'manual' ? 'block' : 'none';
+  document.getElementById('stInviteTab-import').style.display = tab === 'import' ? 'block' : 'none';
+}
+
+async function handleSTFileImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  document.getElementById('stFilePreview').textContent = file.name;
+  _stImportedEmails = [];
+
+  if (file.name.endsWith('.csv')) {
+    const text  = await file.text();
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const header = lines[0].toLowerCase().split(/[,;]/);
+    const emailIdx = header.findIndex(h => h.includes('email') || h.includes('mail'));
+    if (emailIdx === -1) { document.getElementById('stImportPreview').innerHTML = `<div style="color:#FCA5A5;font-size:13px">⚠️ Colonne "email" introuvable</div>`; return; }
+    for (let i = 1; i < lines.length; i++) {
+      const email = lines[i].split(/[,;]/)[emailIdx]?.replace(/"/g,'').trim().toLowerCase();
+      if (email && email.includes('@')) _stImportedEmails.push(email);
+    }
+  } else {
+    try {
+      const { read, utils } = await import('https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs');
+      const wb  = read(await file.arrayBuffer());
+      const rows = utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+      const emailKey = Object.keys(rows[0] || {}).find(k => k.toLowerCase().includes('email') || k.toLowerCase().includes('mail'));
+      if (!emailKey) { document.getElementById('stImportPreview').innerHTML = `<div style="color:#FCA5A5;font-size:13px">⚠️ Colonne "email" introuvable</div>`; return; }
+      rows.forEach(r => { const e = (r[emailKey]||'').toString().trim().toLowerCase(); if (e.includes('@')) _stImportedEmails.push(e); });
+    } catch(e) { document.getElementById('stImportPreview').innerHTML = `<div style="color:#FCA5A5;font-size:13px">⚠️ Erreur : ${e.message}</div>`; return; }
+  }
+  document.getElementById('stImportPreview').innerHTML =
+    `<div style="color:#86EFAC;font-size:13px">✓ ${_stImportedEmails.length} email(s) importé(s)</div>` +
+    `<div style="font-size:11px;color:var(--muted);margin-top:4px">${_stImportedEmails.slice(0,5).join(', ')}${_stImportedEmails.length > 5 ? '...' : ''}</div>`;
+}
+
+async function sendSTInvites() {
+  if (!currentProfile.org_id) { showToast('Votre organisation n\'est pas configurée', 'error'); return; }
+
+  const activeTab = document.getElementById('stInviteTab-manual').style.display !== 'none' ? 'manual' : 'import';
+  let emails = [];
+  if (activeTab === 'manual') {
+    emails = document.getElementById('stEmailsList').value.split(/[\n,;]+/).map(e => e.trim().toLowerCase()).filter(e => e.includes('@'));
+  } else {
+    emails = _stImportedEmails;
+  }
+  if (!emails.length) { showToast('Aucun email valide trouvé', 'error'); return; }
+
+  setLoading('inviteSTBtn', true, 'Préparation...');
+  const { data: euOrg } = await sb.from('organizations').select('name, team_code').eq('id', currentProfile.org_id).single();
+  const euName = euOrg?.name || 'notre entreprise';
+  const euCode = euOrg?.team_code || '';
+
+  // Sauvegarder toutes les invitations en base
+  const inserts = emails.map(email => ({ eu_org_id: currentProfile.org_id, st_email: email }));
+  await sb.from('st_invites').upsert(inserts, { onConflict: 'eu_org_id,st_email', ignoreDuplicates: true });
+
+  setLoading('inviteSTBtn', false, '✉️ Préparer les invitations');
+  closeInviteSTModal();
+
+  // Préparer les messages
+  const messages = emails.map(email => {
+    const subject   = encodeURIComponent(`Invitation SafetySphere — ${euName}`);
+    const bodyShort = encodeURIComponent(`Bonjour,\n\n${euName} vous invite sur SafetySphere.\n\nCréez votre compte : https://safetysphere.vercel.app\nRôle : Sous-Traitant\nCode équipe EU : ${euCode}\n\nCordialement,\n${currentProfile.full_name}`);
+    const fullMsg   = `Bonjour,\n\n${euName} vous invite à rejoindre SafetySphere, la plateforme de gestion des habilitations.\n\nCréez votre compte sur https://safetysphere.vercel.app\n- Rôle : Sous-Traitant\n- Dans "Mes EU", saisissez le code : ${euCode}\n\nCordialement,\n${currentProfile.full_name}\n${euName}`;
+    return { email, fullMsg, mailtoUrl: `mailto:${email}?subject=${subject}&body=${bodyShort}` };
+  });
+
+  window._stInviteMessages = messages;
+  document.getElementById('workerInviteResultSubtitle').textContent = `${emails.length} invitation(s) — Code équipe : ${euCode}`;
+  document.getElementById('workerInviteResultList').innerHTML = messages.map((m, i) =>
+    `<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:13px;font-weight:700;flex:1">📧 ${m.email}</span>
+        <button onclick="window.open(window._stInviteMessages[${i}].mailtoUrl,'_self')" class="btn-sm btn-upload" style="white-space:nowrap">📧 Ouvrir</button>
+        <button onclick="navigator.clipboard.writeText(window._stInviteMessages[${i}].fullMsg).then(()=>showToast('Copié','success'))" class="btn-sm btn-view" style="white-space:nowrap">📋 Copier</button>
+      </div>
+    </div>`
+  ).join('');
+  document.getElementById('workerInviteResultModal').classList.add('open');
+
+  // Rafraîchir la liste
+  const containerId = currentProfile.role === 'hse' ? 'hseSTContainer' : 'companySTContainer';
+  loadST(currentProfile.org_id, containerId);
+}
 
 async function openInviteWorkersModal() {
   document.getElementById('workerEmailsList').value = '';
