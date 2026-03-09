@@ -2345,12 +2345,28 @@ function togglePanel(id) {
   const el = document.getElementById(id);
   const isOpening = el.style.display !== 'block';
   el.style.display = isOpening ? 'block' : 'none';
+
+  // scrollIntoView ignore le zoom CSS — on calcule manuellement
+  function scrollToEl(target, block) {
+    const zoom = parseFloat(document.getElementById('appContent')?.style.zoom) || 1;
+    const rect = target.getBoundingClientRect();
+    const scrollY = window.scrollY;
+    // Les coords getBoundingClientRect sont visuelles (post-zoom)
+    // window.scrollTo attend des coords de layout (pré-zoom) → diviser par zoom
+    let targetY;
+    if (block === 'center') {
+      targetY = scrollY + rect.top / zoom - (window.innerHeight / zoom - rect.height / zoom) / 2;
+    } else {
+      targetY = scrollY + rect.top / zoom - 12; // 'start' avec petite marge
+    }
+    window.scrollTo({ top: targetY, behavior: 'smooth' });
+  }
+
   if (isOpening) {
-    setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    setTimeout(() => scrollToEl(el, 'start'), 50);
   } else {
-    // Remonter vers la card qui a déclenché la fermeture
     const card = el.previousElementSibling;
-    if (card) setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+    if (card) setTimeout(() => scrollToEl(card, 'center'), 50);
   }
 }
 
