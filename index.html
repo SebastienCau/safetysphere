@@ -40,9 +40,6 @@
       --warn:    #F59E0B;
       --purple:  #A855F7;
       --teal:    #14B8A6;
-      /* Accessibilité : zoom police & contraste */
-      --ui-scale: 1;
-      --contrast-boost: 0;
       /* Theme tokens */
       --bg:         #0D1B2A;
       --bg2:        #1B3A5C;
@@ -120,6 +117,80 @@
     body.theme-light .btn-logout { background: rgba(0,0,0,.06); color: #64748B; border: 1px solid rgba(0,0,0,.1); }
     body.theme-light .btn-logout:hover { background: rgba(0,0,0,.1); color: #0F172A; }
     body.theme-light .toast { background: #1E293B; }
+
+    /* ── Thème clair : cards & encarts invisibles sans fond distinct ── */
+    /* request-card : dégradé bleu-ardoise subtil */
+    body.theme-light .request-card {
+      background: linear-gradient(135deg, #F8FAFC, #EFF6FF);
+      border: 1px solid #BFDBFE;
+      box-shadow: 0 2px 8px rgba(59,130,246,.07);
+    }
+    body.theme-light .request-card-name  { color: #0F172A; }
+    body.theme-light .request-card-meta  { color: #64748B; }
+    body.theme-light .request-card-icon  { background: #DBEAFE; }
+
+    /* worker-card : dégradé orange très doux */
+    body.theme-light .worker-card {
+      background: linear-gradient(135deg, #FFF7ED, #FEF3C7);
+      border: 1px solid #FED7AA;
+      box-shadow: 0 2px 8px rgba(249,115,22,.08);
+    }
+    body.theme-light .worker-card:hover { border-color: var(--orange); }
+    body.theme-light .worker-name  { color: #0F172A; }
+    body.theme-light .worker-role  { color: #64748B; }
+
+    /* worker-docs-panel : fond blanc cassé encadré */
+    body.theme-light .worker-docs-panel {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,.03);
+    }
+
+    /* notif-item : fond blanc avec bordure colorée selon type */
+    body.theme-light .notif-item {
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    }
+    body.theme-light .notif-item:hover { background: #F8FAFC; border-color: #CBD5E1; }
+    body.theme-light .notif-item.notif-warning { background: #FFFBEB; border-color: #FDE68A; }
+    body.theme-light .notif-item.notif-danger  { background: #FFF1F2; border-color: #FECACA; }
+    body.theme-light .notif-item.notif-success { background: #F0FDF4; border-color: #BBF7D0; }
+    body.theme-light .notif-item.notif-info    { background: #EFF6FF; border-color: #BFDBFE; }
+    body.theme-light .notif-body-title { color: #0F172A; }
+    body.theme-light .notif-body-sub   { color: #64748B; }
+
+    /* expiry-alert : fond coloré renforcé */
+    body.theme-light .expiry-alert {
+      background: linear-gradient(135deg, #FFF1F2, #FFE4E6);
+      border: 1px solid #FECACA;
+      box-shadow: 0 2px 6px rgba(239,68,68,.08);
+    }
+    body.theme-light .expiry-alert.warn {
+      background: linear-gradient(135deg, #FFFBEB, #FEF3C7);
+      border-color: #FDE68A;
+    }
+    body.theme-light .expiry-alert-name { color: #0F172A; }
+    body.theme-light .expiry-alert-date { color: #64748B; }
+
+    /* db-widget : widgets dashboard avec fond blanc et ombre douce */
+    body.theme-light .db-widget-inner {
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      box-shadow: 0 2px 12px rgba(0,0,0,.06);
+      border-radius: 16px;
+    }
+    body.theme-light .db-widget-btn { background: rgba(0,0,0,.05); border-color: rgba(0,0,0,.12); color: #64748B; }
+    body.theme-light .db-widget-btn:hover { border-color: var(--orange); color: var(--orange); background: rgba(249,115,22,.06); }
+
+    /* stat-card : fond blanc + ombre légère (renforcement) */
+    body.theme-light .stat-card {
+      background: linear-gradient(135deg, #FFFFFF, #F8FAFC);
+      border: 1px solid #E2E8F0;
+      box-shadow: 0 2px 10px rgba(0,0,0,.07);
+    }
+    body.theme-light .stat-value { color: var(--orange); }
+    body.theme-light .stat-icon  { color: #334155; }
 
     /* Toggle bouton */
     .theme-toggle { background: none; border: 1px solid rgba(255,255,255,.15); border-radius: 20px; padding: 5px 12px; cursor: pointer; font-size: 15px; color: var(--muted); transition: all .2s; display: flex; align-items: center; gap: 6px; }
@@ -1662,7 +1733,8 @@ async function saveDisplayPrefs() {
   const existing = currentProfile.dashboard_layout || {};
   existing._prefs = { fontSize, contrast, globalContrast };
   currentProfile.dashboard_layout = existing;
-  await sb.from('profiles').update({ dashboard_layout: existing }).eq('id', currentUser.id);
+  const { error } = await sb.from('profiles').update({ dashboard_layout: existing }).eq('id', currentUser.id);
+  if (error) console.warn('saveDisplayPrefs:', error.message);
 }
 
 function loadDisplayPrefs() {
@@ -2134,7 +2206,8 @@ async function confirmDeleteAccount() {
       sb.from('document_shares').delete().eq('worker_id', userId),
       sb.from('worker_invites').delete().eq('worker_email', currentProfile.email),
     ]);
-    await sb.from('profiles').delete().eq('id', userId);
+    const { error: delErr } = await sb.from('profiles').delete().eq('id', userId);
+    if (delErr) { showToast('Erreur suppression compte : ' + delErr.message, 'error'); return; }
 
     // Déconnexion immédiate
     await sb.auth.signOut();
