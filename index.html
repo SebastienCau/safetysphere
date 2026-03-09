@@ -2266,14 +2266,29 @@
 <!-- ══ MODALE VISIONNEUSE RAPPORT ══ -->
 <div class="modal-overlay" id="reportViewerModal" style="padding:0;align-items:stretch;background:rgba(0,0,0,.85)">
   <div style="display:flex;flex-direction:column;width:100%;height:100%;max-width:100%;max-height:100%;border-radius:0">
+    <!-- Barre supérieure -->
     <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;background:#0D1B2A;border-bottom:2px solid #F97316;flex-shrink:0">
       <div style="width:28px;height:28px;background:#F97316;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:12px">S</div>
       <span id="reportViewerTitle" style="font-weight:700;color:#fff;font-size:14px;flex:1">Rapport</span>
-      <button onclick="printReportViewer()" style="background:rgba(249,115,22,.2);border:1px solid rgba(249,115,22,.4);color:#FDBA74;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:700">🖨️ Imprimer / PDF</button>
+      <button onclick="printReportViewer()" style="background:rgba(249,115,22,.2);border:1px solid rgba(249,115,22,.4);color:#FDBA74;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:700">🖨️ Imprimer</button>
       <button id="viewerSendSigBtn" style="display:none;background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.4);color:#A5B4FC;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:700">✉️ Envoyer pour signature</button>
+      <button id="viewerSigPanelToggle" onclick="toggleViewerSigPanel()" style="display:none;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);color:#FCD34D;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:700">✍️ Signataires</button>
       <button onclick="closeReportViewer()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px">✕ Fermer</button>
     </div>
-    <iframe id="reportViewerFrame" style="flex:1;width:100%;border:none;background:#fff"></iframe>
+    <!-- Corps : iframe + panneau signataires -->
+    <div style="display:flex;flex:1;min-height:0;overflow:hidden">
+      <iframe id="reportViewerFrame" style="flex:1;width:100%;border:none;background:#fff;min-width:0"></iframe>
+      <!-- Panneau signataires (masqué par défaut) -->
+      <div id="viewerSigPanel" style="display:none;width:320px;flex-shrink:0;background:#0D1B2A;border-left:1px solid rgba(249,115,22,.25);overflow-y:auto;padding:0">
+        <div style="padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:12px;font-weight:900;color:#F97316;text-transform:uppercase;letter-spacing:.8px">✍️ Workflow signature</div>
+          <button onclick="toggleViewerSigPanel()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1">×</button>
+        </div>
+        <div id="viewerSigPanelContent" style="padding:14px 16px">
+          <div style="font-size:12px;color:var(--muted)">Chargement…</div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -7279,6 +7294,12 @@ function openReportWindow(html, title, meta) {
   var titleEl = document.getElementById('reportViewerTitle');
   if (!modal || !frame) return false;
 
+  // Panneau signataires : masquer (pas d'archiveId connu à ce stade)
+  var sigPanel  = document.getElementById('viewerSigPanel');
+  var sigToggle = document.getElementById('viewerSigPanelToggle');
+  if (sigPanel)  { sigPanel.style.display = 'none'; sigPanel.dataset.open = '0'; }
+  if (sigToggle) { sigToggle.style.display = 'none'; }
+
   // Construire le blob et l'injecter dans l'iframe
   var blob    = new Blob([html], { type:'text/html;charset=utf-8' });
   var blobUrl = URL.createObjectURL(blob);
@@ -7299,7 +7320,13 @@ function openReportWindow(html, title, meta) {
 
   // Archivage automatique en arrière-plan
   if (meta && title) {
-    archiveReport(meta, title, html).catch(function(e){ console.warn('Archive background error:', e); });
+    archiveReport(meta, title, html).then(function(archived) {
+      // Une fois archivé, activer le bouton signataires si archive_id dispo
+      if (archived && archived.id) {
+        var toggle = document.getElementById('viewerSigPanelToggle');
+        if (toggle) { toggle.style.display = ''; toggle.dataset.archiveId = archived.id; toggle.onclick = function() { loadViewerSigPanel(archived.id); toggleViewerSigPanel(); }; }
+      }
+    }).catch(function(e){ console.warn('Archive background error:', e); });
   }
   return true;
 }
@@ -8622,8 +8649,8 @@ async function renderHistoriqueSection(role) {
           + sigStatusBadge(a)
           + '</div>'
           + '<div class="archive-actions">'
-          + (a.file_url ? '<button class="btn-sm btn-view" style="padding:5px 12px;font-size:11px" onclick="openReportViewer(\'' + a.file_url + '\',\'' + escapeHtml(a.report_num||a.label) + '\',\'' + (a.source==='safetysphere'?'html':'ext') + '\')">📄 Consulter</button>' : '<span style="font-size:11px;color:var(--muted)">Pas de fichier</span>')
-          + (a.signed_file_url ? '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#86EFAC" onclick="openReportViewer(\'' + a.signed_file_url + '\',\'Signé — ' + escapeHtml(a.report_num||a.label) + '\',\'ext\')">🖊️ Signé</button>' : '')
+          + (a.file_url ? '<button class="btn-sm btn-view" style="padding:5px 12px;font-size:11px" onclick="openReportViewer(\'' + a.file_url + '\',\'' + escapeHtml(a.report_num||a.label) + '\',\'' + (a.source==='safetysphere'?'html':'ext') + '\',\'' + a.id + '\')">📄 Consulter</button>' : '<span style="font-size:11px;color:var(--muted)">Pas de fichier</span>')
+          + (a.signed_file_url ? '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#86EFAC" onclick="openReportViewer(\'' + a.signed_file_url + '\',\'Signé — ' + escapeHtml(a.report_num||a.label) + '\',\'ext\',\'' + a.id + '\')">🖊️ Signé</button>' : '')
           + (!a.signed_file_url && (!a.sig_status || a.sig_status === 'none') ? '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.25);color:#A5B4FC" onclick="openUploadSignedScanModal(\'' + a.id + '\',\'' + escapeHtml(a.report_num||a.label) + '\')">📤 Scan signé</button>' : '')
           + (!a.sig_status || a.sig_status === 'none' ? '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.25);color:#FCD34D" onclick="openSendForSignatureModal(\'' + a.id + '\',\'' + escapeHtml(a.report_num) + '\',\'' + escapeHtml(a.report_type) + '\',null,null)">✉️ Envoyer</button>' : '')
           + '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.25);color:#FCA5A5" onclick="moveToTrash(\'' + a.id + '\',\'' + role + '\')">🗑️</button>'
@@ -8648,7 +8675,7 @@ async function renderHistoriqueSection(role) {
               + '<span class="archive-badge" style="background:rgba(34,197,94,.12);color:#86EFAC;border:1px solid rgba(34,197,94,.25)">✅ Signé complet</span>'
               + '</div>'
               + '<div class="archive-actions">'
-              + (c.file_url ? '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#86EFAC" onclick="openReportViewer(\'' + c.file_url + '\',\'Consolidé — ' + escapeHtml(c.report_num||'') + '\',\'ext\')">📄 Consulter</button>' : '')
+              + (c.file_url ? '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#86EFAC" onclick="openReportViewer(\'' + c.file_url + '\',\'Consolidé — ' + escapeHtml(c.report_num||'') + '\',\'ext\',\'' + c.parent_id + '\')">📄 Consulter</button>' : '')
               + '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.25);color:#FCA5A5" onclick="moveChildToTrash(\'' + c.id + '\',\'' + role + '\')">🗑️</button>'
               + '</div>'
               + '</div>';
@@ -8820,62 +8847,264 @@ async function saveExternalReport() {
 // VISIONNEUSE RAPPORT — iframe plein écran
 // ══════════════════════════════════════════════════════════════
 
-async function openReportViewer(url, title, sourceType) {
-  var modal = document.getElementById('reportViewerModal');
-  var frame = document.getElementById('reportViewerFrame');
+// archiveId optionnel : si fourni, charge le panneau signataires
+async function openReportViewer(url, title, sourceType, archiveId) {
+  var modal   = document.getElementById('reportViewerModal');
+  var frame   = document.getElementById('reportViewerFrame');
   var titleEl = document.getElementById('reportViewerTitle');
   if (!modal || !frame) return;
 
   titleEl.textContent = title || 'Rapport';
   frame.src = 'about:blank';
+
+  // Panneau signataires : masquer au départ, afficher le bouton si on a un archiveId
+  var sigPanel  = document.getElementById('viewerSigPanel');
+  var sigToggle = document.getElementById('viewerSigPanelToggle');
+  if (sigPanel)  { sigPanel.style.display = 'none'; sigPanel.dataset.open = '0'; }
+  if (sigToggle) { sigToggle.style.display = 'none'; }
+
   modal.classList.add('open');
 
-  if (sourceType === 'html') {
-    // Rapport SafetySphere : récupérer le HTML via fetch et l'afficher dans l'iframe
+  // Charger et injecter le contenu — toujours via fetch+blob pour éviter
+  // les problèmes de Content-Type et de CSP (valable pour HTML et signed URLs S3)
+  var loadViaFetch = (sourceType === 'html') || (url && url.includes('supabase'));
+  if (loadViaFetch) {
     try {
       var resp = await fetch(url);
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      var html = await resp.text();
-      // Injecter dans l'iframe via blob pour contourner le Content-Type text/plain
-      var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-      var blobUrl = URL.createObjectURL(blob);
-      frame.src = blobUrl;
-      frame._blobUrl = blobUrl;
-      // Nettoyer le blob après chargement
-      frame.onload = function() {
-        setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 10000);
-      };
+      var contentType = resp.headers.get('content-type') || '';
+      var isPdf = contentType.includes('pdf') || url.includes('.pdf');
+      if (isPdf) {
+        // PDF : afficher directement
+        frame.src = url;
+      } else {
+        var html = await resp.text();
+        var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        var blobUrl = URL.createObjectURL(blob);
+        frame.src = blobUrl;
+        frame._blobUrl = blobUrl;
+        frame.onload = function() { setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 15000); };
+      }
     } catch(e) {
-      // Fallback : afficher une page d'erreur propre dans l'iframe
       var errHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'
         + 'body{font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;background:#F9FAFB;color:#374151}'
         + 'h2{color:#EF4444}.sub{font-size:13px;color:#6B7280;margin-top:8px;text-align:center}'
         + '</style></head><body>'
-        + '<h2>⚠️ Impossible de charger le rapport</h2>'
-        + '<p class="sub">Le lien signé a peut-être expiré.<br>Régénérez le rapport depuis SafetySphere pour obtenir un lien valide.</p>'
-        + '<a href="' + url + '" target="_blank" style="margin-top:16px;padding:10px 24px;background:#F97316;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">Ouvrir le lien direct</a>'
+        + '<h2>⚠️ Impossible de charger le document</h2>'
+        + '<p class="sub">Le lien a peut-être expiré ou le fichier est introuvable.</p>'
+        + '<a href="' + escapeHtml(url) + '" target="_blank" style="margin-top:16px;padding:10px 24px;background:#F97316;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">↗ Ouvrir dans un nouvel onglet</a>'
         + '</body></html>';
       var eb = new Blob([errHtml], { type:'text/html' });
       frame.src = URL.createObjectURL(eb);
     }
   } else {
-    // Rapport externe (PDF, DOCX) : afficher dans iframe directement
-    // Pour les PDF les navigateurs les affichent nativement
     frame.src = url;
+  }
+
+  // Si on a un archiveId → charger le panneau signataires en arrière-plan
+  if (archiveId) {
+    if (sigToggle) sigToggle.style.display = '';
+    loadViewerSigPanel(archiveId);
+    // Ouvrir le panneau automatiquement si workflow en cours
+    setTimeout(function() {
+      var panel = document.getElementById('viewerSigPanel');
+      if (panel && panel.dataset.loaded === '1') return; // déjà géré dans loadViewerSigPanel
+    }, 100);
   }
 }
 
 function closeReportViewer() {
-  var modal = document.getElementById('reportViewerModal');
-  var btnSig = document.getElementById('viewerSendSigBtn');
-  if (btnSig) { btnSig.style.display = 'none'; btnSig.onclick = null; }
+  var modal     = document.getElementById('reportViewerModal');
+  var btnSig    = document.getElementById('viewerSendSigBtn');
+  var sigPanel  = document.getElementById('viewerSigPanel');
+  var sigToggle = document.getElementById('viewerSigPanelToggle');
+  if (btnSig)    { btnSig.style.display = 'none'; btnSig.onclick = null; }
+  if (sigPanel)  { sigPanel.style.display = 'none'; sigPanel.dataset.open = '0'; }
+  if (sigToggle) { sigToggle.style.display = 'none'; }
   var frame = document.getElementById('reportViewerFrame');
   if (modal) modal.classList.remove('open');
   if (frame) {
-    // Révoquer un éventuel blob url encore actif
     if (frame._blobUrl) { URL.revokeObjectURL(frame._blobUrl); frame._blobUrl = null; }
     frame.src = 'about:blank';
   }
+}
+
+function toggleViewerSigPanel() {
+  var panel = document.getElementById('viewerSigPanel');
+  if (!panel) return;
+  var isOpen = panel.dataset.open === '1';
+  panel.style.display = isOpen ? 'none' : '';
+  panel.dataset.open  = isOpen ? '0' : '1';
+}
+
+// Charge le panneau signataires pour un archive_id donné
+async function loadViewerSigPanel(archiveId) {
+  var content = document.getElementById('viewerSigPanelContent');
+  if (!content) return;
+  content.innerHTML = '<div style="font-size:12px;color:var(--muted)">Chargement…</div>';
+
+  // Récupérer la signature_request liée à cet archiveId
+  var reqRes = await sb.from('signature_requests')
+    .select('id, workflow_mode, status, total_signers, signed_count, created_at, created_by, report_num, report_type')
+    .eq('archive_id', archiveId)
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (reqRes.error || !reqRes.data || !reqRes.data.length) {
+    content.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">Aucun workflow de signature trouvé pour ce document.</div>';
+    return;
+  }
+
+  var req = reqRes.data[0];
+
+  // Récupérer les signataires
+  var itemsRes = await sb.from('signature_request_items')
+    .select('*')
+    .eq('request_id', req.id)
+    .order('seq');
+
+  var items = itemsRes.data || [];
+
+  // Ouvrir le panneau automatiquement s'il y a un workflow actif
+  var panel = document.getElementById('viewerSigPanel');
+  if (panel && req.status !== 'completed') {
+    panel.style.display = '';
+    panel.dataset.open = '1';
+    panel.dataset.loaded = '1';
+  }
+
+  var modeLabel = req.workflow_mode === 'sequential' ? '🔗 Séquentiel' : '⚡ Parallèle';
+  var statusLabel = req.status === 'completed' ? '<span style="color:#4ADE80;font-weight:700">✅ Complété</span>'
+    : req.status === 'refused'   ? '<span style="color:#FCA5A5;font-weight:700">❌ Refusé</span>'
+    : '<span style="color:#FCD34D;font-weight:700">⏳ En cours</span>';
+  var createdDate = new Date(req.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' });
+  var progressPct = req.total_signers ? Math.round((req.signed_count || 0) / req.total_signers * 100) : 0;
+
+  var html = '';
+
+  // Résumé du workflow
+  html += '<div style="background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.15);border-radius:10px;padding:12px 14px;margin-bottom:14px">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+    + '<span style="font-size:11px;font-weight:700;color:#F97316">' + modeLabel + '</span>'
+    + statusLabel
+    + '</div>'
+    + '<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Lancé le ' + createdDate + '</div>'
+    // Barre de progression
+    + '<div style="background:rgba(255,255,255,.07);border-radius:4px;height:6px;overflow:hidden;margin-bottom:6px">'
+    + '<div style="height:100%;border-radius:4px;background:' + (req.status === 'completed' ? '#4ADE80' : '#F97316') + ';width:' + progressPct + '%;transition:width .4s"></div>'
+    + '</div>'
+    + '<div style="font-size:11px;color:var(--muted)">' + (req.signed_count || 0) + ' / ' + (req.total_signers || 0) + ' signature(s)</div>'
+    + '</div>';
+
+  // Liste des signataires
+  html += '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px">Signataires</div>';
+
+  items.forEach(function(item, idx) {
+    var statusIcon, statusColor, statusText;
+    if (item.status === 'signed') {
+      statusIcon = '✅'; statusColor = '#4ADE80';
+      var d = item.signed_at ? new Date(item.signed_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short' }) : '';
+      var t = item.signed_at ? new Date(item.signed_at).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' }) : '';
+      statusText = 'Signé le ' + d + (t ? ' à ' + t : '');
+    } else if (item.status === 'refused') {
+      statusIcon = '❌'; statusColor = '#FCA5A5'; statusText = 'A refusé';
+    } else if (item.status === 'pending') {
+      statusIcon = '⏳'; statusColor = '#FCD34D'; statusText = 'En attente de signature';
+    } else {
+      statusIcon = '🔒'; statusColor = '#64748B'; statusText = 'Pas encore notifié';
+    }
+
+    var methodBadge = '';
+    if (item.status === 'signed') {
+      methodBadge = '<span style="font-size:10px;background:rgba(255,255,255,.06);border-radius:4px;padding:1px 6px;color:var(--muted)">'
+        + (item.method === 'otp_email' ? '🔐 OTP' : '🖊️ Manuscrite') + '</span>';
+    }
+
+    var sigIdBadge = (item.status === 'signed' && item.sig_id)
+      ? '<div style="font-size:10px;color:#64748B;margin-top:3px;font-family:monospace">Réf : ' + escapeHtml(item.sig_id) + '</div>'
+      : '';
+
+    // Boutons action
+    var actionBtns = '';
+    if (item.status === 'pending') {
+      var sigUrl = window.location.origin + window.location.pathname + '?sign=' + item.token;
+      actionBtns += '<button onclick="viewerRelancerSignataire(\'' + escapeHtml(item.id) + '\',\'' + escapeHtml(item.signer_email) + '\',\'' + escapeHtml(item.signer_name) + '\',\'' + escapeHtml(sigUrl) + '\',\'' + escapeHtml(req.report_num || '') + '\')" '
+        + 'style="flex:1;background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.3);color:#FDBA74;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:700;cursor:pointer">🔔 Relancer</button>';
+    }
+    actionBtns += '<a href="mailto:' + escapeHtml(item.signer_email) + '?subject=' + encodeURIComponent('Document ' + (req.report_num || '') + ' — SafetySphere') + '" '
+      + 'style="flex:1;display:flex;align-items:center;justify-content:center;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);color:#A5B4FC;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:700;text-decoration:none">✉️ Email</a>';
+
+    html += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 12px;margin-bottom:8px">'
+      // En-tête signataire
+      + '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px">'
+      + '<span style="font-size:18px;flex-shrink:0;line-height:1.2">' + statusIcon + '</span>'
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:13px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(item.signer_name || '—') + '</div>'
+      + '<div style="font-size:11px;color:#A5B4FC;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(item.signer_email || '') + '</div>'
+      + '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + escapeHtml(item.signer_role || '') + (req.workflow_mode === 'sequential' ? ' · étape ' + (idx + 1) : '') + '</div>'
+      + '</div>'
+      + '</div>'
+      // Statut + méthode
+      + '<div style="display:flex;align-items:center;gap:6px;margin-bottom:' + (actionBtns ? '8px' : '0') + '">'
+      + '<span style="font-size:11px;color:' + statusColor + ';font-weight:600">' + statusText + '</span>'
+      + methodBadge
+      + '</div>'
+      + sigIdBadge
+      // Actions
+      + (actionBtns ? '<div style="display:flex;gap:6px;margin-top:8px">' + actionBtns + '</div>' : '')
+      + '</div>';
+  });
+
+  // Bouton relancer TOUS les en attente
+  var pendingItems = items.filter(function(i) { return i.status === 'pending'; });
+  if (pendingItems.length > 1) {
+    html += '<button onclick="viewerRelancerTous(\'' + escapeHtml(req.id) + '\',\'' + escapeHtml(req.report_num || '') + '\')" '
+      + 'style="width:100%;background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.25);color:#FDBA74;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:pointer;margin-top:4px">'
+      + '🔔 Relancer tous les signataires en attente (' + pendingItems.length + ')</button>';
+  }
+
+  content.innerHTML = html;
+}
+
+// Relancer un signataire individuel
+async function viewerRelancerSignataire(itemId, email, name, sigUrl, reportNum) {
+  var btn = event && event.target;
+  if (btn) { btn.disabled = true; btn.textContent = '⏳…'; }
+  var sent = false;
+  try {
+    var edgeRes = await sb.functions.invoke('send-signature-email', {
+      body: { to: email, signer_name: name, sig_url: sigUrl, report_num: reportNum, emitter_name: currentProfile.full_name || currentProfile.email }
+    });
+    if (!edgeRes.error) sent = true;
+  } catch(e) {}
+  if (!sent) {
+    await sb.auth.signInWithOtp({ email: email, options: { shouldCreateUser: false, emailRedirectTo: sigUrl } }).catch(function(){});
+    sent = true;
+  }
+  if (btn) { btn.disabled = false; btn.textContent = sent ? '✅ Relancé' : '❌ Erreur'; }
+  showToast(sent ? '✓ Relance envoyée à ' + name : 'Erreur lors de la relance', sent ? 'success' : 'error');
+}
+
+// Relancer tous les signataires en attente d'un workflow
+async function viewerRelancerTous(requestId, reportNum) {
+  var btn = event && event.target;
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Envoi…'; }
+  var itemsRes = await sb.from('signature_request_items').select('*').eq('request_id', requestId).eq('status', 'pending');
+  var sent = 0;
+  for (var i = 0; i < (itemsRes.data || []).length; i++) {
+    var item = itemsRes.data[i];
+    var sigUrl = window.location.origin + window.location.pathname + '?sign=' + item.token;
+    try {
+      var edgeRes = await sb.functions.invoke('send-signature-email', {
+        body: { to: item.signer_email, signer_name: item.signer_name, sig_url: sigUrl, report_num: reportNum, emitter_name: currentProfile.full_name || currentProfile.email }
+      });
+      if (!edgeRes.error) { sent++; continue; }
+    } catch(e) {}
+    await sb.auth.signInWithOtp({ email: item.signer_email, options: { shouldCreateUser: false, emailRedirectTo: sigUrl } }).catch(function(){});
+    sent++;
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '✅ ' + sent + ' relance(s) envoyée(s)'; }
+  showToast('✓ ' + sent + ' relance(s) envoyée(s)', 'success');
 }
 
 function printReportViewer() {
