@@ -307,6 +307,23 @@
     .settings-reset:hover { border-color: rgba(255,255,255,.25); color: var(--text); }
     body.theme-light .settings-reset { background: rgba(0,0,0,.04); border-color: rgba(0,0,0,.1); }
 
+    /* ── Onglets personnalisés habilitations ── */
+    .doc-tab { padding: 7px 16px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 20px; color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .doc-tab:hover { border-color: rgba(249,115,22,.4); color: var(--orange); }
+    .doc-tab.active { background: rgba(249,115,22,.15); border-color: var(--orange); color: var(--orange); }
+    .doc-tab .doc-tab-edit { font-size: 11px; opacity: .6; margin-left: 2px; padding: 1px 4px; border-radius: 4px; transition: opacity .2s; }
+    .doc-tab:hover .doc-tab-edit { opacity: 1; }
+    body.theme-light .doc-tab { background: #fff; border-color: #E2E8F0; color: #64748B; }
+    body.theme-light .doc-tab:hover { border-color: rgba(249,115,22,.5); color: var(--orange); }
+    body.theme-light .doc-tab.active { background: rgba(249,115,22,.1); border-color: var(--orange); color: var(--orange); }
+
+    /* Icônes picker */
+    .icon-pick { width: 38px; height: 38px; border: 1.5px solid rgba(255,255,255,.1); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; transition: all .15s; }
+    .icon-pick:hover { border-color: var(--orange); background: rgba(249,115,22,.1); }
+    .icon-pick.selected { border-color: var(--orange); background: rgba(249,115,22,.15); }
+    body.theme-light .icon-pick { border-color: #E2E8F0; }
+    body.theme-light .icon-pick.selected { border-color: var(--orange); background: rgba(249,115,22,.1); }
+
     /* ── Contraste global (filter sur appContent) ── */
     #appContent.contrast-high { filter: contrast(1.2) brightness(1.04); }
     #appContent.contrast-max  { filter: contrast(1.45) brightness(1.07); }
@@ -787,6 +804,13 @@
     <div class="page-section" id="Worker-docs">
       <div class="dash-welcome">Mes <em>Habilitations</em></div>
       <div class="dash-subtitle">Déposez vos documents — votre employeur et le centre de formation seront notifiés</div>
+
+      <!-- Onglets habilitations -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+        <div id="workerDocTabs" style="display:flex;gap:6px;flex-wrap:wrap;flex:1"></div>
+        <button onclick="openAddDocTabModal()" style="background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3);border-radius:20px;padding:6px 14px;color:var(--orange);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s" onmouseover="this.style.background='rgba(249,115,22,.22)'" onmouseout="this.style.background='rgba(249,115,22,.12)'">➕ Nouvel onglet</button>
+      </div>
+
       <div id="workerDocsContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
 
@@ -1579,6 +1603,42 @@
   </div>
 </div>
 
+<!-- MODALE ONGLET PERSONNALISÉ -->
+<div class="modal-overlay" id="addDocTabModal">
+  <div class="modal" style="max-width:420px">
+    <button class="modal-close" onclick="closeAddDocTabModal()">✕</button>
+    <div class="modal-title" id="addDocTabTitle">➕ Nouvel onglet</div>
+    <div class="modal-subtitle">Créez une catégorie personnalisée pour vos documents</div>
+
+    <div style="margin-bottom:14px">
+      <label class="form-label">Nom de l'onglet</label>
+      <input type="text" id="docTabName" class="form-input" placeholder="Ex: CACES, ATEX, Médical..." maxlength="30">
+    </div>
+
+    <div style="margin-bottom:20px">
+      <label class="form-label">Icône</label>
+      <div id="docTabIconPicker" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">
+        <!-- rempli par JS -->
+      </div>
+      <input type="hidden" id="docTabIcon" value="📁">
+    </div>
+
+    <div id="docTabDocsList" style="display:none;margin-bottom:20px">
+      <label class="form-label">Documents de cet onglet</label>
+      <div id="docTabDocsItems" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="docTabNewDocName" class="form-input" placeholder="Nom du document à ajouter..." style="flex:1">
+        <button onclick="addDocToTab()" class="btn-sm btn-upload" style="white-space:nowrap">+ Ajouter</button>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px">
+      <button id="docTabSaveBtn" onclick="saveDocTab()" class="btn-sm btn-validate" style="flex:1;padding:10px;font-size:13px">✓ Enregistrer</button>
+      <button id="docTabDeleteBtn" onclick="deleteDocTab()" class="btn-sm btn-reject" style="display:none;padding:10px;font-size:13px">🗑 Supprimer</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="uploadModal">
   <div class="modal">
     <button class="modal-close" onclick="closeModal()">✕</button>
@@ -2307,7 +2367,275 @@ function renderExpiryAlerts(docs) {
   container.innerHTML = html;
 }
 
+// ══════════════════════════════
+// ONGLETS PERSONNALISÉS HABILITATIONS
+// ══════════════════════════════
+const DOC_TAB_ICONS = ['📁','📋','🔧','⚙️','🏗️','⚡','🩺','🚒','🧰','🪜','🚧','🛡️','🎓','🪪','🏥','🔬','🚗','✈️','🌊','🔥'];
+let _currentDocTab = '__default__'; // onglet actif
+let _editingTabId  = null;          // null = création, sinon id de l'onglet en édition
+
+function getCustomDocTabs() {
+  return currentProfile?.dashboard_layout?._customDocTabs || [];
+}
+
+async function saveCustomDocTabs(tabs) {
+  const existing = currentProfile.dashboard_layout || {};
+  existing._customDocTabs = tabs;
+  currentProfile.dashboard_layout = existing;
+  const { error } = await sb.from('profiles').update({ dashboard_layout: existing }).eq('id', currentUser.id);
+  if (error) { showToast('Erreur sauvegarde onglets', 'error'); return false; }
+  return true;
+}
+
+function renderDocTabs() {
+  const tabs = getCustomDocTabs();
+  const container = document.getElementById('workerDocTabs');
+  if (!container) return;
+
+  let html = `<button class="doc-tab${_currentDocTab === '__default__' ? ' active' : ''}" onclick="switchDocTab('__default__')">📄 Habilitations</button>`;
+  tabs.forEach(tab => {
+    html += `<button class="doc-tab${_currentDocTab === tab.id ? ' active' : ''}" onclick="switchDocTab('${tab.id}')">
+      ${tab.icon} ${escapeHtml(tab.name)}
+      <span class="doc-tab-edit" onclick="event.stopPropagation();openEditDocTabModal('${tab.id}')" title="Modifier">✏️</span>
+    </button>`;
+  });
+  container.innerHTML = html;
+}
+
+function switchDocTab(tabId) {
+  _currentDocTab = tabId;
+  renderDocTabs();
+  if (tabId === '__default__') {
+    loadWorkerDocs();
+  } else {
+    loadCustomTabDocs(tabId);
+  }
+}
+
+async function loadCustomTabDocs(tabId) {
+  const tab = getCustomDocTabs().find(t => t.id === tabId);
+  if (!tab) return;
+
+  const container = document.getElementById('workerDocsContainer');
+  container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div></div>';
+
+  // Charger les docs de cet onglet (category = 'custom_' + tabId)
+  const category = 'custom_' + tabId;
+  const { data: docs } = await sb.from('documents').select('*').eq('owner_id', currentUser.id).eq('category', category);
+  await loadTrainingCenters();
+
+  const docDefs = tab.docs || [];
+  if (!docDefs.length) {
+    container.innerHTML = `<div class="empty-state">
+      <div class="empty-state-icon">${tab.icon}</div>
+      <div class="empty-state-text">Cet onglet est vide.<br>Cliquez sur ✏️ pour ajouter des types de documents.</div>
+    </div>`;
+    return;
+  }
+
+  // Réutiliser renderWorkerDocCards avec les defs custom
+  const statusLabels = { empty: 'Non déposé', pending: 'En attente', validated: 'Validé ✓', rejected: 'Refusé', expired: 'Expiré' };
+  const html = '<div class="doc-grid">' + docDefs.map(def => {
+    const doc    = docs ? docs.find(d => d.doc_type === def.key) : null;
+    const status = doc ? doc.status : 'empty';
+    const now    = new Date();
+    const soon   = new Date(); soon.setDate(soon.getDate() + 30);
+    let expiryHtml = '';
+    if (doc?.expires_at) {
+      const exp = new Date(doc.expires_at);
+      const daysLeft = Math.ceil((exp - now) / 86400000);
+      expiryHtml = `<div class="doc-card-expiry ${exp < now ? 'urgent' : ''}">📅 ${exp.toLocaleDateString('fr-FR')}${daysLeft > 0 ? ' — ' + daysLeft + 'j' : ' — Expiré'}</div>`;
+    }
+    let actions = !doc
+      ? `<button class="btn-sm btn-upload" onclick="openUploadModal('${def.key}','${escapeHtml(def.name)}','${category}')">📤 Déposer</button>`
+      : `<button class="btn-sm btn-view" onclick="viewDoc('${doc.file_url}')">👁 Voir</button>
+         <button class="btn-sm" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#A5B4FC" onclick="openEditDocModal('${doc.id}','${escapeHtml(def.name)}','${doc.expires_at || ''}','${doc.status}')">✏️ Modifier</button>
+         <button class="btn-sm btn-upload" onclick="openUploadModal('${def.key}','${escapeHtml(def.name)}','${category}')">🔄 Remplacer</button>`;
+
+    return `<div class="doc-card">
+      <div class="doc-card-header"><div class="doc-card-icon">${tab.icon}</div>
+        <div class="doc-card-badges"><span class="doc-badge status-${status}">${statusLabels[status]}</span></div>
+      </div>
+      <div class="doc-card-name">${escapeHtml(def.name)}</div>
+      ${expiryHtml}
+      <div class="doc-card-actions">${actions}</div>
+    </div>`;
+  }).join('') + '</div>';
+
+  container.innerHTML = html;
+}
+
+// ── Modale ajout/édition onglet ──
+function openAddDocTabModal() {
+  _editingTabId = null;
+  document.getElementById('addDocTabTitle').textContent = '➕ Nouvel onglet';
+  document.getElementById('docTabName').value = '';
+  document.getElementById('docTabIcon').value = '📁';
+  document.getElementById('docTabDocsList').style.display = 'none';
+  document.getElementById('docTabDeleteBtn').style.display = 'none';
+  // Réinitialiser _tempDocs pour éviter les résidus de la session précédente
+  const listEl = document.getElementById('docTabDocsItems');
+  if (listEl) { listEl._tempDocs = []; listEl.innerHTML = ''; }
+  document.getElementById('docTabNewDocName').value = '';
+  renderIconPicker('📁');
+  document.getElementById('addDocTabModal').classList.add('open');
+  setTimeout(() => document.getElementById('docTabName').focus(), 100);
+}
+
+function openEditDocTabModal(tabId) {
+  const tab = getCustomDocTabs().find(t => t.id === tabId);
+  if (!tab) return;
+  _editingTabId = tabId;
+  document.getElementById('addDocTabTitle').textContent = '✏️ Modifier l\'onglet';
+  document.getElementById('docTabName').value = tab.name;
+  document.getElementById('docTabIcon').value = tab.icon;
+  document.getElementById('docTabDeleteBtn').style.display = '';
+  renderIconPicker(tab.icon);
+  renderTabDocsList(tab.docs || []);
+  document.getElementById('docTabDocsList').style.display = 'block';
+  document.getElementById('addDocTabModal').classList.add('open');
+}
+
+function closeAddDocTabModal() {
+  document.getElementById('addDocTabModal').classList.remove('open');
+  _editingTabId = null;
+}
+
+function renderIconPicker(selected) {
+  const picker = document.getElementById('docTabIconPicker');
+  picker.innerHTML = DOC_TAB_ICONS.map(icon =>
+    `<div class="icon-pick${icon === selected ? ' selected' : ''}" onclick="selectTabIcon('${icon}')">${icon}</div>`
+  ).join('');
+}
+
+function selectTabIcon(icon) {
+  document.getElementById('docTabIcon').value = icon;
+  renderIconPicker(icon);
+}
+
+function renderTabDocsList(docs) {
+  const container = document.getElementById('docTabDocsItems');
+  if (!docs.length) {
+    container.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:6px 0">Aucun document — ajoutez-en ci-dessous</div>';
+    return;
+  }
+  container.innerHTML = docs.map((d, i) =>
+    `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--inset-bg);border:1px solid var(--inset-border);border-radius:8px">
+      <span style="flex:1;font-size:13px">${escapeHtml(d.name)}</span>
+      <button onclick="removeDocFromTab(${i})" style="background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;padding:2px 6px" title="Supprimer">✕</button>
+    </div>`
+  ).join('');
+}
+
+function addDocToTab() {
+  const input = document.getElementById('docTabNewDocName');
+  const name  = input.value.trim();
+  if (!name) return;
+
+  // Récupérer docs actuels (depuis l'onglet en cours d'édition ou temp)
+  const tabs = getCustomDocTabs();
+  let currentDocs = [];
+  if (_editingTabId) {
+    const tab = tabs.find(t => t.id === _editingTabId);
+    currentDocs = tab ? [...(tab.docs || [])] : [];
+  } else {
+    // stockage temporaire dans data attribute
+    const el = document.getElementById('docTabDocsItems');
+    currentDocs = el._tempDocs || [];
+  }
+
+  const key = 'custom_doc_' + Date.now();
+  currentDocs.push({ key, name });
+
+  if (_editingTabId) {
+    const tab = tabs.find(t => t.id === _editingTabId);
+    if (tab) tab.docs = currentDocs;
+  } else {
+    const el = document.getElementById('docTabDocsItems');
+    el._tempDocs = currentDocs;
+  }
+
+  document.getElementById('docTabDocsList').style.display = 'block';
+  renderTabDocsList(currentDocs);
+  input.value = '';
+  input.focus();
+}
+
+function removeDocFromTab(index) {
+  const tabs = getCustomDocTabs();
+  let currentDocs = [];
+  if (_editingTabId) {
+    const tab = tabs.find(t => t.id === _editingTabId);
+    currentDocs = tab ? [...(tab.docs || [])] : [];
+    currentDocs.splice(index, 1);
+    if (tab) tab.docs = currentDocs;
+  } else {
+    const el = document.getElementById('docTabDocsItems');
+    currentDocs = el._tempDocs || [];
+    currentDocs.splice(index, 1);
+    el._tempDocs = currentDocs;
+  }
+  renderTabDocsList(currentDocs);
+}
+
+async function saveDocTab() {
+  const name = document.getElementById('docTabName').value.trim();
+  const icon = document.getElementById('docTabIcon').value;
+  if (!name) { showToast('Donnez un nom à l\'onglet', 'error'); return; }
+
+  const btn = document.getElementById('docTabSaveBtn');
+  btn.disabled = true; btn.textContent = '⏳';
+
+  const tabs = getCustomDocTabs();
+
+  if (_editingTabId) {
+    // Mise à jour
+    const tab = tabs.find(t => t.id === _editingTabId);
+    if (tab) { tab.name = name; tab.icon = icon; }
+  } else {
+    // Création
+    const el = document.getElementById('docTabDocsItems');
+    const newDocs = el._tempDocs || [];
+    tabs.push({ id: 'tab_' + Date.now(), name, icon, docs: newDocs });
+  }
+
+  const ok = await saveCustomDocTabs(tabs);
+  btn.disabled = false; btn.textContent = '✓ Enregistrer';
+
+  if (ok) {
+    showToast('Onglet enregistré', 'success');
+    closeAddDocTabModal();
+    renderDocTabs();
+    if (_editingTabId) {
+      const savedId = _editingTabId;
+      _editingTabId = null;
+      switchDocTab(savedId);
+    }
+  }
+}
+
+async function deleteDocTab() {
+  if (!_editingTabId) return;
+  if (!confirm('Supprimer cet onglet ? Les documents déposés dans Supabase ne seront pas supprimés.')) return;
+
+  const tabs = getCustomDocTabs().filter(t => t.id !== _editingTabId);
+  const ok = await saveCustomDocTabs(tabs);
+  if (ok) {
+    showToast('Onglet supprimé', 'success');
+    closeAddDocTabModal();
+    _currentDocTab = '__default__';
+    renderDocTabs();
+    loadWorkerDocs();
+  }
+}
+
 async function loadWorkerDocs() {
+  // Initialiser les onglets si premier chargement
+  renderDocTabs();
+  if (_currentDocTab !== '__default__') {
+    loadCustomTabDocs(_currentDocTab);
+    return;
+  }
   const { data: docs } = await sb.from('documents').select('*').eq('owner_id', currentUser.id).eq('category', 'worker');
   // Charger les centres pour le sélecteur upload
   await loadTrainingCenters();
@@ -2701,7 +3029,7 @@ async function openUploadModal(docKey, docName, category) {
     await loadTrainingCenters();
     const picker = document.getElementById('centerPicker');
     picker.innerHTML = '<option value="">Aucun / Je ne sais pas</option>' +
-      trainingCenters.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      trainingCenters.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
   }
 
   document.getElementById('uploadModal').classList.add('open');
@@ -4361,11 +4689,11 @@ function renderNotifItem(icon, title, sub, type, action, onClick) {
   const div = document.createElement('div');
   div.className = `notif-item notif-${type}`;
   div.innerHTML = `
-    <div class="notif-icon">${icon}</div>
+    <div class="notif-icon">${escapeHtml(icon)}</div>
     <div class="notif-body">
-      <div class="notif-body-title">${title}</div>
-      <div class="notif-body-sub">${sub}</div>
-      ${action ? `<div class="notif-action">→ ${action}</div>` : ''}
+      <div class="notif-body-title">${escapeHtml(title)}</div>
+      <div class="notif-body-sub">${escapeHtml(sub)}</div>
+      ${action ? `<div class="notif-action">→ ${escapeHtml(action)}</div>` : ''}
     </div>`;
   if (onClick) div.addEventListener('click', onClick);
   return div;
@@ -4661,7 +4989,7 @@ async function openMissionWorkersModal(missionId, missionTitle) {
   const { data: workers } = await sb.from('profiles').select('id, full_name, email').eq('org_id', currentProfile.org_id).eq('role','worker');
   const sel = document.getElementById('mwWorkerSelect');
   sel.innerHTML = '<option value="">— Sélectionner un intervenant —</option>' +
-    (workers || []).map(w => `<option value="${w.id}">${w.full_name} (${w.email})</option>`).join('');
+    (workers || []).map(w => `<option value="${w.id}">${escapeHtml(w.full_name)} (${escapeHtml(w.email)})</option>`).join('');
 
   document.getElementById('missionWorkersModal').classList.add('open');
   await refreshMissionWorkersList(missionId);
