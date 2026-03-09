@@ -6486,124 +6486,190 @@ async function deleteDuerEntry(id, role) {
   renderDuerSection(role || _conformRole);
 }
 
+// ── Métadonnées partagées pour tous les rapports ──────
+async function buildReportMeta(typeCode) {
+  // Charger les infos org depuis Supabase
+  var orgRow = null;
+  if (currentProfile.org_id) {
+    var r = await sb.from('organizations').select('name,siret,address,legal_form').eq('id', currentProfile.org_id).single();
+    orgRow = r.data;
+  }
+  var now        = new Date();
+  var isoDate    = now.toISOString();
+  // Numéro de rapport : TYPE-YYYYMMDD-HHMMSS-ORGID4
+  var pad        = function(n){ return String(n).padStart(2,'0'); };
+  var datePart   = now.getFullYear() + pad(now.getMonth()+1) + pad(now.getDate());
+  var timePart   = pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+  var orgSuffix  = (currentProfile.org_id || 'XXXX').slice(-4).toUpperCase();
+  var reportNum  = typeCode + '-' + datePart + '-' + timePart + '-' + orgSuffix;
+
+  return {
+    orgName    : (orgRow && orgRow.name)       || 'Entreprise non renseignée',
+    siret      : (orgRow && orgRow.siret)      || '',
+    address    : (orgRow && orgRow.address)    || '',
+    legalForm  : (orgRow && orgRow.legal_form) || '',
+    responsable: currentProfile.full_name      || currentProfile.email || 'Utilisateur inconnu',
+    email      : currentProfile.email          || '',
+    reportNum  : reportNum,
+    dateStr    : now.toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' }),
+    timeStr    : pad(now.getHours()) + 'h' + pad(now.getMinutes()),
+    isoDate    : isoDate,
+  };
+}
+
+// ── CSS commun à tous les rapports ────────────────────
+function reportCSS(landscape) {
+  return '<style>'
+    + '@page { size: A4 ' + (landscape ? 'landscape' : 'portrait') + '; margin: 15mm 14mm 18mm 14mm; }'
+    + 'body { font-family:"Segoe UI",Arial,sans-serif; color:#111827; margin:0; padding:0; background:#fff; font-size:13px; }'
+    + 'table { width:100%; border-collapse:collapse; }'
+    + 'th { background:#1E3A5F; color:#fff; padding:10px 13px; font-size:11px; text-align:left; font-weight:700; text-transform:uppercase; letter-spacing:.4px; }'
+    + 'tr:nth-child(even) td { background:#F9FAFB; }'
+    + 'td { border-bottom:1px solid #E5E7EB; vertical-align:top; }'
+    + '.report-header { border-bottom:3px solid #F97316; padding-bottom:14px; margin-bottom:0; display:flex; align-items:stretch; gap:0; }'
+    + '.report-header-left { flex:1; display:flex; align-items:center; gap:14px; }'
+    + '.report-header-right { width:220px; background:#F8FAFC; border:1px solid #E5E7EB; border-radius:8px; padding:12px 14px; font-size:11px; }'
+    + '.hex { width:44px; height:44px; background:#F97316; clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:900; font-size:18px; flex-shrink:0; }'
+    + '.report-title { font-size:20px; font-weight:900; color:#1E3A5F; line-height:1.2; margin-bottom:3px; }'
+    + '.report-subtitle { font-size:11px; color:#6B7280; }'
+    + '.org-block { margin:14px 0; padding:14px; background:#F0F4FF; border:1px solid #C7D7FD; border-radius:8px; display:flex; gap:24px; flex-wrap:wrap; }'
+    + '.org-field { display:flex; flex-direction:column; gap:2px; min-width:160px; }'
+    + '.org-field-lbl { font-size:9px; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:.5px; }'
+    + '.org-field-val { font-size:12px; font-weight:600; color:#111827; }'
+    + '.meta-row { display:flex; gap:4px; align-items:baseline; margin-bottom:4px; }'
+    + '.meta-lbl { font-size:9px; font-weight:700; color:#9CA3AF; text-transform:uppercase; letter-spacing:.4px; width:72px; flex-shrink:0; }'
+    + '.meta-val { font-size:11px; color:#111827; font-weight:600; }'
+    + '.report-num { font-family:monospace; font-size:10px; background:#1E3A5F; color:#fff; padding:2px 7px; border-radius:4px; letter-spacing:.5px; }'
+    + '.stat-row { display:flex; gap:12px; margin:14px 0; }'
+    + '.stat-box { flex:1; border-radius:8px; padding:12px 14px; }'
+    + '.stat-box-val { font-size:26px; font-weight:900; line-height:1; }'
+    + '.stat-box-lbl { font-size:10px; margin-top:4px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; }'
+    + '.report-footer { margin-top:20px; padding-top:10px; border-top:1px solid #E5E7EB; font-size:10px; color:#9CA3AF; display:flex; justify-content:space-between; align-items:center; }'
+    + '.signature-block { margin-top:28px; display:flex; gap:24px; }'
+    + '.signature-box { flex:1; border:1px solid #D1D5DB; border-radius:8px; padding:16px 18px; }'
+    + '.signature-box-title { font-size:10px; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:.5px; margin-bottom:40px; }'
+    + '.signature-box-line { border-top:1px solid #374151; padding-top:6px; font-size:10px; color:#6B7280; }'
+    + '@media print { .no-print { display:none !important; } body { font-size:11px; } .report-title { font-size:17px; } }'
+    + '</style>';
+}
+
+// ── En-tête commun (HTML) ─────────────────────────────
+function reportHeaderHTML(meta, docTitle, legalRef) {
+  var siretFmt = meta.siret ? meta.siret.replace(/(\d{3})(\d{3})(\d{3})(\d{5})/, '$1 $2 $3 $4') : '—';
+  return '<div class="report-header">'
+    + '<div class="report-header-left">'
+    + '<div class="hex">S</div>'
+    + '<div>'
+    + '<div class="report-title">' + escapeHtml(docTitle) + '</div>'
+    + '<div class="report-subtitle">' + escapeHtml(legalRef) + '</div>'
+    + '</div>'
+    + '</div>'
+    + '<div class="report-header-right">'
+    + '<div class="meta-row"><span class="meta-lbl">Réf.</span><span class="report-num">' + escapeHtml(meta.reportNum) + '</span></div>'
+    + '<div class="meta-row"><span class="meta-lbl">Date</span><span class="meta-val">' + escapeHtml(meta.dateStr) + ' à ' + meta.timeStr + '</span></div>'
+    + '<div class="meta-row"><span class="meta-lbl">Responsable</span><span class="meta-val">' + escapeHtml(meta.responsable) + '</span></div>'
+    + '<div class="meta-row"><span class="meta-lbl">Email</span><span class="meta-val" style="font-size:10px">' + escapeHtml(meta.email) + '</span></div>'
+    + '</div>'
+    + '</div>'
+    + '<div class="org-block">'
+    + '<div class="org-field"><span class="org-field-lbl">Raison sociale</span><span class="org-field-val">' + escapeHtml(meta.orgName) + '</span></div>'
+    + (meta.legalForm ? '<div class="org-field"><span class="org-field-lbl">Forme juridique</span><span class="org-field-val">' + escapeHtml(meta.legalForm) + '</span></div>' : '')
+    + '<div class="org-field"><span class="org-field-lbl">SIRET</span><span class="org-field-val" style="font-family:monospace">' + escapeHtml(siretFmt) + '</span></div>'
+    + (meta.address ? '<div class="org-field"><span class="org-field-lbl">Adresse</span><span class="org-field-val">' + escapeHtml(meta.address) + '</span></div>' : '')
+    + '</div>';
+}
+
+// ── Pied de page + bloc signature ─────────────────────
+function reportFooterHTML(meta, docTitle) {
+  return '<div class="report-footer">'
+    + '<span>SafetySphere · ' + escapeHtml(meta.orgName) + ' · Réf. ' + escapeHtml(meta.reportNum) + '</span>'
+    + '<span>Document généré le ' + escapeHtml(meta.dateStr) + ' · Confidentiel</span>'
+    + '</div>'
+    + '<div class="signature-block">'
+    + '<div class="signature-box">'
+    + '<div class="signature-box-title">Établi par</div>'
+    + '<div class="signature-box-line">' + escapeHtml(meta.responsable) + ' — ' + escapeHtml(meta.dateStr) + '</div>'
+    + '</div>'
+    + '<div class="signature-box">'
+    + '<div class="signature-box-title">Vérifié / Validé par</div>'
+    + '<div class="signature-box-line">Signature et cachet</div>'
+    + '</div>'
+    + '<div class="signature-box">'
+    + '<div class="signature-box-title">Archivé le</div>'
+    + '<div class="signature-box-line">&nbsp;</div>'
+    + '</div>'
+    + '</div>'
+    + '<div class="no-print" style="margin-top:24px;text-align:center">'
+    + '<button onclick="window.print()" style="background:#F97316;color:#fff;border:none;padding:11px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">🖨️ Imprimer / Enregistrer en PDF</button>'
+    + '&nbsp;&nbsp;<button onclick="window.close()" style="background:#E5E7EB;color:#374151;border:none;padding:11px 20px;border-radius:8px;font-size:13px;cursor:pointer">Fermer</button>'
+    + '</div>';
+}
+
+// ── Ouvrir le rapport dans un nouvel onglet ────────────
+function openReportWindow(html, title) {
+  var blob = new Blob([html], { type:'text/html;charset=utf-8' });
+  var url  = URL.createObjectURL(blob);
+  var win  = window.open(url, '_blank');
+  if (!win) { showToast('Autorisez les pop-ups pour générer le rapport', 'error'); return false; }
+  showToast('Rapport généré — Ctrl+P pour enregistrer en PDF', 'success');
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 90000);
+  return true;
+}
+
+// ══════════════════════════════════════════════════════
+// RAPPORT DUER
+// ══════════════════════════════════════════════════════
 async function generateDuerPDF() {
   var result = await sb.from('duer_entries').select('*').eq('org_id', currentProfile.org_id).order('created_at');
   var entries = result.data;
   if (!entries || entries.length === 0) { showToast('Aucune unité à exporter', 'error'); return; }
 
-  var orgName = (currentProfile.org_name || currentProfile.company_name || currentProfile.nom_entreprise || 'Mon Entreprise');
-  var now     = new Date();
-  var dateStr = now.toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+  var meta = await buildReportMeta('DUER');
+
   var totalEntries = entries.length;
-  var critiques = entries.filter(function(e) { return e.gravite * e.probabilite >= 12; }).length;
-  var eleves    = entries.filter(function(e) { var c = e.gravite * e.probabilite; return c >= 6 && c < 12; }).length;
+  var critiques = entries.filter(function(e){ return e.gravite*e.probabilite>=12; }).length;
+  var eleves    = entries.filter(function(e){ var c=e.gravite*e.probabilite; return c>=6&&c<12; }).length;
   var maitris   = totalEntries - critiques - eleves;
 
-  function riskColor(g, p) {
-    var c = g * p;
-    if (c >= 16) return { bg:'#FEE2E2', border:'#EF4444', text:'#991B1B', label:'Critique' };
-    if (c >= 9)  return { bg:'#FFEDD5', border:'#F97316', text:'#9A3412', label:'Élevé' };
-    if (c >= 4)  return { bg:'#FEF3C7', border:'#F59E0B', text:'#92400E', label:'Modéré' };
-    return             { bg:'#DCFCE7', border:'#22C55E', text:'#166534', label:'Faible' };
-  }
+  function riskColor(g,p){ var c=g*p; if(c>=16)return{bg:'#FEE2E2',border:'#EF4444',text:'#991B1B',label:'Critique'}; if(c>=9)return{bg:'#FFEDD5',border:'#F97316',text:'#9A3412',label:'Élevé'}; if(c>=4)return{bg:'#FEF3C7',border:'#F59E0B',text:'#92400E',label:'Modéré'}; return{bg:'#DCFCE7',border:'#22C55E',text:'#166534',label:'Faible'}; }
 
-  var tableRows = entries.map(function(e, i) {
-    var g = e.gravite || 1; var p = e.probabilite || 1; var c = g * p;
-    var rc = riskColor(g, p);
-    var pct = Math.round((c / 25) * 100);
-    var risques = Array.isArray(e.risques) ? e.risques : (e.risques ? JSON.parse(e.risques) : []);
-    var mesures = Array.isArray(e.mesures) ? e.mesures : (e.mesures ? JSON.parse(e.mesures) : []);
-    var rowBg = i % 2 === 0 ? '#ffffff' : '#F9FAFB';
-    return '<tr style="background:' + rowBg + ';border-bottom:1px solid #E5E7EB">'
-      + '<td style="padding:12px 14px;font-weight:600;font-size:13px;border-right:1px solid #E5E7EB">' + escapeHtml(e.unite_travail) + '</td>'
-      + '<td style="padding:12px 14px;text-align:center;border-right:1px solid #E5E7EB">'
-        + '<div style="display:inline-block;width:100%;background:#E5E7EB;border-radius:4px;height:8px;margin-bottom:6px"><div style="height:8px;border-radius:4px;background:' + rc.border + ';width:' + pct + '%"></div></div>'
-        + '<span style="display:inline-block;padding:3px 10px;background:' + rc.bg + ';color:' + rc.text + ';border:1px solid ' + rc.border + ';border-radius:12px;font-size:11px;font-weight:700">' + rc.label + ' ' + c + '/25</span>'
-        + '<div style="font-size:11px;color:#6B7280;margin-top:4px">G:' + g + ' × P:' + p + '</div>'
-      + '</td>'
-      + '<td style="padding:12px 14px;font-size:12px;border-right:1px solid #E5E7EB">'
-        + (risques.length ? risques.map(function(r){ return '<div style="margin-bottom:4px">⚠ ' + escapeHtml(r) + '</div>'; }).join('') : '<span style="color:#9CA3AF">—</span>')
-      + '</td>'
-      + '<td style="padding:12px 14px;font-size:12px">'
-        + (mesures.length ? mesures.map(function(m){ return '<div style="margin-bottom:4px;color:#166534">✓ ' + escapeHtml(m) + '</div>'; }).join('') : '<span style="color:#9CA3AF">—</span>')
-      + '</td>'
-      + '</tr>';
+  var tableRows = entries.map(function(e,i){
+    var g=e.gravite||1; var p=e.probabilite||1; var c=g*p;
+    var rc=riskColor(g,p); var pct=Math.round((c/25)*100);
+    var risques=Array.isArray(e.risques)?e.risques:(e.risques?JSON.parse(e.risques):[]);
+    var mesures=Array.isArray(e.mesures)?e.mesures:(e.mesures?JSON.parse(e.mesures):[]);
+    return '<tr>'
+      +'<td style="padding:10px 12px;font-weight:600;border-right:1px solid #E5E7EB;width:22%">'+(i+1)+'. '+escapeHtml(e.unite_travail)+'</td>'
+      +'<td style="padding:10px 12px;text-align:center;border-right:1px solid #E5E7EB;width:15%">'
+        +'<div style="background:#E5E7EB;border-radius:4px;height:6px;margin-bottom:5px"><div style="height:6px;border-radius:4px;background:'+rc.border+';width:'+pct+'%"></div></div>'
+        +'<span style="display:inline-block;padding:2px 8px;background:'+rc.bg+';color:'+rc.text+';border:1px solid '+rc.border+';border-radius:10px;font-size:10px;font-weight:700">'+rc.label+' '+c+'/25</span>'
+        +'<div style="font-size:10px;color:#6B7280;margin-top:3px">G:'+g+' × P:'+p+'</div>'
+      +'</td>'
+      +'<td style="padding:10px 12px;font-size:11px;border-right:1px solid #E5E7EB;width:31%">'+(risques.length?risques.map(function(r){return'<div style="margin-bottom:3px">⚠ '+escapeHtml(r)+'</div>';}).join(''):'<span style="color:#9CA3AF">—</span>')+'</td>'
+      +'<td style="padding:10px 12px;font-size:11px;width:31%">'+(mesures.length?mesures.map(function(m){return'<div style="margin-bottom:3px;color:#166534">✓ '+escapeHtml(m)+'</div>';}).join(''):'<span style="color:#9CA3AF">—</span>')+'</td>'
+      +'</tr>';
   }).join('');
 
-  var html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">'
-    + '<title>DUER — ' + escapeHtml(orgName) + '</title>'
-    + '<style>'
-    + '@page { size: A4 landscape; margin: 18mm 14mm; }'
-    + 'body { font-family: "Segoe UI", Arial, sans-serif; color: #111827; margin:0; padding:0; background:#fff; }'
-    + '.page-break { page-break-after: always; }'
-    + 'table { width:100%; border-collapse:collapse; }'
-    + 'th { background:#1E3A5F; color:#fff; padding:11px 14px; font-size:12px; text-align:left; font-weight:700; }'
-    + 'tr:hover { background:#F0F9FF !important; }'
-    + '.badge-stat { display:inline-block; padding:6px 14px; border-radius:8px; font-weight:700; font-size:14px; }'
-    + 'h1 { font-size:26px; color:#1E3A5F; margin:0 0 4px 0; }'
-    + 'h2 { font-size:13px; color:#6B7280; font-weight:400; margin:0 0 20px 0; }'
-    + '.header-bar { display:flex; align-items:center; justify-content:space-between; border-bottom:3px solid #F97316; padding-bottom:16px; margin-bottom:24px; }'
-    + '.logo-hex { width:40px; height:40px; background:#F97316; clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); display:inline-flex; align-items:center; justify-content:center; color:#fff; font-weight:900; font-size:16px; }'
-    + '.stat-row { display:flex; gap:14px; margin-bottom:28px; }'
-    + '.stat-box { flex:1; border-radius:10px; padding:14px 18px; }'
-    + '.stat-box-val { font-size:28px; font-weight:900; }'
-    + '.stat-box-lbl { font-size:11px; margin-top:3px; font-weight:600; }'
-    + '.footer { margin-top:28px; padding-top:12px; border-top:1px solid #E5E7EB; font-size:11px; color:#9CA3AF; display:flex; justify-content:space-between; }'
-    + '@media print { .no-print { display:none !important; } a { text-decoration:none; } }'
-    + '</style></head><body>'
-
-    // Header
-    + '<div class="header-bar">'
-    + '<div style="display:flex;align-items:center;gap:14px">'
-    + '<div class="logo-hex">S</div>'
-    + '<div><h1>Document Unique d\'Évaluation des Risques</h1>'
-    + '<h2>' + escapeHtml(orgName) + ' — Établi le ' + dateStr + '</h2></div>'
-    + '</div>'
-    + '<div style="text-align:right;font-size:11px;color:#6B7280">Réf. légale : Art. R4121-1 Code du Travail<br>À mettre à jour au minimum annuellement</div>'
-    + '</div>'
-
-    // Stats
+  var html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>DUER — '+escapeHtml(meta.reportNum)+'</title>'
+    + reportCSS(true)
+    + '</head><body>'
+    + reportHeaderHTML(meta, 'Document Unique d\'Évaluation des Risques (DUER)', 'Art. R4121-1 Code du Travail · Obligation annuelle')
     + '<div class="stat-row">'
-    + '<div class="stat-box" style="background:#EFF6FF;border:1px solid #BFDBFE">'
-      + '<div class="stat-box-val" style="color:#1D4ED8">' + totalEntries + '</div><div class="stat-box-lbl" style="color:#1D4ED8">Unités de travail</div></div>'
-    + '<div class="stat-box" style="background:#FEE2E2;border:1px solid #FECACA">'
-      + '<div class="stat-box-val" style="color:#DC2626">' + critiques + '</div><div class="stat-box-lbl" style="color:#DC2626">Risques critiques</div></div>'
-    + '<div class="stat-box" style="background:#FEF3C7;border:1px solid #FDE68A">'
-      + '<div class="stat-box-val" style="color:#B45309">' + eleves + '</div><div class="stat-box-lbl" style="color:#B45309">Risques élevés</div></div>'
-    + '<div class="stat-box" style="background:#DCFCE7;border:1px solid #BBF7D0">'
-      + '<div class="stat-box-val" style="color:#15803D">' + maitris + '</div><div class="stat-box-lbl" style="color:#15803D">Risques maîtrisés</div></div>'
+    + '<div class="stat-box" style="background:#EFF6FF;border:1px solid #BFDBFE"><div class="stat-box-val" style="color:#1D4ED8">'+totalEntries+'</div><div class="stat-box-lbl" style="color:#1D4ED8">Unités de travail</div></div>'
+    + '<div class="stat-box" style="background:#FEE2E2;border:1px solid #FECACA"><div class="stat-box-val" style="color:#DC2626">'+critiques+'</div><div class="stat-box-lbl" style="color:#DC2626">Risques critiques (≥12)</div></div>'
+    + '<div class="stat-box" style="background:#FEF3C7;border:1px solid #FDE68A"><div class="stat-box-val" style="color:#B45309">'+eleves+'</div><div class="stat-box-lbl" style="color:#B45309">Risques élevés (6-11)</div></div>'
+    + '<div class="stat-box" style="background:#DCFCE7;border:1px solid #BBF7D0"><div class="stat-box-val" style="color:#15803D">'+maitris+'</div><div class="stat-box-lbl" style="color:#15803D">Risques maîtrisés (&lt;6)</div></div>'
     + '</div>'
-
-    // Table
-    + '<table>'
-    + '<thead><tr>'
-    + '<th style="width:22%">Unité de travail</th>'
-    + '<th style="width:16%;text-align:center">Criticité</th>'
+    + '<table><thead><tr>'
+    + '<th style="width:22%">N° · Unité de travail</th>'
+    + '<th style="width:15%;text-align:center">Criticité (G×P)</th>'
     + '<th style="width:31%">Risques identifiés</th>'
     + '<th style="width:31%">Mesures de prévention</th>'
-    + '</tr></thead>'
-    + '<tbody>' + tableRows + '</tbody>'
-    + '</table>'
-
-    // Footer
-    + '<div class="footer">'
-    + '<span>SafetySphere — ' + escapeHtml(orgName) + '</span>'
-    + '<span>Document généré le ' + dateStr + ' • Confidentiel</span>'
-    + '</div>'
-
-    // Print button (masqué à l'impression)
-    + '<div class="no-print" style="margin-top:28px;text-align:center">'
-    + '<button onclick="window.print()" style="background:#F97316;color:#fff;border:none;padding:12px 32px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer">🖨️ Imprimer / Enregistrer en PDF</button>'
-    + '&nbsp;&nbsp;<button onclick="window.close()" style="background:#E5E7EB;color:#374151;border:none;padding:12px 24px;border-radius:8px;font-size:14px;cursor:pointer">Fermer</button>'
-    + '</div>'
+    + '</tr></thead><tbody>'+tableRows+'</tbody></table>'
+    + reportFooterHTML(meta, 'DUER')
     + '</body></html>';
 
-  var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  var url  = URL.createObjectURL(blob);
-  var win  = window.open(url, '_blank');
-  if (!win) { showToast('Autorisez les pop-ups pour télécharger le rapport', 'error'); return; }
-  showToast('Rapport généré — utilisez Ctrl+P pour enregistrer en PDF', 'success');
-  setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+  openReportWindow(html, 'DUER');
 }
 
 function openDuerTemplateModal(role) {
@@ -6738,14 +6804,15 @@ async function renderVgpSection(role) {
 }
 
 // ── Rapport VGP ──────────────────────────────────────
+// ══════════════════════════════════════════════════════
+// RAPPORT VGP
+// ══════════════════════════════════════════════════════
 async function generateVgpPDF() {
   var result  = await sb.from('registre_vgp').select('*').eq('org_id', currentProfile.org_id);
   var records = result.data || [];
 
-  var orgName = currentProfile.org_name || currentProfile.company_name || currentProfile.nom_entreprise || 'Mon Entreprise';
-  var now     = new Date();
-  var dateStr = now.toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
-  var today   = now;
+  var meta     = await buildReportMeta('VGP');
+  var today    = new Date();
   var soonDate = new Date(); soonDate.setDate(soonDate.getDate() + 30);
 
   function getVgpStatus(equip, record) {
@@ -6756,130 +6823,78 @@ async function generateVgpPDF() {
     if (p < soonDate) return 'alerte';
     return 'ok';
   }
-
   function statusStyle(s) {
-    if (s === 'critique')    return { bg:'#FEE2E2', border:'#EF4444', text:'#991B1B', label:'🔴 En retard' };
-    if (s === 'alerte')      return { bg:'#FEF3C7', border:'#F59E0B', text:'#92400E', label:'⚠️ Échéance proche' };
-    if (s === 'ok')          return { bg:'#DCFCE7', border:'#22C55E', text:'#166534', label:'✅ À jour' };
-    return                          { bg:'#F3F4F6', border:'#D1D5DB', text:'#6B7280', label:'⏸️ Non planifié' };
+    if (s==='critique') return{bg:'#FEE2E2',border:'#EF4444',text:'#991B1B',label:'🔴 En retard'};
+    if (s==='alerte')   return{bg:'#FEF3C7',border:'#F59E0B',text:'#92400E',label:'⚠️ Échéance proche'};
+    if (s==='ok')       return{bg:'#DCFCE7',border:'#22C55E',text:'#166534',label:'✅ À jour'};
+    return                    {bg:'#F3F4F6',border:'#D1D5DB',text:'#6B7280',label:'⏸️ Non planifié'};
   }
 
-  var critCount = 0, alertCount = 0, okCount = 0, npCount = 0;
-  VGP_EQUIPEMENTS.forEach(function(eq) {
-    var r = records.find(function(x) { return x.equipement === eq.key; });
-    var s = getVgpStatus(eq, r);
-    if (s === 'critique') critCount++; else if (s === 'alerte') alertCount++;
-    else if (s === 'ok') okCount++; else npCount++;
+  var critCount=0,alertCount=0,okCount=0,npCount=0;
+  VGP_EQUIPEMENTS.forEach(function(eq){
+    var r=records.find(function(x){return x.equipement===eq.key;});
+    var s=getVgpStatus(eq,r);
+    if(s==='critique')critCount++;else if(s==='alerte')alertCount++;else if(s==='ok')okCount++;else npCount++;
   });
 
-  // Grouper par catégorie
-  var cats = [];
-  VGP_EQUIPEMENTS.forEach(function(e) { if (cats.indexOf(e.categorie) < 0) cats.push(e.categorie); });
+  var cats=[];
+  VGP_EQUIPEMENTS.forEach(function(e){if(cats.indexOf(e.categorie)<0)cats.push(e.categorie);});
 
-  var tableRows = '';
-  var rowIdx = 0;
-  cats.forEach(function(cat) {
-    // Ligne de catégorie
-    tableRows += '<tr><td colspan="6" style="background:#1E3A5F;color:#fff;font-weight:700;font-size:12px;padding:8px 14px;letter-spacing:.5px">' + cat.toUpperCase() + '</td></tr>';
-    VGP_EQUIPEMENTS.filter(function(e) { return e.categorie === cat; }).forEach(function(eq) {
-      var record = records.find(function(r) { return r.equipement === eq.key; });
-      var status = getVgpStatus(eq, record);
-      var st     = statusStyle(status);
-      var rowBg  = rowIdx % 2 === 0 ? '#ffffff' : '#F9FAFB';
-      rowIdx++;
-
-      var derniereStr  = '—';
-      var prochaineStr = '—';
-      var daysLeftStr  = '—';
-      if (record && record.derniere_verification) {
-        var d = new Date(record.derniere_verification);
-        var p = new Date(d); p.setMonth(p.getMonth() + eq.periodicite);
-        var daysLeft = Math.ceil((p - today) / 86400000);
-        derniereStr  = d.toLocaleDateString('fr-FR');
-        prochaineStr = p.toLocaleDateString('fr-FR');
-        daysLeftStr  = daysLeft > 0 ? daysLeft + ' j' : '<span style="color:#DC2626;font-weight:700">DÉPASSÉ (' + Math.abs(daysLeft) + 'j)</span>';
+  var tableRows=''; var rowIdx=0;
+  cats.forEach(function(cat){
+    tableRows+='<tr><td colspan="6" style="background:#1E3A5F;color:#fff;font-weight:700;font-size:11px;padding:7px 12px;letter-spacing:.5px">'+cat.toUpperCase()+'</td></tr>';
+    VGP_EQUIPEMENTS.filter(function(e){return e.categorie===cat;}).forEach(function(eq){
+      var record=records.find(function(r){return r.equipement===eq.key;});
+      var status=getVgpStatus(eq,record); var st=statusStyle(status);
+      var rowBg=rowIdx%2===0?'#ffffff':'#F9FAFB'; rowIdx++;
+      var derniereStr='—',prochaineStr='—',daysLeftStr='—';
+      if(record&&record.derniere_verification){
+        var d=new Date(record.derniere_verification);
+        var p=new Date(d); p.setMonth(p.getMonth()+eq.periodicite);
+        var dl=Math.ceil((p-today)/86400000);
+        derniereStr=d.toLocaleDateString('fr-FR');
+        prochaineStr=p.toLocaleDateString('fr-FR');
+        daysLeftStr=dl>0?dl+' j':'<span style="color:#DC2626;font-weight:700">DÉPASSÉ ('+Math.abs(dl)+'j)</span>';
       }
-
-      var rapportCell = (record && record.rapport_url)
-        ? '<a href="' + record.rapport_url + '" target="_blank" style="color:#2563EB;font-size:11px">📄 Voir</a>'
-        : '<span style="color:#9CA3AF;font-size:11px">—</span>';
-
-      tableRows += '<tr style="background:' + rowBg + ';border-bottom:1px solid #E5E7EB">'
-        + '<td style="padding:10px 14px;font-size:13px;font-weight:600">' + eq.icon + ' ' + escapeHtml(eq.label) + '</td>'
-        + '<td style="padding:10px 14px;font-size:11px;color:#6B7280">' + eq.legalRef + '</td>'
-        + '<td style="padding:10px 14px;font-size:12px;text-align:center">' + eq.periodicite + ' mois</td>'
-        + '<td style="padding:10px 14px;font-size:12px;text-align:center">' + derniereStr + '</td>'
-        + '<td style="padding:10px 14px;font-size:12px;text-align:center">' + prochaineStr + '<br><span style="font-size:11px">' + daysLeftStr + '</span></td>'
-        + '<td style="padding:10px 14px;text-align:center">'
-          + '<span style="display:inline-block;padding:3px 10px;background:' + st.bg + ';color:' + st.text + ';border:1px solid ' + st.border + ';border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap">' + st.label + '</span>'
-          + '<br>' + rapportCell
-        + '</td>'
-        + '</tr>';
+      var rapportCell=(record&&record.rapport_url)
+        ?'<a href="'+record.rapport_url+'" target="_blank" style="color:#2563EB;font-size:10px">📄 Rapport</a>'
+        :'<span style="color:#9CA3AF;font-size:10px">—</span>';
+      tableRows+='<tr style="background:'+rowBg+'">'
+        +'<td style="padding:9px 12px;font-size:12px;font-weight:600">'+eq.icon+' '+escapeHtml(eq.label)+'</td>'
+        +'<td style="padding:9px 12px;font-size:10px;color:#6B7280">'+eq.legalRef+'</td>'
+        +'<td style="padding:9px 12px;font-size:11px;text-align:center">'+eq.periodicite+' mois</td>'
+        +'<td style="padding:9px 12px;font-size:11px;text-align:center">'+derniereStr+'</td>'
+        +'<td style="padding:9px 12px;font-size:11px;text-align:center">'+prochaineStr+'<br><span style="font-size:10px">'+daysLeftStr+'</span></td>'
+        +'<td style="padding:9px 12px;text-align:center">'
+          +'<span style="display:inline-block;padding:2px 8px;background:'+st.bg+';color:'+st.text+';border:1px solid '+st.border+';border-radius:10px;font-size:10px;font-weight:700;white-space:nowrap">'+st.label+'</span>'
+          +'<br>'+rapportCell
+        +'</td>'
+        +'</tr>';
     });
   });
 
-  var html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">'
-    + '<title>Registre VGP — ' + escapeHtml(orgName) + '</title>'
-    + '<style>'
-    + '@page { size: A4 landscape; margin: 18mm 14mm; }'
-    + 'body { font-family:"Segoe UI",Arial,sans-serif; color:#111827; margin:0; padding:0; background:#fff; }'
-    + 'table { width:100%; border-collapse:collapse; }'
-    + 'th { background:#1E3A5F; color:#fff; padding:10px 14px; font-size:11px; text-align:left; font-weight:700; text-transform:uppercase; letter-spacing:.4px; }'
-    + 'h1 { font-size:26px; color:#1E3A5F; margin:0 0 4px 0; }'
-    + 'h2 { font-size:13px; color:#6B7280; font-weight:400; margin:0 0 20px 0; }'
-    + '.header-bar { display:flex; align-items:center; justify-content:space-between; border-bottom:3px solid #F97316; padding-bottom:16px; margin-bottom:24px; }'
-    + '.logo-hex { width:40px; height:40px; background:#F97316; clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); display:inline-flex; align-items:center; justify-content:center; color:#fff; font-weight:900; font-size:16px; }'
-    + '.stat-row { display:flex; gap:14px; margin-bottom:28px; }'
-    + '.stat-box { flex:1; border-radius:10px; padding:14px 18px; }'
-    + '.stat-box-val { font-size:28px; font-weight:900; }'
-    + '.stat-box-lbl { font-size:11px; margin-top:3px; font-weight:600; }'
-    + '.footer { margin-top:28px; padding-top:12px; border-top:1px solid #E5E7EB; font-size:11px; color:#9CA3AF; display:flex; justify-content:space-between; }'
-    + '@media print { .no-print { display:none !important; } a { color:#2563EB; } }'
-    + '</style></head><body>'
-
-    + '<div class="header-bar">'
-    + '<div style="display:flex;align-items:center;gap:14px">'
-    + '<div class="logo-hex">S</div>'
-    + '<div><h1>Registre de Sécurité — Vérifications Générales Périodiques</h1>'
-    + '<h2>' + escapeHtml(orgName) + ' — Établi le ' + dateStr + '</h2></div>'
-    + '</div>'
-    + '<div style="text-align:right;font-size:11px;color:#6B7280">Décret 98-1084 · Art. R4323-22 Code du Travail<br>Alertes J-30 activées</div>'
-    + '</div>'
-
+  var html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>VGP — '+escapeHtml(meta.reportNum)+'</title>'
+    + reportCSS(true)
+    + '</head><body>'
+    + reportHeaderHTML(meta, 'Registre de Sécurité — Vérifications Générales Périodiques', 'Décret 98-1084 · Art. R4323-22 Code du Travail · Alertes J-30')
     + '<div class="stat-row">'
-    + '<div class="stat-box" style="background:#DCFCE7;border:1px solid #BBF7D0"><div class="stat-box-val" style="color:#15803D">' + okCount + '</div><div class="stat-box-lbl" style="color:#15803D">À jour</div></div>'
-    + '<div class="stat-box" style="background:#FEF3C7;border:1px solid #FDE68A"><div class="stat-box-val" style="color:#B45309">' + alertCount + '</div><div class="stat-box-lbl" style="color:#B45309">Échéance &lt; 30 jours</div></div>'
-    + '<div class="stat-box" style="background:#FEE2E2;border:1px solid #FECACA"><div class="stat-box-val" style="color:#DC2626">' + critCount + '</div><div class="stat-box-lbl" style="color:#DC2626">En retard</div></div>'
-    + '<div class="stat-box" style="background:#F3F4F6;border:1px solid #E5E7EB"><div class="stat-box-val" style="color:#6B7280">' + npCount + '</div><div class="stat-box-lbl" style="color:#6B7280">Non planifiés</div></div>'
+    + '<div class="stat-box" style="background:#DCFCE7;border:1px solid #BBF7D0"><div class="stat-box-val" style="color:#15803D">'+okCount+'</div><div class="stat-box-lbl" style="color:#15803D">À jour</div></div>'
+    + '<div class="stat-box" style="background:#FEF3C7;border:1px solid #FDE68A"><div class="stat-box-val" style="color:#B45309">'+alertCount+'</div><div class="stat-box-lbl" style="color:#B45309">Échéance &lt; 30j</div></div>'
+    + '<div class="stat-box" style="background:#FEE2E2;border:1px solid #FECACA"><div class="stat-box-val" style="color:#DC2626">'+critCount+'</div><div class="stat-box-lbl" style="color:#DC2626">En retard</div></div>'
+    + '<div class="stat-box" style="background:#F3F4F6;border:1px solid #E5E7EB"><div class="stat-box-val" style="color:#6B7280">'+npCount+'</div><div class="stat-box-lbl" style="color:#6B7280">Non planifiés</div></div>'
     + '</div>'
-
     + '<table><thead><tr>'
-    + '<th style="width:20%">Équipement</th>'
-    + '<th style="width:18%">Référence légale</th>'
+    + '<th style="width:19%">Équipement</th>'
+    + '<th style="width:17%">Référence légale</th>'
     + '<th style="width:10%;text-align:center">Périodicité</th>'
     + '<th style="width:13%;text-align:center">Dernière vérif.</th>'
-    + '<th style="width:16%;text-align:center">Prochaine vérif.</th>'
-    + '<th style="width:13%;text-align:center">Statut / Rapport</th>'
-    + '</tr></thead>'
-    + '<tbody>' + tableRows + '</tbody></table>'
-
-    + '<div class="footer">'
-    + '<span>SafetySphere — ' + escapeHtml(orgName) + '</span>'
-    + '<span>Document généré le ' + dateStr + ' • Confidentiel</span>'
-    + '</div>'
-
-    + '<div class="no-print" style="margin-top:28px;text-align:center">'
-    + '<button onclick="window.print()" style="background:#F97316;color:#fff;border:none;padding:12px 32px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer">🖨️ Imprimer / Enregistrer en PDF</button>'
-    + '&nbsp;&nbsp;<button onclick="window.close()" style="background:#E5E7EB;color:#374151;border:none;padding:12px 24px;border-radius:8px;font-size:14px;cursor:pointer">Fermer</button>'
-    + '</div>'
+    + '<th style="width:15%;text-align:center">Prochaine vérif.</th>'
+    + '<th style="width:12%;text-align:center">Statut / Rapport</th>'
+    + '</tr></thead><tbody>'+tableRows+'</tbody></table>'
+    + reportFooterHTML(meta, 'Registre VGP')
     + '</body></html>';
 
-  var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  var url  = URL.createObjectURL(blob);
-  var win  = window.open(url, '_blank');
-  if (!win) { showToast('Autorisez les pop-ups pour télécharger le rapport', 'error'); return; }
-  showToast('Rapport VGP généré — Ctrl+P pour enregistrer en PDF', 'success');
-  setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+  openReportWindow(html, 'VGP');
 }
 
 function openVgpModal(equipKey, role) {
