@@ -8529,9 +8529,10 @@ async function renderHistoriqueSection(role) {
   var trashRes  = await sb.from('report_trash').select('*').eq('org_id', currentProfile.org_id).order('deleted_at', { ascending: false });
 
   var allArchives = archRes.data || [];
-  // Exclure les scans enfants (parent_id défini) — ils sont affichés comme attachement
-  var archives = allArchives.filter(function(a) { return !a.parent_id; });
-  var trashed  = trashRes.data || [];
+  // Séparer parents et enfants (documents consolidés rattachés à un parent)
+  var archives  = allArchives.filter(function(a) { return !a.parent_id; });
+  var children  = allArchives.filter(function(a) { return !!a.parent_id; });
+  var trashed   = trashRes.data || [];
 
   // Purger les éléments corbeille > 30j
   var now30 = new Date(); now30.setDate(now30.getDate() - 30);
@@ -8549,7 +8550,7 @@ async function renderHistoriqueSection(role) {
     + '<button class="btn-sm btn-view" onclick="toggleHistTrash(\'' + role + '\')" style="padding:8px 16px">'
     + (trashed.length ? '🗑️ Corbeille (' + trashed.length + ')' : '🗑️ Corbeille')
     + '</button>'
-    + '<span style="margin-left:auto;font-size:11px;color:var(--muted)">Corbeille : conservation 30 jours · ' + archives.length + ' rapport(s) archivé(s)</span>'
+    + '<span style="margin-left:auto;font-size:11px;color:var(--muted)">Corbeille : 30 jours · ' + archives.length + ' rapport(s) · ' + children.length + ' consolidé(s)</span>'
     + '</div>';
 
   if (_histShowTrash) {
@@ -8603,13 +8604,18 @@ async function renderHistoriqueSection(role) {
         var genDate  = new Date(a.generated_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' });
         var genTime  = new Date(a.generated_at).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
         var isSS     = a.source === 'safetysphere';
-        html += '<div class="archive-card" style="margin-bottom:10px">'
+
+        // Trouver les documents enfants (consolidés multi-sig) rattachés à ce parent
+        var childDocs = children.filter(function(c) { return c.parent_id === a.id; });
+
+        html += '<div class="archive-card" style="margin-bottom:' + (childDocs.length ? '0' : '10px') + ';border-radius:' + (childDocs.length ? '14px 14px 0 0' : '14px') + '">'
           + '<div class="archive-icon">' + typeIcon(a.report_type) + '</div>'
           + '<div class="archive-meta">'
           + '<div class="archive-ref">' + escapeHtml(a.report_num || '—') + '</div>'
           + '<div class="archive-title">' + escapeHtml(a.label) + '</div>'
           + '<div class="archive-sub">' + genDate + ' à ' + genTime + ' · Par : ' + escapeHtml(a.responsable || '—') + '</div>'
           + (a.app_version ? '<div class="archive-sub" style="color:rgba(249,115,22,.7)">SafetySphere v' + escapeHtml(a.app_version) + '</div>' : '')
+          + (a.sig_status && a.sig_status !== 'none' ? '<div class="archive-sub" style="margin-top:4px">Signataires : ' + (a.sig_signed || 0) + '/' + (a.sig_total || '?') + '</div>' : '')
           + '</div>'
           + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">'
           + '<span class="archive-badge ' + (isSS ? 'ss' : 'ext') + '">' + (isSS ? '⬡ SafetySphere' : '📤 Externe') + '</span>'
@@ -8623,6 +8629,32 @@ async function renderHistoriqueSection(role) {
           + '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.25);color:#FCA5A5" onclick="moveToTrash(\'' + a.id + '\',\'' + role + '\')">🗑️</button>'
           + '</div>'
           + '</div>';
+
+        // ── Sous-cartes : documents enfants (consolidés signés) ──
+        if (childDocs.length) {
+          html += '<div style="margin-left:24px;margin-bottom:10px;border-left:3px solid rgba(249,115,22,.3)">';
+          childDocs.forEach(function(c, ci) {
+            var cDate = new Date(c.generated_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' });
+            var cTime = new Date(c.generated_at).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+            var isLast = ci === childDocs.length - 1;
+            html += '<div class="archive-card" style="margin-bottom:' + (isLast ? '0' : '4px') + ';border-radius:' + (isLast ? '0 0 14px 14px' : '0') + ';border-top:none;background:rgba(34,197,94,.03);border-color:rgba(34,197,94,.2)">'
+              + '<div style="font-size:18px;flex-shrink:0">🖊️</div>'
+              + '<div class="archive-meta" style="flex:1">'
+              + '<div class="archive-ref" style="color:var(--success);font-size:11px">' + escapeHtml(c.report_num || '—') + '</div>'
+              + '<div class="archive-title" style="font-size:13px">' + escapeHtml(c.label || 'Document consolidé multi-signataires') + '</div>'
+              + '<div class="archive-sub">' + cDate + ' à ' + cTime + ' · Document final consolidé</div>'
+              + '</div>'
+              + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">'
+              + '<span class="archive-badge" style="background:rgba(34,197,94,.12);color:#86EFAC;border:1px solid rgba(34,197,94,.25)">✅ Signé complet</span>'
+              + '</div>'
+              + '<div class="archive-actions">'
+              + (c.file_url ? '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#86EFAC" onclick="openReportViewer(\'' + c.file_url + '\',\'Consolidé — ' + escapeHtml(c.report_num||'') + '\',\'ext\')">📄 Consulter</button>' : '')
+              + '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.25);color:#FCA5A5" onclick="moveChildToTrash(\'' + c.id + '\',\'' + role + '\')">🗑️</button>'
+              + '</div>'
+              + '</div>';
+          });
+          html += '</div>';
+        }
       });
     });
   }
@@ -8657,9 +8689,35 @@ async function moveToTrash(archiveId, role) {
   var insRes = await sb.from('report_trash').insert(entry);
   if (insRes.error) { showToast('Erreur corbeille : ' + insRes.error.message, 'error'); return; }
 
-  // Supprimer de l'archive principale
+  // Supprimer de l'archive principale (enfants aussi)
+  await sb.from('report_archive').delete().eq('parent_id', archiveId);
   await sb.from('report_archive').delete().eq('id', archiveId);
   showToast('Rapport déplacé dans la corbeille (30 jours)', 'success');
+  renderHistoriqueSection(role);
+}
+
+// ── Supprimer un document enfant (consolidé) vers corbeille ──
+async function moveChildToTrash(childId, role) {
+  if (!confirm('Supprimer ce document consolidé ?\nIl sera placé en corbeille (30 jours).')) return;
+
+  var res = await sb.from('report_archive').select('*').eq('id', childId).single();
+  if (res.error || !res.data) { showToast('Erreur', 'error'); return; }
+
+  var entry = Object.assign({}, res.data);
+  delete entry.id;
+  entry.original_id = childId;
+  entry.deleted_at  = new Date().toISOString();
+  entry.deleted_by  = currentUser.id;
+
+  var insRes = await sb.from('report_trash').insert(entry);
+  if (insRes.error) { showToast('Erreur corbeille : ' + insRes.error.message, 'error'); return; }
+
+  await sb.from('report_archive').delete().eq('id', childId);
+  // Remettre le parent à "pending" si le consolidé est supprimé
+  if (res.data.parent_id) {
+    await sb.from('report_archive').update({ sig_status: 'pending', signed_file_url: null }).eq('id', res.data.parent_id);
+  }
+  showToast('Document consolidé mis en corbeille', 'success');
   renderHistoriqueSection(role);
 }
 
@@ -10258,86 +10316,178 @@ if (typeof window !== 'undefined') {
 
 
 // ── Demandes de signature entrantes (section Documents reçus) ────────────────
+// Clé localStorage pour la corbeille personnelle des items signés
+function _sigHistTrashKey(email) { return 'ss_sig_hist_trash_' + btoa(email).replace(/=/g,''); }
+
 async function renderIncomingSignatureRequests(containerId, email) {
   var ctn = document.getElementById(containerId);
   if (!ctn) return;
 
-  // Chercher les items en attente ET les items waiting (séquentiel pas encore activé)
+  // Charger TOUS les items de signature pour cet email (toutes statuts)
   var res = await sb.from('signature_request_items')
-    .select('*, signature_requests(id, report_num, report_type, workflow_mode, total_signers, signed_count, org_id, created_by, created_at, archive_id, report_html)')
+    .select('*, signature_requests(id, report_num, report_type, workflow_mode, total_signers, signed_count, org_id, created_by, created_at, archive_id, report_html, status)')
     .eq('signer_email', email)
-    .in('status', ['pending', 'waiting'])
     .order('id', { ascending: false });
 
   var items = res.data || [];
-  // Séparer pending (action requise) de waiting (pas encore son tour)
-  var pending = items.filter(function(i) { return i.status === 'pending'; });
-  var waiting = items.filter(function(i) { return i.status === 'waiting'; });
+
+  // Corbeille personnelle (localStorage) — IDs d'items cachés
+  var trashKey    = _sigHistTrashKey(email);
+  var trashedIds  = [];
+  var showTrash   = ctn.dataset.showTrash === '1';
+  try { trashedIds = JSON.parse(localStorage.getItem(trashKey) || '[]'); } catch(e){}
+
+  var pending  = items.filter(function(i) { return i.status === 'pending'  && trashedIds.indexOf(i.id) < 0; });
+  var waiting  = items.filter(function(i) { return i.status === 'waiting'  && trashedIds.indexOf(i.id) < 0; });
+  var signed   = items.filter(function(i) { return i.status === 'signed'   && trashedIds.indexOf(i.id) < 0; });
+  var refused  = items.filter(function(i) { return i.status === 'refused'  && trashedIds.indexOf(i.id) < 0; });
+  var trashed  = items.filter(function(i) { return trashedIds.indexOf(i.id) >= 0; });
 
   if (!items.length) { ctn.innerHTML = ''; return; }
 
-  var html = '<div style="margin-bottom:24px">'
-    + '<div style="font-size:11px;font-weight:900;color:#F97316;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;display:flex;align-items:center;gap:8px">'
-    + '<span style="background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.3);border-radius:6px;padding:2px 8px">✍️ Demandes de signature'
-    + (pending.length ? ' — ' + pending.length + ' action(s) requise(s)' : '')
-    + '</span></div>';
+  var html = '<div style="margin-bottom:24px">';
+
+  // ── En-tête section ──
+  var actionCount = pending.length;
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">'
+    + '<div style="font-size:11px;font-weight:900;color:#F97316;text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:8px">'
+    + '<span style="background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.3);border-radius:6px;padding:2px 8px">✍️ Signatures'
+    + (actionCount ? ' — ' + actionCount + ' action(s) requise(s)' : '')
+    + '</span></div>'
+    + '<button onclick="toggleSigHistTrash(\'' + containerId + '\',\'' + escapeHtml(email) + '\')" style="background:' + (showTrash ? 'rgba(239,68,68,.12)' : 'transparent') + ';border:1px solid rgba(239,68,68,.2);color:#FCA5A5;font-size:11px;padding:4px 10px;border-radius:8px;cursor:pointer;font-family:\'Barlow\',sans-serif">'
+    + '🗑️ Corbeille' + (trashed.length ? ' (' + trashed.length + ')' : '') + '</button>'
+    + '</div>';
+
+  // ── Corbeille personnelle ──
+  if (showTrash) {
+    html += '<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:12px;padding:14px;margin-bottom:14px">'
+      + '<div style="font-size:12px;font-weight:700;color:#FCA5A5;margin-bottom:10px">🗑️ Historique masqué — restauration possible</div>';
+    if (!trashed.length) {
+      html += '<div style="font-size:12px;color:var(--muted)">Corbeille vide.</div>';
+    } else {
+      trashed.forEach(function(item) {
+        var req = item.signature_requests || {};
+        html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--inset-bg);border:1px solid var(--inset-border);border-radius:8px;margin-bottom:6px">'
+          + '<span style="font-size:16px">' + (req.report_type === 'DUER' ? '📋' : req.report_type === 'VGP' ? '🔧' : '📄') + '</span>'
+          + '<div style="flex:1;font-size:12px"><strong>' + escapeHtml(req.report_num || '—') + '</strong> · ' + escapeHtml(req.report_type || '') + '</div>'
+          + '<span style="font-size:11px;padding:2px 8px;border-radius:10px;background:rgba(148,163,184,.12);color:var(--muted)">' + (item.status === 'signed' ? '✅ Signé' : item.status === 'refused' ? '❌ Refusé' : item.status) + '</span>'
+          + '<button onclick="restoreSigHistItem(\'' + item.id + '\',\'' + containerId + '\',\'' + escapeHtml(email) + '\')" style="background:none;border:none;color:var(--success);font-size:11px;cursor:pointer;font-weight:700">↩ Restaurer</button>'
+          + '</div>';
+      });
+    }
+    html += '</div>';
+  }
 
   // ── Cartes PENDING (action immédiate requise) ──
-  pending.forEach(function(item) {
-    var req      = item.signature_requests || {};
-    var genDate  = req.created_at ? new Date(req.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' }) : '—';
-    var modeLabel= req.workflow_mode === 'sequential' ? '🔗 Séquentiel' : '⚡ Parallèle';
-    var progress = (req.signed_count || 0) + '/' + (req.total_signers || '?');
-    var sigUrl   = window.location.pathname + '?sign=' + item.token;
-    var typeIcon = req.report_type === 'DUER' ? '📋' : req.report_type === 'VGP' ? '🔧' : req.report_type === 'FDS' ? '⚗️' : '📄';
-
-    // Bouton consulter le document si archive_id disponible
-    var docBtn = '';
-    if (req.archive_id) {
-      docBtn = '<button onclick="openArchivedDocForSig(\'' + escapeHtml(req.archive_id) + '\')" '
-        + 'style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#A5B4FC;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">'
-        + '👁 Consulter le document</button>';
-    } else if (req.report_html) {
-      docBtn = '<button onclick="previewSigReqDoc(\'' + escapeHtml(item.token) + '\')" '
-        + 'style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#A5B4FC;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">'
-        + '👁 Consulter le document</button>';
-    }
-
-    html += '<div class="archive-card" style="margin-bottom:10px;border-color:rgba(249,115,22,.4);background:rgba(249,115,22,.04)">'
-      + '<div style="font-size:28px;flex-shrink:0">' + typeIcon + '</div>'
-      + '<div class="archive-meta" style="flex:1">'
-      + '<div class="archive-ref">' + escapeHtml(req.report_num || '—') + '</div>'
-      + '<div class="archive-title">✍️ Votre signature est requise</div>'
-      + '<div class="archive-sub" style="margin-top:4px">'
-      + escapeHtml(req.report_type || '—') + ' · Reçu le ' + genDate
-      + ' · ' + modeLabel + ' · ' + progress + ' signataires</div>'
-      + '<div class="archive-sub">Votre rôle : <strong style="color:var(--text)">' + escapeHtml(item.signer_role || 'Signataire') + '</strong></div>'
-      + '</div>'
-      + '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;align-items:stretch">'
-      + docBtn
-      + '<a href="' + escapeHtml(sigUrl) + '" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;background:rgba(249,115,22,.2);border:1px solid rgba(249,115,22,.4);color:#FDBA74;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap">✍️ Signer maintenant</a>'
-      + '<button onclick="ignoreSigRequest(\'' + item.id + '\',\'' + escapeHtml(containerId) + '\',\'' + escapeHtml(email) + '\')" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;text-decoration:underline;text-align:center">Ignorer</button>'
-      + '</div>'
-      + '</div>';
-  });
-
-  // ── Cartes WAITING (en attente de son tour — séquentiel) ──
-  if (waiting.length) {
-    html += '<div style="margin-top:16px;margin-bottom:8px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px">⏳ En attente de votre tour</div>';
-    waiting.forEach(function(item) {
+  if (pending.length) {
+    pending.forEach(function(item) {
       var req      = item.signature_requests || {};
       var genDate  = req.created_at ? new Date(req.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+      var modeLabel= req.workflow_mode === 'sequential' ? '🔗 Séquentiel' : '⚡ Parallèle';
       var progress = (req.signed_count || 0) + '/' + (req.total_signers || '?');
-      var typeIcon = req.report_type === 'DUER' ? '📋' : req.report_type === 'VGP' ? '🔧' : req.report_type === 'FDS' ? '⚗️' : '📄';
-      var yourSeq  = (item.seq || 0) + 1;
+      var sigUrl   = window.location.pathname + '?sign=' + item.token;
+      var tIcon    = req.report_type === 'DUER' ? '📋' : req.report_type === 'VGP' ? '🔧' : req.report_type === 'FDS' ? '⚗️' : '📄';
 
-      html += '<div class="archive-card" style="margin-bottom:8px;opacity:.65;border-color:rgba(148,163,184,.2)">'
-        + '<div style="font-size:24px;flex-shrink:0">' + typeIcon + '</div>'
+      var docBtn = '';
+      if (req.archive_id) {
+        docBtn = '<button onclick="openArchivedDocForSig(\'' + escapeHtml(req.archive_id) + '\')" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#A5B4FC;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">👁 Consulter</button>';
+      } else if (req.report_html) {
+        docBtn = '<button onclick="previewSigReqDoc(\'' + escapeHtml(item.token) + '\')" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#A5B4FC;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">👁 Consulter</button>';
+      }
+
+      html += '<div class="archive-card" style="margin-bottom:10px;border-color:rgba(249,115,22,.4);background:rgba(249,115,22,.04)">'
+        + '<div style="font-size:28px;flex-shrink:0">' + tIcon + '</div>'
         + '<div class="archive-meta" style="flex:1">'
         + '<div class="archive-ref">' + escapeHtml(req.report_num || '—') + '</div>'
-        + '<div class="archive-title" style="color:var(--muted)">⏳ En attente — vous êtes le signataire n°' + yourSeq + '</div>'
+        + '<div class="archive-title">✍️ Votre signature est requise</div>'
+        + '<div class="archive-sub" style="margin-top:4px">' + escapeHtml(req.report_type || '—') + ' · Reçu le ' + genDate + ' · ' + modeLabel + ' · ' + progress + ' signataires</div>'
+        + '<div class="archive-sub">Votre rôle : <strong style="color:var(--text)">' + escapeHtml(item.signer_role || 'Signataire') + '</strong></div>'
+        + '</div>'
+        + '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;align-items:stretch">'
+        + docBtn
+        + '<a href="' + escapeHtml(sigUrl) + '" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;background:rgba(249,115,22,.2);border:1px solid rgba(249,115,22,.4);color:#FDBA74;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap">✍️ Signer</a>'
+        + '<button onclick="moveSigItemToTrash(\'' + item.id + '\',\'' + containerId + '\',\'' + escapeHtml(email) + '\')" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;text-decoration:underline;text-align:center">🗑 Masquer</button>'
+        + '</div>'
+        + '</div>';
+    });
+  }
+
+  // ── Cartes WAITING (pas encore son tour) ──
+  if (waiting.length) {
+    html += '<div style="margin-top:' + (pending.length ? '16px' : '0') + ';margin-bottom:8px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px">⏳ En attente de votre tour</div>';
+    waiting.forEach(function(item) {
+      var req     = item.signature_requests || {};
+      var genDate = req.created_at ? new Date(req.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+      var progress= (req.signed_count || 0) + '/' + (req.total_signers || '?');
+      var tIcon   = req.report_type === 'DUER' ? '📋' : req.report_type === 'VGP' ? '🔧' : req.report_type === 'FDS' ? '⚗️' : '📄';
+      var yourSeq = (item.seq || 0) + 1;
+
+      html += '<div class="archive-card" style="margin-bottom:8px;opacity:.65;border-color:rgba(148,163,184,.2)">'
+        + '<div style="font-size:24px;flex-shrink:0">' + tIcon + '</div>'
+        + '<div class="archive-meta" style="flex:1">'
+        + '<div class="archive-ref">' + escapeHtml(req.report_num || '—') + '</div>'
+        + '<div class="archive-title" style="color:var(--muted)">⏳ Vous êtes le signataire n°' + yourSeq + '</div>'
         + '<div class="archive-sub">Reçu le ' + genDate + ' · Progression : ' + progress + ' · ' + escapeHtml(item.signer_role || '') + '</div>'
         + '</div>'
+        + '<button onclick="moveSigItemToTrash(\'' + item.id + '\',\'' + containerId + '\',\'' + escapeHtml(email) + '\')" style="background:none;border:1px solid rgba(148,163,184,.2);color:var(--muted);font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:\'Barlow\',sans-serif;white-space:nowrap">🗑 Masquer</button>'
+        + '</div>';
+    });
+  }
+
+  // ── Historique : documents signés ──
+  if (signed.length) {
+    html += '<div style="margin-top:20px;margin-bottom:8px;font-size:11px;font-weight:700;color:var(--success);text-transform:uppercase;letter-spacing:.8px">✅ Signés par moi (' + signed.length + ')</div>';
+    signed.forEach(function(item) {
+      var req      = item.signature_requests || {};
+      var signedAt = item.signed_at ? new Date(item.signed_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+      var signedTime = item.signed_at ? new Date(item.signed_at).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' }) : '';
+      var tIcon    = req.report_type === 'DUER' ? '📋' : req.report_type === 'VGP' ? '🔧' : req.report_type === 'FDS' ? '⚗️' : '📄';
+      var methodLabel = item.method === 'otp_email' ? '🔐 OTP Email' : item.method === 'manuscrite_scannee' ? '🖊️ Manuscrite' : '✍️';
+      var allDone = req.status === 'completed';
+
+      // Bouton consulter le doc consolidé si tout le monde a signé
+      var consolidatedBtn = '';
+      if (allDone && req.archive_id) {
+        consolidatedBtn = '<button onclick="openConsolidatedDoc(\'' + req.archive_id + '\')" style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.25);color:#86EFAC;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📄 Doc. consolidé</button>';
+      } else if (req.report_html || req.archive_id) {
+        var docBtn2 = req.archive_id
+          ? 'onclick="openArchivedDocForSig(\'' + escapeHtml(req.archive_id) + '\')"'
+          : 'onclick="previewSigReqDoc(\'' + escapeHtml(item.token) + '\')"';
+        consolidatedBtn = '<button ' + docBtn2 + ' style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);color:#A5B4FC;border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">👁 Consulter</button>';
+      }
+
+      html += '<div class="archive-card" style="margin-bottom:8px;border-color:rgba(34,197,94,.2);background:rgba(34,197,94,.02)">'
+        + '<div style="font-size:22px;flex-shrink:0">' + tIcon + '</div>'
+        + '<div class="archive-meta" style="flex:1">'
+        + '<div class="archive-ref">' + escapeHtml(req.report_num || '—') + '</div>'
+        + '<div class="archive-title" style="font-size:13px">✅ Signé le ' + signedAt + (signedTime ? ' à ' + signedTime : '') + '</div>'
+        + '<div class="archive-sub">' + escapeHtml(req.report_type || '') + ' · ' + methodLabel + (item.sig_id ? ' · Réf : <code style="font-size:10px;background:rgba(255,255,255,.06);padding:1px 5px;border-radius:3px">' + escapeHtml(item.sig_id) + '</code>' : '') + '</div>'
+        + '<div class="archive-sub">Votre rôle : ' + escapeHtml(item.signer_role || 'Signataire') + ' · ' + (allDone ? '<span style="color:var(--success);font-weight:700">Workflow complet ✅</span>' : '<span style="color:var(--warn)">En cours (' + (req.signed_count||0) + '/' + (req.total_signers||'?') + ')</span>') + '</div>'
+        + '</div>'
+        + '<div style="display:flex;flex-direction:column;gap:6px;align-items:stretch;flex-shrink:0">'
+        + consolidatedBtn
+        + '<button onclick="moveSigItemToTrash(\'' + item.id + '\',\'' + containerId + '\',\'' + escapeHtml(email) + '\')" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;text-decoration:underline;text-align:center">🗑 Masquer</button>'
+        + '</div>'
+        + '</div>';
+    });
+  }
+
+  // ── Historique : documents refusés ──
+  if (refused.length) {
+    html += '<div style="margin-top:20px;margin-bottom:8px;font-size:11px;font-weight:700;color:#FCA5A5;text-transform:uppercase;letter-spacing:.8px">❌ Refusés par moi (' + refused.length + ')</div>';
+    refused.forEach(function(item) {
+      var req      = item.signature_requests || {};
+      var refusedAt = item.signed_at ? new Date(item.signed_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+      var tIcon    = req.report_type === 'DUER' ? '📋' : req.report_type === 'VGP' ? '🔧' : '📄';
+
+      html += '<div class="archive-card" style="margin-bottom:8px;border-color:rgba(239,68,68,.2);background:rgba(239,68,68,.02);opacity:.8">'
+        + '<div style="font-size:22px;flex-shrink:0">' + tIcon + '</div>'
+        + '<div class="archive-meta" style="flex:1">'
+        + '<div class="archive-ref">' + escapeHtml(req.report_num || '—') + '</div>'
+        + '<div class="archive-title" style="color:#FCA5A5;font-size:13px">❌ Refusé le ' + refusedAt + '</div>'
+        + '<div class="archive-sub">' + escapeHtml(req.report_type || '') + ' · Votre rôle : ' + escapeHtml(item.signer_role || 'Signataire') + '</div>'
+        + '</div>'
+        + '<button onclick="moveSigItemToTrash(\'' + item.id + '\',\'' + containerId + '\',\'' + escapeHtml(email) + '\')" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;text-decoration:underline;white-space:nowrap">🗑 Masquer</button>'
         + '</div>';
     });
   }
@@ -10346,9 +10496,52 @@ async function renderIncomingSignatureRequests(containerId, email) {
   ctn.innerHTML = html;
 }
 
+// ── Helpers corbeille personnelle signatures ──
+function moveSigItemToTrash(itemId, containerId, email) {
+  var trashKey = _sigHistTrashKey(email);
+  var ids = [];
+  try { ids = JSON.parse(localStorage.getItem(trashKey) || '[]'); } catch(e){}
+  if (ids.indexOf(itemId) < 0) ids.push(itemId);
+  try { localStorage.setItem(trashKey, JSON.stringify(ids)); } catch(e){}
+  renderIncomingSignatureRequests(containerId, email);
+}
+
+function restoreSigHistItem(itemId, containerId, email) {
+  var trashKey = _sigHistTrashKey(email);
+  var ids = [];
+  try { ids = JSON.parse(localStorage.getItem(trashKey) || '[]'); } catch(e){}
+  ids = ids.filter(function(i) { return i !== itemId; });
+  try { localStorage.setItem(trashKey, JSON.stringify(ids)); } catch(e){}
+  renderIncomingSignatureRequests(containerId, email);
+}
+
+function toggleSigHistTrash(containerId, email) {
+  var ctn = document.getElementById(containerId);
+  if (!ctn) return;
+  ctn.dataset.showTrash = ctn.dataset.showTrash === '1' ? '0' : '1';
+  renderIncomingSignatureRequests(containerId, email);
+}
+
+// ── Ouvrir le document consolidé final depuis l'archive parent ──
+async function openConsolidatedDoc(parentArchiveId) {
+  // Chercher l'enfant consolidé rattaché à ce parent
+  var res = await sb.from('report_archive').select('file_url, report_num, signed_file_url').eq('parent_id', parentArchiveId).order('generated_at', { ascending: false }).limit(1).single();
+  if (res.error || !res.data) {
+    // Fallback : ouvrir le fichier signé du parent
+    var parentRes = await sb.from('report_archive').select('signed_file_url, file_url, report_num').eq('id', parentArchiveId).single();
+    if (!parentRes.error && parentRes.data) {
+      var url = parentRes.data.signed_file_url || parentRes.data.file_url;
+      if (url) { window.open(url, '_blank'); return; }
+    }
+    showToast('Document consolidé non disponible', 'error'); return;
+  }
+  var url = res.data.file_url || res.data.signed_file_url;
+  if (url) window.open(url, '_blank');
+  else showToast('Fichier consolidé non disponible', 'error');
+}
+
 async function ignoreSigRequest(itemId, containerId, email) {
-  if (!confirm('Ignorer cette demande de signature ? Vous pourrez la retrouver via le lien dans votre email.')) return;
-  await renderIncomingSignatureRequests(containerId, email);
+  moveSigItemToTrash(itemId, containerId, email);
 }
 
 // ── Consulter le document archivé avant signature ─────────────────────────
