@@ -707,6 +707,10 @@
     .archive-badge.ss { background:rgba(249,115,22,.15); color:#FDBA74; border:1px solid rgba(249,115,22,.25); }
     .archive-badge.ext { background:rgba(99,102,241,.15); color:#A5B4FC; border:1px solid rgba(99,102,241,.25); }
     .archive-badge.trash { background:rgba(239,68,68,.12); color:#FCA5A5; border:1px solid rgba(239,68,68,.25); }
+    .archive-badge.sig-pending { background:rgba(245,158,11,.12); color:#FCD34D; border:1px solid rgba(245,158,11,.25); }
+    .archive-badge.sig-ok      { background:rgba(34,197,94,.12);  color:#86EFAC;  border:1px solid rgba(34,197,94,.25); }
+    .archive-badge.sig-manual  { background:rgba(99,102,241,.12); color:#A5B4FC;  border:1px solid rgba(99,102,241,.25); }
+    .sig-req-modal .form-row   { display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:8px; align-items:end; margin-bottom:10px; }
     .archive-actions { display:flex; gap:6px; flex-shrink:0; }
     .trash-ttl { font-size:10px; color:var(--muted); font-style:italic; }
     body.theme-light .archive-card { background:#fff; border-color:#E2E8F0; }
@@ -1041,6 +1045,7 @@
     <div class="page-section" id="Company-received">
       <div class="dash-welcome">Documents <em>Reçus</em></div>
       <div class="dash-subtitle">Documents partagés avec vous par des intervenants</div>
+      <div id="Company-receivedContainer-sigreq"></div>
       <div id="Company-receivedContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
   </div>
@@ -1191,6 +1196,7 @@
     <div class="page-section" id="HSE-received">
       <div class="dash-welcome">Documents <em>Reçus</em></div>
       <div class="dash-subtitle">Documents partagés avec vous par des intervenants</div>
+      <div id="HSE-receivedContainer-sigreq"></div>
       <div id="HSE-receivedContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
   </div>
@@ -1419,6 +1425,15 @@
           <div id="sigUserList" style="display:flex;flex-direction:column;gap:10px">
             <div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div>
           </div>
+        </div>
+      </div>
+
+      <!-- Config Workflow de signature par type de doc -->
+      <div class="section-card" style="margin-top:24px">
+        <div class="section-title">🔗 Workflow de signature par type de document</div>
+        <div class="section-subtitle">Définissez si les signatures se font en parallèle (tous en même temps) ou en séquentiel (chacun attend le précédent)</div>
+        <div id="adminWorkflowConfigPanel" style="margin-top:16px">
+          <div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div>
         </div>
       </div>
 
@@ -2073,6 +2088,7 @@
       <div style="width:28px;height:28px;background:#F97316;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:12px">S</div>
       <span id="reportViewerTitle" style="font-weight:700;color:#fff;font-size:14px;flex:1">Rapport</span>
       <button onclick="printReportViewer()" style="background:rgba(249,115,22,.2);border:1px solid rgba(249,115,22,.4);color:#FDBA74;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:700">🖨️ Imprimer / PDF</button>
+      <button id="viewerSendSigBtn" style="display:none;background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.4);color:#A5B4FC;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:700">✉️ Envoyer pour signature</button>
       <button onclick="closeReportViewer()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px">✕ Fermer</button>
     </div>
     <iframe id="reportViewerFrame" style="flex:1;width:100%;border:none;background:#fff"></iframe>
@@ -2169,6 +2185,103 @@
       <div style="font-size:12px;color:var(--muted)" id="sigManualSuccessDetail">—</div>
       <button onclick="closeSignatureOtp()" class="btn-sm btn-validate" style="width:100%;padding:12px;font-size:13px;margin-top:20px">Fermer</button>
     </div>
+  </div>
+</div>
+
+
+<!-- ══ MODALE ENVOI MULTI-SIGNATAIRES ══ -->
+<div class="modal-overlay" id="sigReqModal">
+  <div class="modal sig-req-modal" style="max-width:580px">
+    <button class="modal-close" onclick="closeSendForSignatureModal()">✕</button>
+    <div style="font-size:28px;margin-bottom:8px">✉️</div>
+    <div class="modal-title">Envoyer pour signature</div>
+    <div class="modal-subtitle" id="sigReqSubtitle">Ajoutez les signataires</div>
+
+    <!-- Sélecteur de mode workflow -->
+    <div style="display:flex;align-items:center;gap:12px;margin:14px 0 10px;padding:12px 14px;background:var(--inset-bg);border:1px solid var(--inset-border);border-radius:10px">
+      <div style="flex:1">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Mode de signature</div>
+        <select id="sigReqModeSelect" onchange="toggleSeqHelp(this.value);renderSignersList()" style="background:var(--input-bg);border:1px solid var(--inset-border);border-radius:8px;color:var(--white);padding:7px 10px;font-size:13px;width:100%">
+          <option value="parallel">⚡ Parallèle — tous notifiés en même temps</option>
+          <option value="sequential">🔗 Séquentiel — chacun attend le précédent</option>
+        </select>
+      </div>
+    </div>
+    <!-- Aide mode séquentiel -->
+    <div id="sigReqSeqHelp" style="display:none;background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.15);border-radius:8px;padding:10px 14px;font-size:11px;color:var(--muted);margin-bottom:10px">
+      🔗 <strong style="color:var(--white)">Séquentiel</strong> — utilisez ▲▼ pour définir l'ordre. Le signataire n°1 reçoit le lien en premier. Chaque signataire suivant est notifié automatiquement une fois le précédent validé.
+    </div>
+
+    <!-- Membres de l'org -->
+    <div style="margin:16px 0 10px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Membres SafetySphere</div>
+      <div style="display:flex;gap:8px">
+        <select id="sigReqOrgMemberSelect" class="form-input" style="flex:1;font-size:12px" onfocus="loadOrgMembersForSigReq()">
+          <option value="">-- Cliquer pour charger les membres --</option>
+        </select>
+        <button onclick="addSignerFromSelect()" class="btn-sm btn-validate" style="padding:8px 14px;font-size:12px;white-space:nowrap">+ Ajouter</button>
+      </div>
+    </div>
+
+    <!-- Séparateur -->
+    <div style="display:flex;align-items:center;gap:10px;margin:12px 0">
+      <div style="flex:1;height:1px;background:var(--inset-border)"></div>
+      <span style="font-size:11px;color:var(--muted)">ou saisir manuellement</span>
+      <div style="flex:1;height:1px;background:var(--inset-border)"></div>
+    </div>
+
+    <!-- Formulaire signataire externe -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:14px">
+      <div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Nom</div>
+        <input id="sigReqName" type="text" class="form-input" placeholder="Jean Dupont" style="font-size:12px">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Email</div>
+        <input id="sigReqEmail" type="email" class="form-input" placeholder="jean@exemple.fr" style="font-size:12px">
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Rôle</div>
+        <input id="sigReqRole" type="text" class="form-input" placeholder="Dirigeant" style="font-size:12px" list="sigReqRolesList">
+        <datalist id="sigReqRolesList">
+          <option value="Technicien HSE">
+          <option value="Responsable HSE">
+          <option value="Responsable Qualité">
+          <option value="Dirigeant">
+          <option value="Coordinateur SPS">
+          <option value="Médecin du travail">
+        </datalist>
+      </div>
+      <button onclick="addSignerFromForm()" class="btn-sm btn-validate" style="padding:8px 14px;font-size:12px">+</button>
+    </div>
+
+    <!-- Liste des signataires -->
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Signataires (<span id="sigReqCount">0</span>)</div>
+    <div id="sigReqSignersList" style="max-height:220px;overflow-y:auto;margin-bottom:16px"></div>
+
+    <!-- Info mode envoi -->
+    <div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--muted);margin-bottom:16px">
+      📧 Chaque signataire recevra un email avec un lien unique.<br>
+      Il pourra signer <strong style="color:var(--white)">numériquement (OTP)</strong> ou <strong style="color:var(--white)">télécharger et renvoyer son scan</strong>.<br>
+      Le document consolidé sera généré automatiquement une fois tous signataires validés.
+    </div>
+
+    <button id="sigReqSendBtn" onclick="sendSignatureRequest()" class="btn-sm btn-validate" style="width:100%;padding:12px;font-size:13px">✉️ Envoyer les demandes</button>
+  </div>
+</div>
+
+<!-- ══ MODALE UPLOAD SCAN SIGNÉ ══ -->
+<div class="modal-overlay" id="uploadScanModal">
+  <div class="modal" style="max-width:420px;text-align:center">
+    <button class="modal-close" onclick="closeUploadScanModal()">✕</button>
+    <div style="font-size:32px;margin-bottom:8px">📤</div>
+    <div class="modal-title" id="uploadScanModalTitle">Téléverser le scan signé</div>
+    <div class="modal-subtitle">Associez le document imprimé et signé manuscritement</div>
+    <div class="file-drop-zone" id="uploadScanDropZone" onclick="document.getElementById('uploadScanFileInput').click()" style="cursor:pointer;padding:16px;margin:16px 0">
+      <div class="file-drop-text" id="uploadScanFilePreview">Cliquez pour sélectionner le scan (PDF, JPG, PNG)</div>
+    </div>
+    <input type="file" id="uploadScanFileInput" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="onUploadScanFileChange(this)">
+    <button id="uploadScanBtn" onclick="submitUploadScan()" class="btn-sm btn-validate" style="width:100%;padding:11px;font-size:13px" disabled>📤 Archiver le scan signé</button>
   </div>
 </div>
 
@@ -3918,6 +4031,9 @@ async function loadReceivedDocs(containerId) {
   container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div>`;
 
   const email = currentProfile.email;
+
+  // ── Demandes de signature entrantes ──
+  await renderIncomingSignatureRequests(containerId + '-sigreq', email).catch(function(){});
   const now   = new Date();
 
   const { data: shares } = await sb.from('document_shares')
@@ -7085,7 +7201,7 @@ async function renderVgpSection(role) {
 function buildVgpHTML(records, meta, stampHtml) {
   var today    = new Date();
   var soonDate = new Date(); soonDate.setDate(soonDate.getDate() + 30);
-  function getVgpStatus(equip, record) {
+  function getVgpStatusForReport(equip, record) {
     if (!record || !record.derniere_verification) return 'non_planifie';
     var d = new Date(record.derniere_verification);
     var p = new Date(d); p.setMonth(p.getMonth() + equip.periodicite);
@@ -7102,7 +7218,7 @@ function buildVgpHTML(records, meta, stampHtml) {
   var critCount=0,alertCount=0,okCount=0,npCount=0;
   VGP_EQUIPEMENTS.forEach(function(eq){
     var r=records.find(function(x){return x.equipement===eq.key;});
-    var s=getVgpStatus(eq,r);
+    var s=getVgpStatusForReport(eq,r);
     if(s==='critique')critCount++;else if(s==='alerte')alertCount++;else if(s==='ok')okCount++;else npCount++;
   });
   var cats=[];
@@ -7112,7 +7228,7 @@ function buildVgpHTML(records, meta, stampHtml) {
     tableRows+='<tr><td colspan="6" style="background:#1E3A5F;color:#fff;font-weight:700;font-size:11px;padding:7px 12px;letter-spacing:.5px">'+cat.toUpperCase()+'</td></tr>';
     VGP_EQUIPEMENTS.filter(function(e){return e.categorie===cat;}).forEach(function(eq){
       var record=records.find(function(r){return r.equipement===eq.key;});
-      var status=getVgpStatus(eq,record); var st=statusStyle(status);
+      var status=getVgpStatusForReport(eq,record); var st=statusStyle(status);
       var rowBg=rowIdx%2===0?'#ffffff':'#F9FAFB'; rowIdx++;
       var derniereStr='--',prochaineStr='--',daysLeftStr='--';
       if(record&&record.derniere_verification){
@@ -7661,8 +7777,18 @@ async function archiveReport(meta, reportType, htmlContent) {
     file_url      : fileUrl,
   };
 
-  var res = await sb.from('report_archive').insert(entry);
-  if (res.error) console.warn('Archive error:', res.error.message);
+  var res = await sb.from('report_archive').insert(entry).select().single();
+  if (res.error) { console.warn('Archive error:', res.error.message); return null; }
+  // Exposer l'ID au viewer pour le bouton 'Envoyer pour signature'
+  _lastArchivedId = res.data ? res.data.id : null;
+  var btn = document.getElementById('viewerSendSigBtn');
+  if (btn && res.data) {
+    var _aid = res.data.id; var _anum = meta.reportNum; var _atype = reportType;
+    var _ahtml = htmlContent; var _ameta = meta;
+    btn.style.display = '';
+    btn.onclick = function() { openSendForSignatureModal(_aid, _anum, _atype, _ahtml, _ameta); };
+  }
+  return res.data;
 }
 
 // ── Afficher l'onglet Historique ──────────────────────────────
@@ -7672,10 +7798,12 @@ async function renderHistoriqueSection(role) {
   container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement de l\'historique...</div></div>';
 
   // Charger archive + corbeille
-  var archRes   = await sb.from('report_archive').select('*').eq('org_id', currentProfile.org_id).order('generated_at', { ascending: false });
+  var archRes   = await sb.from('report_archive').select('*, sig_status, sig_request_id, sig_total, sig_signed, signed_file_url, parent_id').eq('org_id', currentProfile.org_id).order('generated_at', { ascending: false });
   var trashRes  = await sb.from('report_trash').select('*').eq('org_id', currentProfile.org_id).order('deleted_at', { ascending: false });
 
-  var archives = archRes.data || [];
+  var allArchives = archRes.data || [];
+  // Exclure les scans enfants (parent_id défini) — ils sont affichés comme attachement
+  var archives = allArchives.filter(function(a) { return !a.parent_id; });
   var trashed  = trashRes.data || [];
 
   // Purger les éléments corbeille > 30j
@@ -7756,9 +7884,15 @@ async function renderHistoriqueSection(role) {
           + '<div class="archive-sub">' + genDate + ' à ' + genTime + ' · Par : ' + escapeHtml(a.responsable || '—') + '</div>'
           + (a.app_version ? '<div class="archive-sub" style="color:rgba(249,115,22,.7)">SafetySphere v' + escapeHtml(a.app_version) + '</div>' : '')
           + '</div>'
+          + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">'
           + '<span class="archive-badge ' + (isSS ? 'ss' : 'ext') + '">' + (isSS ? '⬡ SafetySphere' : '📤 Externe') + '</span>'
+          + sigStatusBadge(a)
+          + '</div>'
           + '<div class="archive-actions">'
           + (a.file_url ? '<button class="btn-sm btn-view" style="padding:5px 12px;font-size:11px" onclick="openReportViewer(\'' + a.file_url + '\',\'' + escapeHtml(a.report_num||a.label) + '\',\'' + (a.source==='safetysphere'?'html':'ext') + '\')">📄 Consulter</button>' : '<span style="font-size:11px;color:var(--muted)">Pas de fichier</span>')
+          + (a.signed_file_url ? '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#86EFAC" onclick="openReportViewer(\'' + a.signed_file_url + '\',\'Signé — ' + escapeHtml(a.report_num||a.label) + '\',\'ext\')">🖊️ Signé</button>' : '')
+          + (!a.signed_file_url && (!a.sig_status || a.sig_status === 'none') ? '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.25);color:#A5B4FC" onclick="openUploadSignedScanModal(\'' + a.id + '\',\'' + escapeHtml(a.report_num||a.label) + '\')">📤 Scan signé</button>' : '')
+          + (!a.sig_status || a.sig_status === 'none' ? '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.25);color:#FCD34D" onclick="openSendForSignatureModal(\'' + a.id + '\',\'' + escapeHtml(a.report_num) + '\',\'' + escapeHtml(a.report_type) + '\',null,null)">✉️ Envoyer</button>' : '')
           + '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.25);color:#FCA5A5" onclick="moveToTrash(\'' + a.id + '\',\'' + role + '\')">🗑️</button>'
           + '</div>'
           + '</div>';
@@ -7948,6 +8082,8 @@ async function openReportViewer(url, title, sourceType) {
 
 function closeReportViewer() {
   var modal = document.getElementById('reportViewerModal');
+  var btnSig = document.getElementById('viewerSendSigBtn');
+  if (btnSig) { btnSig.style.display = 'none'; btnSig.onclick = null; }
   var frame = document.getElementById('reportViewerFrame');
   if (modal) modal.classList.remove('open');
   if (frame) {
@@ -8228,6 +8364,8 @@ async function loadAdminSignatures() {
   _allSigUsers._settings = userMap;
   renderSigUserList(userMap);
 
+  // Config workflow
+  renderAdminWorkflowConfig();
   // Journal
   loadSigAuditLog();
 }
@@ -8459,6 +8597,841 @@ openSignatureModal = async function(reportNum, reportType, meta, onSuccess, extr
     _sigContext._records = extraData.records || null;
   }
 };
+
+
+
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// WORKFLOW SIGNATURE V2 — Parallèle / Séquentiel configurable par type de doc
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Config workflow par type doc (chargée depuis doc_workflow_config) ──
+var _workflowConfig = {}; // { 'DUER': 'parallel', 'VGP': 'parallel', 'PDP': 'sequential', ... }
+
+async function loadWorkflowConfig() {
+  var r = await sb.from('doc_workflow_config').select('doc_type, mode');
+  if (r.data) {
+    r.data.forEach(function(row) { _workflowConfig[row.doc_type] = row.mode; });
+  }
+}
+
+function getWorkflowMode(docType) {
+  return _workflowConfig[docType] || 'parallel';
+}
+
+// ── Ouvrir modale envoi — V2 avec mode auto depuis config ──────────────────
+function openSendForSignatureModal(archiveId, reportNum, reportType, reportHtml, meta) {
+  _sigReqContext = {
+    archiveId  : archiveId,
+    reportNum  : reportNum,
+    reportType : reportType,
+    reportHtml : reportHtml,
+    meta       : meta
+  };
+  _sigReqSigners = [];
+
+  // Pré-remplir émetteur
+  if (currentProfile) {
+    _sigReqSigners.push({
+      name : currentProfile.full_name || currentProfile.email,
+      email: currentProfile.email,
+      role : 'Émetteur'
+    });
+  }
+
+  // Appliquer le mode configuré
+  var mode = getWorkflowMode(reportType);
+  var sel  = document.getElementById('sigReqModeSelect');
+  if (sel) sel.value = mode;
+  toggleSeqHelp(mode);
+
+  // Afficher le type de doc dans le titre
+  var subtitle = document.getElementById('sigReqSubtitle');
+  if (subtitle) subtitle.textContent = 'Document : ' + (reportType || '—') + ' · Mode : ' + (mode === 'sequential' ? 'Séquentiel' : 'Parallèle');
+
+  loadOrgMembersForSigReq();
+  renderSignersList();
+  document.getElementById('sigReqModal').classList.add('open');
+}
+
+// ── Afficher/masquer l'aide mode séquentiel ──
+function toggleSeqHelp(mode) {
+  var help = document.getElementById('sigReqSeqHelp');
+  if (help) help.style.display = mode === 'sequential' ? '' : 'none';
+  var subtitle = document.getElementById('sigReqSubtitle');
+  if (subtitle && _sigReqContext) {
+    subtitle.textContent = 'Document : ' + (_sigReqContext.reportType || '—')
+      + ' · Mode : ' + (mode === 'sequential' ? '🔗 Séquentiel' : '⚡ Parallèle');
+  }
+}
+
+// ── Rendre la liste des signataires avec ordre drag ──────────────────────────
+function renderSignersList() {
+  var list = document.getElementById('sigReqSignersList');
+  var countEl = document.getElementById('sigReqCount');
+  if (countEl) countEl.textContent = _sigReqSigners.length;
+  if (!list) return;
+
+  var mode = (document.getElementById('sigReqModeSelect') || {}).value || 'parallel';
+
+  if (!_sigReqSigners.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0;text-align:center">Aucun signataire ajouté.</div>';
+    return;
+  }
+
+  list.innerHTML = _sigReqSigners.map(function(s, i) {
+    var isFirst = i === 0;
+    var isLast  = i === _sigReqSigners.length - 1;
+    return '<div id="signerRow_' + i + '" style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--inset-bg);border:1px solid var(--inset-border);border-radius:10px;margin-bottom:8px;transition:opacity .15s">'
+      + (mode === 'sequential'
+          ? '<div style="min-width:22px;height:22px;background:#F97316;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;flex-shrink:0">' + (i+1) + '</div>'
+          : '<div style="font-size:18px;flex-shrink:0">👤</div>')
+      + '<div style="flex:1;min-width:0">'
+      + '<div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(s.name) + '</div>'
+      + '<div style="font-size:11px;color:var(--muted)">' + escapeHtml(s.email) + ' · <em>' + escapeHtml(s.role) + '</em></div>'
+      + '</div>'
+      + (mode === 'sequential' ? '<div style="display:flex;flex-direction:column;gap:2px">'
+          + '<button onclick="moveSigner(' + i + ',-1)" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:1px 4px;' + (isFirst ? 'opacity:.2;pointer-events:none' : '') + '">▲</button>'
+          + '<button onclick="moveSigner(' + i + ',1)"  style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:1px 4px;' + (isLast  ? 'opacity:.2;pointer-events:none' : '') + '">▼</button>'
+          + '</div>' : '')
+      + '<button onclick="removeSigner(' + i + ')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:0 4px" title="Retirer">✕</button>'
+      + '</div>';
+  }).join('');
+}
+
+function moveSigner(idx, dir) {
+  var newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= _sigReqSigners.length) return;
+  var tmp = _sigReqSigners[idx];
+  _sigReqSigners[idx]    = _sigReqSigners[newIdx];
+  _sigReqSigners[newIdx] = tmp;
+  renderSignersList();
+}
+
+// ── Envoyer la demande V2 ────────────────────────────────────────────────────
+async function sendSignatureRequest() {
+  if (!_sigReqContext) return;
+  if (_sigReqSigners.length < 1) { showToast('Ajoutez au moins un signataire', 'error'); return; }
+
+  var mode = (document.getElementById('sigReqModeSelect') || {}).value || 'parallel';
+  var btn  = document.getElementById('sigReqSendBtn');
+  btn.disabled = true; btn.textContent = '⏳ Envoi en cours...';
+
+  // 1. Créer la demande parente
+  var reqRes = await sb.from('signature_requests').insert({
+    org_id        : currentProfile.org_id,
+    archive_id    : _sigReqContext.archiveId || null,
+    created_by    : currentUser.id,
+    report_num    : _sigReqContext.reportNum,
+    report_type   : _sigReqContext.reportType,
+    report_html   : _sigReqContext.reportHtml || null,
+    workflow_mode : mode,
+    status        : 'pending',
+    total_signers : _sigReqSigners.length,
+    signed_count  : 0,
+  }).select().single();
+
+  if (reqRes.error) {
+    showToast('Erreur : ' + reqRes.error.message, 'error');
+    btn.disabled = false; btn.textContent = '✉️ Envoyer les demandes';
+    return;
+  }
+
+  var requestId = reqRes.data.id;
+
+  // 2. Créer les items signataires
+  var items = _sigReqSigners.map(function(s, i) {
+    return {
+      request_id  : requestId,
+      org_id      : currentProfile.org_id,
+      signer_name : s.name,
+      signer_email: s.email,
+      signer_role : s.role,
+      status      : (mode === 'sequential' && i > 0) ? 'waiting' : 'pending',
+      seq         : i,
+      token       : 'SGR-' + requestId.slice(-6).toUpperCase() + '-' + String(i).padStart(2,'0'),
+    };
+  });
+
+  var itemsRes = await sb.from('signature_request_items').insert(items).select();
+  if (itemsRes.error) {
+    showToast('Erreur items : ' + itemsRes.error.message, 'error');
+    btn.disabled = false; btn.textContent = '✉️ Envoyer les demandes';
+    return;
+  }
+
+  // 3. Notifier par email : en parallèle → tous, en séquentiel → seulement le 1er
+  var toNotify = mode === 'sequential'
+    ? [_sigReqSigners[0]]
+    : _sigReqSigners;
+
+  for (var i = 0; i < toNotify.length; i++) {
+    var s = toNotify[i];
+    var item = itemsRes.data.find(function(it) { return it.signer_email === s.email; });
+    var sigUrl = window.location.origin + window.location.pathname + '?sign=' + (item ? item.token : '');
+
+    await sb.auth.signInWithOtp({
+      email  : s.email,
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo : sigUrl,
+        data: {
+          sig_request_id : requestId,
+          sig_token      : item ? item.token : '',
+          report_num     : _sigReqContext.reportNum,
+          signer_name    : s.name,
+          emitter_name   : currentProfile.full_name || currentProfile.email,
+          workflow_mode  : mode,
+          position       : (mode === 'sequential') ? (i+1) + '/' + _sigReqSigners.length : null,
+        }
+      }
+    });
+  }
+
+  // 4. Mettre à jour l'archive
+  if (_sigReqContext.archiveId) {
+    await sb.from('report_archive').update({
+      sig_status    : 'pending',
+      sig_request_id: requestId,
+      sig_total     : _sigReqSigners.length,
+      sig_signed    : 0,
+    }).eq('id', _sigReqContext.archiveId);
+  }
+
+  btn.disabled = false; btn.textContent = '✉️ Envoyer les demandes';
+  closeSendForSignatureModal();
+
+  var modeLabel = mode === 'sequential' ? 'séquentiel' : 'parallèle';
+  showToast('✓ Workflow ' + modeLabel + ' lancé · ' + toNotify.length + ' email(s) envoyé(s)', 'success');
+  if (typeof renderHistoriqueSection === 'function') renderHistoriqueSection(_conformRole);
+}
+
+// ── Gestion de la page publique de signature (token dans l'URL) ─────────────
+async function checkPublicSignatureToken() {
+  var params = new URLSearchParams(window.location.search);
+  var token  = params.get('sign');
+  if (!token) return;
+
+  // Charger l'item correspondant
+  var itemRes = await sb.from('signature_request_items')
+    .select('*, signature_requests(report_num, report_type, report_html, workflow_mode, org_id, total_signers, signed_count, archive_id)')
+    .eq('token', token)
+    .single();
+
+  if (itemRes.error || !itemRes.data) {
+    showPublicSignError('Lien de signature invalide ou expiré.');
+    return;
+  }
+
+  var item = itemRes.data;
+  var req  = item.signature_requests;
+
+  if (item.status === 'signed' || item.status === 'refused') {
+    showPublicSignError('Ce document a déjà été traité (statut : ' + item.status + ').');
+    return;
+  }
+  if (item.status === 'waiting') {
+    showPublicSignError('Votre tour de signature n\'est pas encore arrivé. Vous recevrez un email dès que le(s) signataire(s) précédent(s) auront validé.');
+    return;
+  }
+
+  // Afficher la page de signature publique
+  openPublicSignPage(item, req, token);
+}
+
+function showPublicSignError(msg) {
+  document.body.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0D1B2A;font-family:\'Segoe UI\',sans-serif">'
+    + '<div style="max-width:480px;text-align:center;padding:40px 24px">'
+    + '<div style="font-size:48px;margin-bottom:16px">⚠️</div>'
+    + '<div style="font-size:18px;font-weight:700;color:#fff;margin-bottom:8px">Signature impossible</div>'
+    + '<div style="font-size:14px;color:#94A3B8">' + msg + '</div>'
+    + '</div></div>';
+}
+
+function openPublicSignPage(item, req, token) {
+  // Remplacer le contenu de la page par la page de signature
+  document.body.innerHTML = publicSignPageHTML(item, req, token);
+}
+
+function publicSignPageHTML(item, req, token) {
+  return '<!DOCTYPE html>'
+    + '<div style="min-height:100vh;background:#0D1B2A;font-family:\'Segoe UI\',sans-serif;display:flex;flex-direction:column">'
+    // Bandeau
+    + '<div style="background:linear-gradient(135deg,#0D1B2A,#1E3A5F);border-bottom:3px solid #F97316;padding:12px 24px;display:flex;align-items:center;gap:14px">'
+    + '<div style="width:34px;height:34px;background:#F97316;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:14px">S</div>'
+    + '<div><div style="font-weight:900;color:#fff;font-size:14px">Safety<span style="color:#F97316">Sphere</span></div><div style="font-size:10px;color:#94A3B8">Demande de signature électronique</div></div>'
+    + '<div style="margin-left:auto;font-size:12px;color:#94A3B8">Réf. ' + escapeHtml(req.report_num || '') + '</div>'
+    + '</div>'
+    // Corps
+    + '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 16px">'
+    + '<div style="max-width:520px;width:100%">'
+    // Info signataire
+    + '<div style="background:rgba(30,58,95,.5);border:1px solid rgba(99,162,241,.2);border-radius:16px;padding:24px;margin-bottom:24px">'
+    + '<div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px">Bonjour, ' + escapeHtml(item.signer_name) + ' 👋</div>'
+    + '<div style="font-size:13px;color:#94A3B8;margin-bottom:16px">Vous êtes invité(e) à signer le document suivant :</div>'
+    + '<div style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px">'
+    + '<div style="font-size:28px">' + (req.report_type === 'DUER' ? '📋' : req.report_type === 'VGP' ? '🔧' : '📄') + '</div>'
+    + '<div><div style="font-size:13px;font-weight:700;color:#fff">' + escapeHtml(req.report_type) + ' — ' + escapeHtml(req.report_num) + '</div>'
+    + '<div style="font-size:11px;color:#94A3B8">Votre rôle : ' + escapeHtml(item.signer_role) + '</div>'
+    + (req.workflow_mode === 'sequential' ? '<div style="font-size:11px;color:#FCD34D;margin-top:2px">🔗 Workflow séquentiel — position ' + (item.seq+1) + '/' + req.total_signers + '</div>' : '')
+    + '</div></div>'
+    + '</div>'
+    // Choix mode signature
+    + '<div id="pubSignStep0">'
+    + '<div style="font-size:13px;color:#94A3B8;margin-bottom:14px;text-align:center">Choisissez votre mode de signature :</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">'
+    + '<button onclick="pubSignChoose(\'otp\',\'' + escapeHtml(token) + '\')" style="background:rgba(249,115,22,.08);border:2px solid rgba(249,115,22,.3);border-radius:14px;padding:20px;cursor:pointer;color:#fff;text-align:center" onmouseover="this.style.borderColor=\'#F97316\'" onmouseout="this.style.borderColor=\'rgba(249,115,22,.3)\'">'
+    + '<div style="font-size:28px;margin-bottom:8px">📧</div><div style="font-size:13px;font-weight:700;margin-bottom:4px">Signature numérique</div><div style="font-size:11px;color:#94A3B8">Code OTP · eIDAS Niveau 1</div>'
+    + '</button>'
+    + '<button onclick="pubSignChoose(\'manual\',\'' + escapeHtml(token) + '\')" style="background:rgba(99,102,241,.08);border:2px solid rgba(99,102,241,.3);border-radius:14px;padding:20px;cursor:pointer;color:#fff;text-align:center" onmouseover="this.style.borderColor=\'#818CF8\'" onmouseout="this.style.borderColor=\'rgba(99,102,241,.3)\'">'
+    + '<div style="font-size:28px;margin-bottom:8px">🖊️</div><div style="font-size:13px;font-weight:700;margin-bottom:4px">Signature manuscrite</div><div style="font-size:11px;color:#94A3B8">Imprimer · signer · scanner</div>'
+    + '</button>'
+    + '</div>'
+    + '<button onclick="pubSignRefuse(\'' + escapeHtml(token) + '\')" style="background:none;border:none;color:#94A3B8;font-size:12px;cursor:pointer;text-decoration:underline;display:block;margin:0 auto">Refuser de signer</button>'
+    + '</div>'
+    // OTP steps (cachés)
+    + '<div id="pubSignStepOtp" style="display:none">'
+    + '<div style="background:rgba(30,58,95,.5);border:1px solid rgba(99,162,241,.2);border-radius:12px;padding:20px;margin-bottom:16px;text-align:center">'
+    + '<div style="font-size:13px;color:#94A3B8;margin-bottom:6px">Code de vérification envoyé à</div>'
+    + '<div style="font-size:15px;font-weight:700;color:#fff" id="pubSignEmailDisplay">' + escapeHtml(item.signer_email) + '</div>'
+    + '</div>'
+    + '<div style="font-size:12px;color:#94A3B8;text-align:center;margin-bottom:16px">Saisissez le code à 8 chiffres reçu par email.</div>'
+    + '<div style="display:flex;gap:6px;justify-content:center;margin-bottom:20px">'
+    + [1,2,3,4,5,6,7,8].map(function(n) {
+        var prev = n>1 ? 'pubD'+(n-1) : null;
+        var next = n<8 ? 'pubD'+(n+1) : null;
+        return '<input type="text" id="pubD' + n + '" maxlength="1" style="width:36px;height:44px;background:rgba(30,58,95,.7);border:2px solid rgba(99,162,241,.3);border-radius:8px;color:#fff;font-size:20px;font-weight:700;text-align:center" oninput="otpDigitInput(this,\'' + (next||'') + '\')" onkeydown="otpDigitBack(event,this,\'' + (prev||'') + '\')">';
+      }).join('')
+    + '</div>'
+    + '<button onclick="pubSignVerifyOtp(\'' + escapeHtml(token) + '\')" style="width:100%;padding:13px;background:#F97316;border:none;border-radius:10px;color:#fff;font-weight:700;font-size:14px;cursor:pointer">✓ Confirmer la signature</button>'
+    + '<button onclick="pubSignSendOtp(\'' + escapeHtml(item.signer_email) + '\')" style="background:none;border:none;color:#94A3B8;font-size:12px;cursor:pointer;text-decoration:underline;display:block;margin:12px auto 0">↩ Renvoyer le code</button>'
+    + '</div>'
+    // Manuscrit step
+    + '<div id="pubSignStepManual" style="display:none">'
+    + '<div style="background:rgba(30,58,95,.5);border:1px solid rgba(99,162,241,.2);border-radius:12px;padding:20px;margin-bottom:16px">'
+    + '<div style="font-size:12px;color:#94A3B8;margin-bottom:12px">Procédure :</div>'
+    + '<div style="display:flex;flex-direction:column;gap:8px">'
+    + '<div style="display:flex;gap:10px;align-items:flex-start"><div style="min-width:22px;height:22px;background:#6366F1;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">1</div><span style="font-size:12px;color:#CBD5E1">Téléchargez et imprimez le document</span></div>'
+    + '<div style="display:flex;gap:10px;align-items:flex-start"><div style="min-width:22px;height:22px;background:#6366F1;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">2</div><span style="font-size:12px;color:#CBD5E1">Apposez votre signature manuscrite</span></div>'
+    + '<div style="display:flex;gap:10px;align-items:flex-start"><div style="min-width:22px;height:22px;background:#6366F1;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">3</div><span style="font-size:12px;color:#CBD5E1">Scannez et téléversez ci-dessous</span></div>'
+    + '</div>'
+    + '</div>'
+    + '<button onclick="pubSignDownloadDoc()" style="width:100%;padding:11px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:8px;color:#A5B4FC;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px">🖨️ Télécharger le document</button>'
+    + '<input type="file" id="pubScanFile" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="pubScanFileChange(this)">'
+    + '<div onclick="document.getElementById(\'pubScanFile\').click()" style="border:2px dashed rgba(99,102,241,.3);border-radius:10px;padding:18px;text-align:center;cursor:pointer;color:#A5B4FC;font-size:13px;margin-bottom:12px" id="pubScanDropZone">📎 Cliquez pour sélectionner le scan signé</div>'
+    + '<button onclick="pubSignUploadScan(\'' + escapeHtml(token) + '\')" id="pubScanBtn" style="width:100%;padding:13px;background:#6366F1;border:none;border-radius:10px;color:#fff;font-weight:700;font-size:14px;cursor:pointer" disabled>📤 Soumettre le scan signé</button>'
+    + '</div>'
+    // Succès
+    + '<div id="pubSignSuccess" style="display:none;text-align:center">'
+    + '<div style="font-size:60px;margin-bottom:16px">✅</div>'
+    + '<div style="font-size:20px;font-weight:900;color:#fff;margin-bottom:8px">Signature enregistrée !</div>'
+    + '<div style="font-size:13px;color:#94A3B8" id="pubSignSuccessDetail">—</div>'
+    + '</div>'
+    + '</div></div></div>';
+}
+
+// ── Fonctions côté page publique ─────────────────────────────────────────────
+var _pubSignToken   = null;
+var _pubSignReqHtml = null;
+var _pubScanFile    = null;
+
+async function pubSignChoose(mode, token) {
+  _pubSignToken = token;
+  document.getElementById('pubSignStep0').style.display    = 'none';
+  document.getElementById('pubSignStepOtp').style.display  = 'none';
+  document.getElementById('pubSignStepManual').style.display = 'none';
+
+  if (mode === 'otp') {
+    // Charger l'email et envoyer OTP
+    var itemRes = await sb.from('signature_request_items').select('signer_email').eq('token', token).single();
+    if (itemRes.data) {
+      var email = itemRes.data.signer_email;
+      document.getElementById('pubSignEmailDisplay').textContent = email;
+      await pubSignSendOtp(email);
+    }
+    document.getElementById('pubSignStepOtp').style.display = '';
+  } else {
+    // Charger le HTML du rapport pour téléchargement
+    var reqRes = await sb.from('signature_request_items')
+      .select('signature_requests(report_html, report_num)')
+      .eq('token', token).single();
+    if (reqRes.data) _pubSignReqHtml = reqRes.data.signature_requests.report_html;
+    document.getElementById('pubSignStepManual').style.display = '';
+  }
+}
+
+async function pubSignSendOtp(email) {
+  await sb.auth.signInWithOtp({ email: email, options: { shouldCreateUser: false, emailRedirectTo: null } });
+}
+
+async function pubSignVerifyOtp(token) {
+  var code = [1,2,3,4,5,6,7,8].map(function(n) { var el = document.getElementById('pubD'+n); return el ? el.value : ''; }).join('');
+  if (code.length !== 8) { alert('Saisissez le code complet à 8 chiffres'); return; }
+
+  var btn = document.querySelector('#pubSignStepOtp button');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳...'; }
+
+  // Récupérer l'email de l'item
+  var itemRes = await sb.from('signature_request_items').select('signer_email, signer_name, signer_role, request_id, seq, id').eq('token', token).single();
+  if (itemRes.error) { alert('Erreur : ' + itemRes.error.message); return; }
+
+  var item = itemRes.data;
+  var verif = await sb.auth.verifyOtp({ email: item.signer_email, token: code, type: 'email' });
+  if (verif.error) { alert('Code invalide ou expiré. Veuillez recommencer.'); if (btn) { btn.disabled = false; btn.textContent = '✓ Confirmer'; } return; }
+
+  await pubSignRecord(token, item, 'otp_email', null);
+}
+
+function pubSignDownloadDoc() {
+  if (!_pubSignReqHtml) { alert('Document non disponible. Contactez l\'émetteur.'); return; }
+  var blob = new Blob([_pubSignReqHtml], { type:'text/html;charset=utf-8' });
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'document-a-signer.html'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+function pubScanFileChange(input) {
+  _pubScanFile = input.files[0] || null;
+  var dz  = document.getElementById('pubScanDropZone');
+  var btn = document.getElementById('pubScanBtn');
+  if (dz)  dz.textContent  = _pubScanFile ? '✓ ' + _pubScanFile.name : '📎 Cliquez pour sélectionner';
+  if (btn) btn.disabled = !_pubScanFile;
+}
+
+async function pubSignUploadScan(token) {
+  if (!_pubScanFile) return;
+  var btn = document.getElementById('pubScanBtn');
+  btn.disabled = true; btn.textContent = '⏳ Téléversement...';
+
+  var itemRes = await sb.from('signature_request_items').select('signer_email, signer_name, signer_role, request_id, seq, id, org_id').eq('token', token).single();
+  if (itemRes.error) { alert('Erreur'); return; }
+  var item = itemRes.data;
+
+  var pad  = function(n){ return String(n).padStart(2,'0'); };
+  var now  = new Date();
+  var path = (item.org_id || 'pub') + '/pub-scans/' + token + '-' + now.getTime() + '-' + _pubScanFile.name;
+  var up   = await sb.storage.from('rapport-archives').upload(path, _pubScanFile, { upsert: true });
+
+  var fileUrl = null;
+  if (!up.error) {
+    var s = await sb.storage.from('rapport-archives').createSignedUrl(path, 60*60*24*365);
+    if (!s.error) fileUrl = s.data.signedUrl;
+  }
+
+  await pubSignRecord(token, item, 'manuscrite_scannee', fileUrl);
+}
+
+async function pubSignRecord(token, item, method, fileUrl) {
+  var now = new Date();
+  var pad = function(n){ return String(n).padStart(2,'0'); };
+  var sigId = 'SIG-PUB-' + now.getFullYear() + pad(now.getMonth()+1) + pad(now.getDate()) + '-' + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+
+  // Mettre à jour l'item
+  await sb.from('signature_request_items').update({
+    status   : 'signed',
+    method   : method,
+    signed_at: now.toISOString(),
+    file_url : fileUrl,
+    sig_id   : sigId,
+  }).eq('id', item.id);
+
+  // Incrémenter signed_count dans la demande parente
+  var reqRes = await sb.from('signature_requests').select('signed_count, total_signers, workflow_mode, org_id, archive_id, report_html, report_type, report_num').eq('id', item.request_id).single();
+  if (!reqRes.error) {
+    var req      = reqRes.data;
+    var newCount = (req.signed_count || 0) + 1;
+    var allDone  = newCount >= req.total_signers;
+
+    await sb.from('signature_requests').update({ signed_count: newCount, status: allDone ? 'completed' : 'pending' }).eq('id', item.request_id);
+
+    // Mettre à jour l'archive
+    if (req.archive_id) {
+      await sb.from('report_archive').update({
+        sig_signed: newCount,
+        sig_status: allDone ? 'signed_all' : (method === 'otp_email' ? 'signed_digital' : 'signed_manual'),
+      }).eq('id', req.archive_id);
+    }
+
+    // Séquentiel : notifier le suivant
+    if (!allDone && req.workflow_mode === 'sequential') {
+      var nextRes = await sb.from('signature_request_items')
+        .select('*').eq('request_id', item.request_id).eq('seq', item.seq + 1).single();
+      if (!nextRes.error && nextRes.data) {
+        await sb.from('signature_request_items').update({ status: 'pending' }).eq('id', nextRes.data.id);
+        var sigUrl = window.location.origin + window.location.pathname + '?sign=' + nextRes.data.token;
+        await sb.auth.signInWithOtp({
+          email  : nextRes.data.signer_email,
+          options: { shouldCreateUser: false, emailRedirectTo: sigUrl, data: { is_next_in_sequence: true } }
+        });
+      }
+    }
+
+    // Si tous signés → générer le document consolidé
+    if (allDone && req.archive_id) {
+      await generateConsolidatedDocument(item.request_id, req);
+    }
+  }
+
+  // Afficher succès
+  var sigDate = now.toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+  var sigTime = pad(now.getHours()) + 'h' + pad(now.getMinutes());
+  ['pubSignStep0','pubSignStepOtp','pubSignStepManual'].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.style.display = 'none';
+  });
+  var succ = document.getElementById('pubSignSuccess'); if (succ) succ.style.display = '';
+  var det  = document.getElementById('pubSignSuccessDetail');
+  if (det) det.innerHTML = 'Réf. : <strong>' + sigId + '</strong><br>' + sigDate + ' à ' + sigTime + '<br><span style="color:#94A3B8">Méthode : ' + (method === 'otp_email' ? 'Numérique OTP email' : 'Manuscrite scannée') + '</span>';
+}
+
+async function pubSignRefuse(token) {
+  if (!confirm('Êtes-vous sûr de vouloir refuser de signer ce document ?')) return;
+  await sb.from('signature_request_items').update({ status: 'refused', signed_at: new Date().toISOString() }).eq('token', token);
+  // Notifier l'émetteur via le statut de la demande
+  var itemRes = await sb.from('signature_request_items').select('request_id').eq('token', token).single();
+  if (!itemRes.error) {
+    await sb.from('signature_requests').update({ status: 'refused' }).eq('id', itemRes.data.request_id);
+  }
+  document.getElementById('pubSignStep0').style.display = 'none';
+  var succ = document.getElementById('pubSignSuccess'); if (succ) succ.style.display = '';
+  var det  = document.getElementById('pubSignSuccessDetail');
+  if (det) det.innerHTML = 'Vous avez refusé de signer. L\'émetteur du document a été notifié.';
+}
+
+// ── Générer le document consolidé final ─────────────────────────────────────
+async function generateConsolidatedDocument(requestId, req) {
+  // Récupérer tous les items signés dans l'ordre
+  var itemsRes = await sb.from('signature_request_items')
+    .select('*').eq('request_id', requestId).order('seq');
+  if (itemsRes.error || !itemsRes.data) return;
+
+  var items = itemsRes.data;
+  var now   = new Date();
+  var pad   = function(n){ return String(n).padStart(2,'0'); };
+
+  // Construire le bloc consolidé de tous les cachets
+  var allStamps = items.map(function(item) {
+    if (item.status !== 'signed') return '';
+    var sigDate = new Date(item.signed_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+    var sigTime = new Date(item.signed_at).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+    var methodLabel = item.method === 'otp_email' ? 'OTP Email · eIDAS Niveau 1' : 'Manuscrite scannée';
+
+    if (item.method === 'manuscrite_scannee' && item.file_url) {
+      return '<div style="border:1px solid #D1D5DB;border-radius:8px;padding:12px 16px;margin-bottom:10px;background:#F9FAFB">'
+        + '<div style="font-size:9px;font-weight:900;color:#6B7280;letter-spacing:2px;margin-bottom:8px">🖊️ SIGNATURE MANUSCRITE — ' + escapeHtml(item.signer_role.toUpperCase()) + '</div>'
+        + '<div style="display:flex;gap:8px;align-items:baseline;margin-bottom:4px"><span style="font-size:9px;color:#9CA3AF;width:80px">Signataire</span><span style="font-size:11px;font-weight:600">' + escapeHtml(item.signer_name) + '</span></div>'
+        + '<div style="display:flex;gap:8px;align-items:baseline;margin-bottom:4px"><span style="font-size:9px;color:#9CA3AF;width:80px">Date</span><span style="font-size:11px;font-weight:600">' + sigDate + ' à ' + sigTime + '</span></div>'
+        + '<div style="display:flex;gap:8px;align-items:baseline"><span style="font-size:9px;color:#9CA3AF;width:80px">Scan</span><a href="' + item.file_url + '" style="font-size:11px;color:#2563EB">📎 Voir le scan</a></div>'
+        + '</div>';
+    }
+
+    return '<div style="border:2px solid #1E3A5F;border-radius:8px;padding:12px 16px;margin-bottom:10px;background:#F0F4FF;position:relative">'
+      + '<div style="position:absolute;top:-9px;left:12px;background:#fff;padding:0 6px;font-size:9px;font-weight:900;color:#1E3A5F;letter-spacing:1.5px">SIGNÉ ÉLECTRONIQUEMENT — ' + escapeHtml(item.signer_role.toUpperCase()) + '</div>'
+      + '<div style="display:flex;gap:8px;align-items:baseline;margin-bottom:4px"><span style="font-size:9px;color:#6B7280;width:80px">Signataire</span><span style="font-size:11px;font-weight:600;color:#111827">' + escapeHtml(item.signer_name) + '</span></div>'
+      + '<div style="display:flex;gap:8px;align-items:baseline;margin-bottom:4px"><span style="font-size:9px;color:#6B7280;width:80px">Email</span><span style="font-size:11px;color:#374151">' + escapeHtml(item.signer_email) + '</span></div>'
+      + '<div style="display:flex;gap:8px;align-items:baseline;margin-bottom:4px"><span style="font-size:9px;color:#6B7280;width:80px">Date</span><span style="font-size:11px;font-weight:600;color:#111827">' + sigDate + ' à ' + sigTime + '</span></div>'
+      + '<div style="display:flex;gap:8px;align-items:baseline;margin-bottom:4px"><span style="font-size:9px;color:#6B7280;width:80px">Réf.</span><span style="font-family:monospace;font-size:10px;background:#1E3A5F;color:#fff;padding:2px 6px;border-radius:3px">' + escapeHtml(item.sig_id || '—') + '</span></div>'
+      + '<div style="display:flex;gap:8px;align-items:baseline"><span style="font-size:9px;color:#6B7280;width:80px">Méthode</span><span style="font-size:10px;background:#DCFCE7;border:1px solid #86EFAC;border-radius:4px;padding:1px 6px;color:#166534;font-weight:700">' + methodLabel + '</span></div>'
+      + '</div>';
+  }).join('');
+
+  // Injecter dans le rapport HTML original
+  var baseHtml = req.report_html || '';
+  var consolidatedHtml = baseHtml.replace(
+    /<\/body>/,
+    '<div style="page-break-before:auto;margin-top:24px">'
+    + '<div style="font-size:11px;font-weight:900;color:#1E3A5F;letter-spacing:1.5px;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #1E3A5F">DOCUMENT MULTI-SIGNATAIRES CONSOLIDÉ · ' + items.length + ' SIGNATURE(S)</div>'
+    + allStamps
+    + '</div></body>'
+  );
+
+  // Uploader dans le storage
+  var consolidatedNum = 'CONSOL-' + req.report_num + '-' + now.getFullYear() + pad(now.getMonth()+1) + pad(now.getDate());
+  var path   = req.org_id + '/consolidated/' + consolidatedNum + '.html';
+  var blob   = new Blob([consolidatedHtml], { type: 'text/html;charset=utf-8' });
+  var upRes  = await sb.storage.from('rapport-archives').upload(path, blob, { upsert: true });
+
+  var fileUrl = null;
+  if (!upRes.error) {
+    var signed = await sb.storage.from('rapport-archives').createSignedUrl(path, 60*60*24*365);
+    if (!signed.error) fileUrl = signed.data.signedUrl;
+  }
+
+  // Archiver le document consolidé comme entrée fille
+  await sb.from('report_archive').insert({
+    org_id       : req.org_id,
+    report_num   : consolidatedNum,
+    report_type  : req.report_type,
+    label        : req.report_type + ' — Document consolidé multi-signataires',
+    source       : 'safetysphere',
+    file_url     : fileUrl,
+    sig_status   : 'signed_all',
+    parent_id    : req.archive_id,
+    generated_at : now.toISOString(),
+  });
+
+  // Mettre à jour l'archive parent
+  await sb.from('report_archive').update({
+    signed_file_url: fileUrl,
+    sig_status     : 'signed_all',
+  }).eq('id', req.archive_id);
+}
+
+// ── Admin — Config workflow par type de doc ───────────────────────────────────
+async function renderAdminWorkflowConfig() {
+  var ctn = document.getElementById('adminWorkflowConfigPanel');
+  if (!ctn) return;
+  ctn.innerHTML = '<div style="font-size:12px;color:var(--muted)">Chargement...</div>';
+
+  await loadWorkflowConfig();
+
+  var docTypes = ['DUER', 'VGP', 'FDS', 'PDP', 'Autre'];
+  var html = '<div style="margin-bottom:16px"><div class="section-title" style="margin:0 0 4px">Workflow de signature par type de document</div>'
+    + '<div style="font-size:12px;color:var(--muted)">Définit si les signataires reçoivent la demande en même temps (parallèle) ou dans l\'ordre défini (séquentiel).</div></div>';
+
+  html += '<div style="display:flex;flex-direction:column;gap:10px">'
+    + docTypes.map(function(dt) {
+        var mode = _workflowConfig[dt] || 'parallel';
+        return '<div style="display:flex;align-items:center;gap:16px;background:var(--inset-bg);border:1px solid var(--inset-border);border-radius:12px;padding:12px 16px">'
+          + '<div style="flex:1"><div style="font-size:13px;font-weight:700">' + dt + '</div>'
+          + '<div style="font-size:11px;color:var(--muted)">' + (mode === 'sequential' ? '🔗 Séquentiel — chaque signataire attend le précédent' : '⚡ Parallèle — tous notifiés simultanément') + '</div></div>'
+          + '<select onchange="saveWorkflowMode(\'' + dt + '\',this.value)" style="background:var(--input-bg);border:1px solid var(--inset-border);border-radius:8px;color:var(--white);padding:6px 10px;font-size:12px">'
+          + '<option value="parallel"' + (mode==='parallel'?' selected':'') + '>⚡ Parallèle</option>'
+          + '<option value="sequential"' + (mode==='sequential'?' selected':'') + '>🔗 Séquentiel</option>'
+          + '</select></div>';
+      }).join('')
+    + '</div>';
+
+  ctn.innerHTML = html;
+}
+
+async function saveWorkflowMode(docType, mode) {
+  var r = await sb.from('doc_workflow_config').upsert({ doc_type: docType, mode: mode }, { onConflict: 'doc_type' });
+  if (r.error) { showToast('Erreur : ' + r.error.message, 'error'); return; }
+  _workflowConfig[docType] = mode;
+  showToast('✓ ' + docType + ' → mode ' + mode, 'success');
+  renderAdminWorkflowConfig();
+}
+
+// ── Hook au chargement de la page pour détecter token public ─────────────────
+if (typeof window !== 'undefined') {
+  window.addEventListener('DOMContentLoaded', function() {
+    checkPublicSignatureToken();
+    loadWorkflowConfig();
+  });
+}
+
+
+
+// ── Demandes de signature entrantes (section Documents reçus) ────────────────
+async function renderIncomingSignatureRequests(containerId, email) {
+  var ctn = document.getElementById(containerId);
+  if (!ctn) return;
+
+  // Chercher les items en attente pour cet email
+  var res = await sb.from('signature_request_items')
+    .select('*, signature_requests(report_num, report_type, workflow_mode, total_signers, signed_count, org_id, created_by, created_at)')
+    .eq('signer_email', email)
+    .eq('status', 'pending')
+    .order('id', { ascending: false });
+
+  var items = res.data || [];
+  if (!items.length) { ctn.innerHTML = ''; return; }
+
+  var html = '<div style="margin-bottom:24px">'
+    + '<div style="font-size:11px;font-weight:900;color:#F97316;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;display:flex;align-items:center;gap:8px">'
+    + '<span style="background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.3);border-radius:6px;padding:2px 8px">✍️ Demandes de signature en attente (' + items.length + ')</span></div>';
+
+  items.forEach(function(item) {
+    var req = item.signature_requests || {};
+    var genDate = req.created_at ? new Date(req.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+    var modeLabel = req.workflow_mode === 'sequential' ? '🔗 Séquentiel' : '⚡ Parallèle';
+    var progress = req.signed_count + '/' + req.total_signers;
+    var sigUrl = window.location.pathname + '?sign=' + item.token;
+
+    html += '<div class="archive-card" style="margin-bottom:10px;border-color:rgba(249,115,22,.3)">'
+      + '<div style="font-size:28px;flex-shrink:0">' + (req.report_type === 'DUER' ? '📋' : req.report_type === 'VGP' ? '🔧' : '📄') + '</div>'
+      + '<div class="archive-meta">'
+      + '<div class="archive-ref">' + escapeHtml(req.report_num || '—') + '</div>'
+      + '<div class="archive-title">Votre signature est requise · ' + escapeHtml(req.report_type || '—') + '</div>'
+      + '<div class="archive-sub">Reçu le ' + genDate + ' · ' + modeLabel + ' · Progression : ' + progress + '</div>'
+      + '<div class="archive-sub">Votre rôle : <strong>' + escapeHtml(item.signer_role || '—') + '</strong></div>'
+      + '</div>'
+      + '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">'
+      + '<a href="' + escapeHtml(sigUrl) + '" style="display:inline-flex;align-items:center;gap:6px;background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.3);color:#FDBA74;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;text-decoration:none;cursor:pointer">✍️ Signer maintenant</a>'
+      + '<button onclick="ignoreSigRequest(\'' + item.id + '\',\'' + escapeHtml(containerId) + '\',\'' + escapeHtml(email) + '\')" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;text-decoration:underline">Ignorer</button>'
+      + '</div>'
+      + '</div>';
+  });
+
+  html += '</div>';
+  ctn.innerHTML = html;
+}
+
+async function ignoreSigRequest(itemId, containerId, email) {
+  if (!confirm('Ignorer cette demande de signature ? Vous pourrez la retrouver via le lien dans votre email.')) return;
+  // On ne change pas le status, juste on masque localement
+  var ctn = document.getElementById(containerId);
+  if (ctn) {
+    var cards = ctn.querySelectorAll('.archive-card');
+    // Re-render sans cet item
+    await renderIncomingSignatureRequests(containerId, email);
+  }
+}
+
+
+// ── Fermer modale envoi pour signature ──────────────────────────────────────
+function closeSendForSignatureModal() {
+  document.getElementById('sigReqModal').classList.remove('open');
+  _sigReqContext  = null;
+  _sigReqSigners  = [];
+}
+
+// ── Retirer un signataire de la liste ────────────────────────────────────────
+function removeSigner(idx) {
+  _sigReqSigners.splice(idx, 1);
+  renderSignersList();
+}
+
+// ── Ajouter un signataire depuis le formulaire manuel ────────────────────────
+function addSignerFromForm() {
+  var name  = (document.getElementById('sigReqName').value  || '').trim();
+  var email = (document.getElementById('sigReqEmail').value || '').trim();
+  var role  = (document.getElementById('sigReqRole').value  || '').trim() || 'Signataire';
+  if (!name || !email) { showToast('Nom et email requis', 'error'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Email invalide', 'error'); return; }
+  if (_sigReqSigners.find(function(s) { return s.email === email; })) { showToast('Email déjà ajouté', 'error'); return; }
+  _sigReqSigners.push({ name: name, email: email, role: role });
+  document.getElementById('sigReqName').value  = '';
+  document.getElementById('sigReqEmail').value = '';
+  document.getElementById('sigReqRole').value  = '';
+  renderSignersList();
+}
+
+// ── Charger les membres de l'organisation ────────────────────────────────────
+async function loadOrgMembersForSigReq() {
+  var result = await sb.from('profiles').select('full_name, email, role').eq('org_id', currentProfile.org_id);
+  var members = result.data || [];
+  var sel = document.getElementById('sigReqOrgMemberSelect');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- Choisir un membre --</option>'
+    + members.filter(function(m) { return m.email !== currentProfile.email; })
+      .map(function(m) {
+        return '<option value="' + escapeHtml(m.email) + '" data-name="' + escapeHtml(m.full_name || m.email) + '" data-role="' + escapeHtml(m.role) + '">'
+          + escapeHtml(m.full_name || m.email) + ' (' + escapeHtml(m.role) + ')</option>';
+      }).join('');
+}
+
+// ── Ajouter un membre depuis la liste déroulante org ─────────────────────────
+function addSignerFromSelect() {
+  var sel = document.getElementById('sigReqOrgMemberSelect');
+  var opt = sel ? sel.options[sel.selectedIndex] : null;
+  if (!opt || !opt.value) return;
+  var email = opt.value;
+  var name  = opt.getAttribute('data-name') || email;
+  var role  = opt.getAttribute('data-role') || 'Membre';
+  if (_sigReqSigners.find(function(s) { return s.email === email; })) { showToast('Déjà dans la liste', 'error'); return; }
+  _sigReqSigners.push({ name: name, email: email, role: role });
+  sel.selectedIndex = 0;
+  renderSignersList();
+}
+
+// ── Badge statut signature pour l'historique ──────────────────────────────────
+function sigStatusBadge(archive) {
+  var status = archive.sig_status;
+  if (!status || status === 'none') return '';
+  if (status === 'pending') {
+    var total  = archive.sig_total  || '?';
+    var signed = archive.sig_signed || 0;
+    return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px;background:rgba(245,158,11,.12);color:#FCD34D;border:1px solid rgba(245,158,11,.25)">⏳ En attente (' + signed + '/' + total + ')</span>';
+  }
+  if (status === 'signed_digital') {
+    return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px;background:rgba(34,197,94,.12);color:#86EFAC;border:1px solid rgba(34,197,94,.25)">✅ Signé numériquement</span>';
+  }
+  if (status === 'signed_manual') {
+    return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px;background:rgba(99,102,241,.12);color:#A5B4FC;border:1px solid rgba(99,102,241,.25)">🖊️ Signé manuscrit</span>';
+  }
+  if (status === 'signed_all') {
+    return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px;background:rgba(34,197,94,.15);color:#4ADE80;border:1px solid rgba(34,197,94,.3)">✅ Tous signataires confirmés</span>';
+  }
+  if (status === 'refused') {
+    return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px;background:rgba(239,68,68,.12);color:#FCA5A5;border:1px solid rgba(239,68,68,.25)">❌ Refusé</span>';
+  }
+  return '';
+}
+
+// ── Modale upload scan signé (rattacher à un rapport existant) ────────────────
+var _uploadScanArchiveId = null;
+var _uploadScanFile      = null;
+
+function openUploadSignedScanModal(archiveId, reportNum) {
+  _uploadScanArchiveId = archiveId;
+  _uploadScanFile = null;
+  document.getElementById('uploadScanModalTitle').textContent = 'Scanner signé — ' + (reportNum || '');
+  document.getElementById('uploadScanFilePreview').textContent = '';
+  document.getElementById('uploadScanFileInput').value = '';
+  document.getElementById('uploadScanBtn').disabled = true;
+  document.getElementById('uploadScanModal').classList.add('open');
+}
+
+function closeUploadScanModal() {
+  document.getElementById('uploadScanModal').classList.remove('open');
+  _uploadScanArchiveId = null;
+  _uploadScanFile = null;
+}
+
+function onUploadScanFileChange(input) {
+  _uploadScanFile = input.files[0] || null;
+  document.getElementById('uploadScanFilePreview').textContent = _uploadScanFile ? '✓ ' + _uploadScanFile.name : '';
+  document.getElementById('uploadScanBtn').disabled = !_uploadScanFile;
+}
+
+async function submitUploadScan() {
+  if (!_uploadScanFile || !_uploadScanArchiveId) return;
+  var btn = document.getElementById('uploadScanBtn');
+  btn.disabled = true; btn.textContent = '⏳ Téléversement...';
+
+  var pad  = function(n){ return String(n).padStart(2,'0'); };
+  var now  = new Date();
+  var sigId = 'SIG-SCAN-' + now.getFullYear() + pad(now.getMonth()+1) + pad(now.getDate())
+            + '-' + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+  var path = currentProfile.org_id + '/scans/' + sigId + '-' + _uploadScanFile.name;
+
+  var upRes = await sb.storage.from('rapport-archives').upload(path, _uploadScanFile, { upsert: true });
+  if (upRes.error) {
+    showToast('Erreur upload : ' + upRes.error.message, 'error');
+    btn.disabled = false; btn.textContent = '📤 Archiver le scan signé';
+    return;
+  }
+
+  var signed = await sb.storage.from('rapport-archives').createSignedUrl(path, 60 * 60 * 24 * 365);
+  var fileUrl = signed.data ? signed.data.signedUrl : null;
+
+  await sb.from('report_archive').update({
+    signed_file_url: fileUrl,
+    sig_status     : 'signed_manual',
+  }).eq('id', _uploadScanArchiveId);
+
+  await sb.from('report_archive').insert({
+    org_id      : currentProfile.org_id,
+    created_by  : currentUser.id,
+    responsable : currentProfile.full_name || currentProfile.email,
+    email       : currentProfile.email || '',
+    report_num  : sigId,
+    report_type : 'SCAN',
+    label       : 'Scan signé — rattaché à ' + _uploadScanArchiveId,
+    source      : 'manuscrit',
+    file_url    : fileUrl,
+    parent_id   : _uploadScanArchiveId,
+    generated_at: now.toISOString(),
+  });
+
+  btn.disabled = false; btn.textContent = '📤 Archiver le scan signé';
+  closeUploadScanModal();
+  showToast('✓ Scan signé archivé et rattaché', 'success');
+  if (typeof renderHistoriqueSection === 'function') renderHistoriqueSection(_conformRole);
+}
+
+var _lastArchivedId = null;
 
 </script>
 </div>
