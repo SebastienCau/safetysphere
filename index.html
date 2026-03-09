@@ -1097,6 +1097,7 @@
     <button class="nav-tab" onclick="switchPage('Company','subcontractors',this)">🤝 Sous-Traitants <span id="stInviteBadge" class="notif-badge" style="display:none">!</span></button>
     <button class="nav-tab" onclick="switchPage('Company','received',this)">📂 Documents reçus</button>
     <button class="nav-tab" onclick="switchPage('Company','conformite',this);loadConformite('Company')">📋 Conformité</button>
+    <button class="nav-tab" onclick="switchPage('Company','analytics',this);loadRoleAnalytics('Company')">📈 Analytics</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="Company-overview">
@@ -1167,6 +1168,11 @@
       <div id="Company-receivedContainer-sigreq"></div>
       <div id="Company-receivedContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
+    <div class="page-section" id="Company-analytics">
+      <div class="dash-welcome">Analytics <em>Entreprise</em></div>
+      <div class="dash-subtitle">KPI stratégiques de votre activité sous-traitante</div>
+      <div id="role-analytics-Company" style="margin-top:8px"></div>
+    </div>
   </div>
 </div>
 
@@ -1186,6 +1192,7 @@
     <button class="nav-tab" onclick="switchPage('Subcontractor','eu',this);loadSTEU()">🏭 Mes EU</button>
     <button class="nav-tab" onclick="switchPage('Subcontractor','docs',this)">📄 Mes Documents</button>
     <button class="nav-tab" onclick="switchPage('Subcontractor','received',this)">📂 Documents reçus</button>
+    <button class="nav-tab" onclick="switchPage('Subcontractor','analytics',this);loadRoleAnalytics('Subcontractor')">📈 Analytics</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="Subcontractor-overview">
@@ -1237,6 +1244,11 @@
       <div id="Subcontractor-receivedContainer-sigreq"></div>
       <div id="Subcontractor-receivedContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
+    <div class="page-section" id="Subcontractor-analytics">
+      <div class="dash-welcome">Analytics <em>Sous-Traitant</em></div>
+      <div class="dash-subtitle">KPI stratégiques — activité, conformité et partenariats</div>
+      <div id="role-analytics-Subcontractor" style="margin-top:8px"></div>
+    </div>
   </div>
 </div>
 
@@ -1255,6 +1267,7 @@
     <button class="nav-tab" onclick="switchPage('HSE','contractors',this)">🤝 Sous-traitants <span id="hseSTBadge" class="notif-badge" style="display:none">!</span></button>
     <button class="nav-tab" onclick="switchPage('HSE','received',this)">📂 Documents reçus</button>
     <button class="nav-tab" onclick="switchPage('HSE','conformite',this);loadConformite('HSE')">📋 Conformité</button>
+    <button class="nav-tab" onclick="switchPage('HSE','analytics',this);loadRoleAnalytics('HSE')">📈 Analytics</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="HSE-overview">
@@ -1327,6 +1340,11 @@
       <div id="HSE-receivedContainer-sigreq"></div>
       <div id="HSE-receivedContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
+    <div class="page-section" id="HSE-analytics">
+      <div class="dash-welcome">Analytics <em>HSE</em></div>
+      <div class="dash-subtitle">KPI stratégiques — conformité, risques et sous-traitants</div>
+      <div id="role-analytics-HSE" style="margin-top:8px"></div>
+    </div>
   </div>
 </div>
 
@@ -1345,6 +1363,7 @@
     <button class="nav-tab" onclick="switchPage('Trainer','requests',this)">📋 Demandes de validation <span id="trainerPendingBadge" class="notif-badge" style="display:none">!</span></button>
     <button class="nav-tab" onclick="switchPage('Trainer','validated',this)">✅ Historique</button>
     <button class="nav-tab" onclick="switchPage('Trainer','received',this)">📂 Documents reçus</button>
+    <button class="nav-tab" onclick="switchPage('Trainer','analytics',this);loadRoleAnalytics('Trainer')">📈 Analytics</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="Trainer-overview">
@@ -1389,6 +1408,11 @@
       <div class="dash-subtitle">Documents partagés avec vous par des intervenants</div>
       <div id="Trainer-receivedContainer-sigreq"></div>
       <div id="Trainer-receivedContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
+    </div>
+    <div class="page-section" id="Trainer-analytics">
+      <div class="dash-welcome">Analytics <em>Centre de Formation</em></div>
+      <div class="dash-subtitle">KPI pédagogiques — formations, validations et stagiaires</div>
+      <div id="role-analytics-Trainer" style="margin-top:8px"></div>
     </div>
   </div>
 </div>
@@ -5148,6 +5172,586 @@ async function saveOrgProfile(orgId, dash, isTrainer) {
 // ══════════════════════════════════════════════════════
 // ADMIN ANALYTICS — KPI globaux, par org, par user
 // ══════════════════════════════════════════════════════
+
+
+// ══════════════════════════════════════════════════════
+// ROLE ANALYTICS — Company / Subcontractor / HSE / Trainer
+// ══════════════════════════════════════════════════════
+
+var _roleAnalyticsState = {};  // { role: { range, from, to, data } }
+
+function loadRoleAnalytics(role) {
+  var containerId = 'role-analytics-' + role;
+  var ctn = document.getElementById(containerId);
+  if (!ctn) return;
+  var state = _roleAnalyticsState[role] || { range: 'month' };
+  _roleAnalyticsState[role] = state;
+
+  // Render toolbar
+  ctn.innerHTML = _buildRoleAnalyticsToolbar(role, state.range)
+    + '<div id="ra-kpis-' + role + '" class="analytics-kpi-grid" style="margin-top:16px">'
+    + '<div class="analytics-kpi-skeleton"></div><div class="analytics-kpi-skeleton"></div>'
+    + '<div class="analytics-kpi-skeleton"></div><div class="analytics-kpi-skeleton"></div>'
+    + '<div class="analytics-kpi-skeleton"></div><div class="analytics-kpi-skeleton"></div>'
+    + '</div>'
+    + '<div id="ra-charts-' + role + '"></div>'
+    + '<div id="ra-tables-' + role + '"></div>';
+
+  _loadRoleAnalyticsData(role);
+}
+
+function _buildRoleAnalyticsToolbar(role, activeRange) {
+  var ranges = [
+    { key:'month',   label:'Ce mois' },
+    { key:'quarter', label:'Trimestre' },
+    { key:'year',    label:'Année' },
+    { key:'custom',  label:'Plage libre' },
+  ];
+  var pills = ranges.map(function(r) {
+    return '<button class="a-pill' + (r.key === activeRange ? ' active' : '')
+      + '" onclick="setRoleAnalyticsRange(\'' + role + '\',\'' + r.key + '\',this)">' + r.label + '</button>';
+  }).join('');
+
+  var today = new Date();
+  var lastM = new Date(); lastM.setMonth(lastM.getMonth()-1);
+  var todayStr = today.toISOString().slice(0,10);
+  var lastMStr = lastM.toISOString().slice(0,10);
+
+  return '<div class="analytics-toolbar">'
+    + '<div class="analytics-range-pills">' + pills + '</div>'
+    + '<div id="ra-custom-' + role + '" class="analytics-custom-range" style="display:none">'
+    + '<input type="date" class="form-input" id="ra-from-' + role + '" value="' + lastMStr + '" style="width:150px;font-size:12px;padding:7px 10px">'
+    + '<span style="color:var(--muted);font-size:13px">→</span>'
+    + '<input type="date" class="form-input" id="ra-to-' + role + '" value="' + todayStr + '" style="width:150px;font-size:12px;padding:7px 10px">'
+    + '<button class="btn-sm btn-validate" style="font-size:12px;padding:6px 14px" onclick="_loadRoleAnalyticsData(\'' + role + '\')">Appliquer</button>'
+    + '</div>'
+    + '<div id="ra-label-' + role + '" style="font-size:12px;color:var(--muted);margin-left:auto"></div>'
+    + '</div>';
+}
+
+function setRoleAnalyticsRange(role, range, btn) {
+  var state = _roleAnalyticsState[role] || {};
+  state.range = range;
+  _roleAnalyticsState[role] = state;
+  var toolbar = document.getElementById('role-analytics-' + role)?.querySelector('.analytics-toolbar');
+  if (toolbar) toolbar.querySelectorAll('.a-pill').forEach(function(b){ b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  var customDiv = document.getElementById('ra-custom-' + role);
+  if (customDiv) customDiv.style.display = range === 'custom' ? 'flex' : 'none';
+  if (range !== 'custom') _loadRoleAnalyticsData(role);
+}
+
+function _roleAnalyticsWindow(role) {
+  var state = _roleAnalyticsState[role] || { range: 'month' };
+  var range = state.range;
+  var to   = new Date();
+  var from = new Date();
+  if (range === 'month')   { from.setDate(1); from.setHours(0,0,0,0); }
+  else if (range === 'quarter') { from.setMonth(from.getMonth()-3); from.setHours(0,0,0,0); }
+  else if (range === 'year')    { from.setFullYear(from.getFullYear()-1); from.setHours(0,0,0,0); }
+  else if (range === 'custom') {
+    var fEl = document.getElementById('ra-from-' + role);
+    var tEl = document.getElementById('ra-to-' + role);
+    if (fEl?.value) from = new Date(fEl.value);
+    if (tEl?.value) to   = new Date(tEl.value + 'T23:59:59');
+  }
+  return { from: from.toISOString(), to: to.toISOString() };
+}
+
+async function _loadRoleAnalyticsData(role) {
+  var win = _roleAnalyticsWindow(role);
+  var lbl = document.getElementById('ra-label-' + role);
+  if (lbl) {
+    var fmt = function(d){ return new Date(d).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}); };
+    lbl.textContent = fmt(win.from) + ' → ' + fmt(win.to);
+  }
+  function inWin(ts) { return ts && ts >= win.from && ts <= win.to; }
+
+  var orgId = currentProfile?.org_id;
+  var userId = currentUser?.id;
+  if (!orgId) return;
+
+  if (role === 'Company') {
+    await _renderCompanyAnalytics(orgId, userId, win, inWin);
+  } else if (role === 'Subcontractor') {
+    await _renderSubcontractorAnalytics(orgId, userId, win, inWin);
+  } else if (role === 'HSE') {
+    await _renderHSEAnalytics(orgId, userId, win, inWin);
+  } else if (role === 'Trainer') {
+    await _renderTrainerAnalytics(orgId, userId, win, inWin);
+  }
+}
+
+// ─────────────────────────────────────────────────────
+// COMPANY (Entreprise Sous-Traitante) KPI
+// Focus : gestion RH, conformité docs, sous-traitance
+// ─────────────────────────────────────────────────────
+async function _renderCompanyAnalytics(orgId, userId, win, inWin) {
+  var role = 'Company';
+  var [rWorkers, rDocs, rOrgDocs, rReports, rSigReqs, rSTs, rDuer, rVgp, rPdp] = await Promise.all([
+    sb.from('profiles').select('id, full_name, role, created_at').eq('org_id', orgId),
+    sb.from('documents').select('id, owner_id, status, doc_type, expires_at, category, created_at').in('owner_id',
+      (await sb.from('profiles').select('id').eq('org_id', orgId)).data?.map(function(p){ return p.id; }) || [userId]),
+    sb.from('documents').select('id, status, doc_type, expires_at, created_at').eq('owner_id', userId).eq('category','company'),
+    sb.from('report_archive').select('id, report_type, generated_at, sig_status, signed_file_url').eq('org_id', orgId),
+    sb.from('signature_requests').select('id, status, total_signers, signed_count, report_type, created_at').eq('org_id', orgId),
+    sb.from('org_relationships').select('id, eu_org_id, created_at').eq('st_org_id', orgId),
+    sb.from('duer_entries').select('id, created_at, updated_at').eq('org_id', orgId),
+    sb.from('registre_vgp').select('id, equipement, derniere_verification').eq('org_id', orgId),
+    sb.from('pdp_entries').select('id, date_debut, date_fin, created_at').eq('org_id', orgId),
+  ]);
+
+  var workers   = rWorkers.data || [];
+  var docs      = rDocs.data || [];
+  var orgDocs   = rOrgDocs.data || [];
+  var reports   = rReports.data || [];
+  var sigReqs   = rSigReqs.data || [];
+  var eus       = rSTs.data || [];
+  var duers     = rDuer.data || [];
+  var vgps      = rVgp.data || [];
+  var pdps      = rPdp.data || [];
+
+  var workerProfiles = workers.filter(function(p){ return p.role === 'worker'; });
+  var workerIds      = workerProfiles.map(function(p){ return p.id; });
+  var workerDocs     = docs.filter(function(d){ return workerIds.includes(d.owner_id); });
+
+  // KPI métier
+  var nbWorkers      = workerProfiles.length;
+  var newWorkers     = workerProfiles.filter(function(p){ return inWin(p.created_at); }).length;
+  var docsOk         = workerDocs.filter(function(d){ return d.status === 'validated'; }).length;
+  var docsPending    = workerDocs.filter(function(d){ return d.status === 'pending'; }).length;
+  var docsTotal      = workerDocs.length;
+  var habRate        = docsTotal > 0 ? Math.round(docsOk / docsTotal * 100) : 0;
+  var soon30         = new Date(); soon30.setDate(soon30.getDate()+30);
+  var expirations    = workerDocs.filter(function(d){ return d.expires_at && new Date(d.expires_at) < soon30 && new Date(d.expires_at) > new Date(); }).length;
+  var orgDocsOk      = orgDocs.filter(function(d){ return d.status==='validated'; }).length;
+  var orgDocsTotal   = orgDocs.length;
+  var orgConformRate = orgDocsTotal > 0 ? Math.round(orgDocsOk/orgDocsTotal*100) : 0;
+  var newReports     = reports.filter(function(r){ return inWin(r.generated_at); }).length;
+  var pdpsActive     = pdps.filter(function(p){ var t=new Date(); return p.date_debut&&p.date_fin&&new Date(p.date_debut)<=t&&new Date(p.date_fin)>=t; }).length;
+  var newEUs         = eus.filter(function(r){ return inWin(r.created_at); }).length;
+  var sigsPending    = sigReqs.filter(function(s){ return s.status==='pending'; }).length;
+
+  var kpis = [
+    { icon:'👷', label:'Intervenants',       value: nbWorkers,      sub: '+'+newWorkers+' sur la période',      color:'#6366F1', trend: newWorkers },
+    { icon:'✅', label:'Taux d\'habilitation', value: habRate+'%',   sub: docsOk+' docs validés / '+docsTotal,  color: habRate>=80?'#22C55E':habRate>=50?'#F59E0B':'#EF4444', trend: 0, noTrend:true },
+    { icon:'⏳', label:'Docs en attente',     value: docsPending,    sub: 'À valider par vos gestionnaires',     color:'#F59E0B', trend: -docsPending },
+    { icon:'⚠️', label:'Expirations <30j',   value: expirations,    sub: 'Habilitations à renouveler',          color: expirations>0?'#EF4444':'#22C55E', trend: -expirations },
+    { icon:'🏭', label:'EU partenaires',      value: eus.length,     sub: '+'+newEUs+' rattachements',           color:'#A855F7', trend: newEUs },
+    { icon:'📊', label:'Rapports générés',    value: reports.length, sub: '+'+newReports+' sur la période',      color:'#F97316', trend: newReports },
+    { icon:'📋', label:'PdP actifs',          value: pdpsActive,     sub: pdps.length+' plans au total',         color:'#3B82F6', trend: 0, noTrend:true },
+    { icon:'📄', label:'Conformité société',  value: orgConformRate+'%', sub: orgDocsOk+'/'+orgDocsTotal+' docs valides', color: orgConformRate>=80?'#22C55E':orgConformRate>=50?'#F59E0B':'#EF4444', trend:0, noTrend:true },
+    { icon:'✍️', label:'Signatures en cours', value: sigsPending,    sub: sigReqs.length+' demandes totales',    color:'#06B6D4', trend: 0, noTrend:true },
+  ];
+
+  _renderRoleKpiGrid(role, kpis);
+  _renderRoleActivityChart(role, [
+    { label:'Docs', items: workerDocs, tsField:'created_at', color:'#6366F1' },
+    { label:'Rapports', items: reports, tsField:'generated_at', color:'#F97316' },
+  ], win);
+  _renderRoleWorkerTable(role, workerProfiles, workerDocs);
+}
+
+// ─────────────────────────────────────────────────────
+// SOUS-TRAITANT KPI
+// Focus : EUs partenaires, RH intervenants, missions
+// ─────────────────────────────────────────────────────
+async function _renderSubcontractorAnalytics(orgId, userId, win, inWin) {
+  var role = 'Subcontractor';
+  var workerIdsRes = await sb.from('profiles').select('id, full_name, role, created_at').eq('org_id', orgId);
+  var allProfiles  = workerIdsRes.data || [];
+  var workers      = allProfiles.filter(function(p){ return p.role === 'worker'; });
+  var wIds         = workers.map(function(p){ return p.id; });
+
+  var [rDocs, rOrgDocs, rReports, rEUs, rSigReqs, rPdp, rInvites] = await Promise.all([
+    wIds.length ? sb.from('documents').select('id, owner_id, status, doc_type, expires_at, category, created_at').in('owner_id', wIds) : Promise.resolve({data:[]}),
+    sb.from('documents').select('id, status, doc_type, expires_at, category, created_at').eq('owner_id', userId).eq('category','company'),
+    sb.from('report_archive').select('id, report_type, generated_at, sig_status').eq('org_id', orgId),
+    sb.from('org_relationships').select('id, eu_org_id, created_at').eq('st_org_id', orgId),
+    sb.from('signature_requests').select('id, status, total_signers, signed_count, created_at').eq('org_id', orgId),
+    sb.from('pdp_entries').select('id, date_debut, date_fin, eu_nom, created_at').eq('org_id', orgId),
+    sb.from('worker_invites').select('id, created_at').eq('org_id', orgId),
+  ]);
+
+  var docs       = rDocs.data || [];
+  var orgDocs    = rOrgDocs.data || [];
+  var reports    = rReports.data || [];
+  var eus        = rEUs.data || [];
+  var sigReqs    = rSigReqs.data || [];
+  var pdps       = rPdp.data || [];
+  var invites    = rInvites.data || [];
+
+  var docsOk      = docs.filter(function(d){ return d.status==='validated'; }).length;
+  var docsTotal   = docs.length;
+  var habRate     = docsTotal > 0 ? Math.round(docsOk/docsTotal*100) : 0;
+  var soon30      = new Date(); soon30.setDate(soon30.getDate()+30);
+  var expiring    = docs.filter(function(d){ return d.expires_at && new Date(d.expires_at)<soon30 && new Date(d.expires_at)>new Date(); }).length;
+  var newWorkers  = workers.filter(function(p){ return inWin(p.created_at); }).length;
+  var newEUs      = eus.filter(function(r){ return inWin(r.created_at); }).length;
+  var newReports  = reports.filter(function(r){ return inWin(r.generated_at); }).length;
+  var pdpsActive  = pdps.filter(function(p){ var t=new Date(); return p.date_debut&&p.date_fin&&new Date(p.date_debut)<=t&&new Date(p.date_fin)>=t; }).length;
+  var orgDocsOk   = orgDocs.filter(function(d){ return d.status==='validated'; }).length;
+  var orgRate     = orgDocs.length > 0 ? Math.round(orgDocsOk/orgDocs.length*100) : 0;
+  var newInvites  = invites.filter(function(i){ return inWin(i.created_at); }).length;
+
+  var kpis = [
+    { icon:'🏭', label:'EU partenaires',       value: eus.length,     sub: '+'+newEUs+' nouveaux',                color:'#A855F7', trend: newEUs },
+    { icon:'👷', label:'Intervenants actifs',   value: workers.length, sub: '+'+newWorkers+' recrutés',            color:'#6366F1', trend: newWorkers },
+    { icon:'✅', label:'Taux d\'habilitation',  value: habRate+'%',    sub: docsOk+'/'+docsTotal+' valides',       color: habRate>=80?'#22C55E':habRate>=50?'#F59E0B':'#EF4444', trend:0, noTrend:true },
+    { icon:'⚠️', label:'Expirations <30j',     value: expiring,       sub: 'Habilitations à renouveler',          color: expiring>0?'#EF4444':'#22C55E', trend:-expiring },
+    { icon:'📊', label:'Rapports générés',      value: reports.length, sub: '+'+newReports+' sur la période',      color:'#F97316', trend: newReports },
+    { icon:'📋', label:'PdP en cours',          value: pdpsActive,     sub: pdps.length+' plans au total',         color:'#3B82F6', trend:0, noTrend:true },
+    { icon:'📄', label:'Docs société',          value: orgRate+'%',    sub: orgDocsOk+'/'+orgDocs.length+' valides', color: orgRate>=80?'#22C55E':orgRate>=50?'#F59E0B':'#EF4444', trend:0, noTrend:true },
+    { icon:'📩', label:'Invitations envoyées',  value: invites.length, sub: '+'+newInvites+' sur la période',      color:'#06B6D4', trend: newInvites },
+    { icon:'✍️', label:'Demandes signature',    value: sigReqs.length, sub: sigReqs.filter(function(s){return s.status==='pending';}).length+' en attente', color:'#F59E0B', trend:0, noTrend:true },
+  ];
+
+  _renderRoleKpiGrid(role, kpis);
+  _renderRoleActivityChart(role, [
+    { label:'Habilitations', items: docs, tsField:'created_at', color:'#6366F1' },
+    { label:'Rapports', items: reports, tsField:'generated_at', color:'#F97316' },
+  ], win);
+  _renderRoleWorkerTable(role, workers, docs);
+}
+
+// ─────────────────────────────────────────────────────
+// HSE KPI
+// Focus : maîtrise risques, pilotage ST, conformité
+// ─────────────────────────────────────────────────────
+async function _renderHSEAnalytics(orgId, userId, win, inWin) {
+  var role = 'HSE';
+  var [rSTs, rStInvites, rReports, rSigReqs, rDuer, rVgp, rFds, rPdp] = await Promise.all([
+    sb.from('org_relationships').select('id, st_org_id, created_at').eq('eu_org_id', orgId),
+    sb.from('st_invites').select('id, created_at').eq('eu_org_id', orgId),
+    sb.from('report_archive').select('id, report_type, generated_at, sig_status').eq('org_id', orgId),
+    sb.from('signature_requests').select('id, status, total_signers, signed_count, report_type, created_at').eq('org_id', orgId),
+    sb.from('duer_entries').select('id, nb_unites, created_at, updated_at').eq('org_id', orgId),
+    sb.from('registre_vgp').select('id, equipement, derniere_verification, created_at').eq('org_id', orgId),
+    sb.from('fds_library').select('id, version_date, fds_url, created_at').eq('org_id', orgId),
+    sb.from('pdp_entries').select('id, date_debut, date_fin, travaux_dangereux, created_at').eq('org_id', orgId),
+  ]);
+
+  var sts        = rSTs.data || [];
+  var stInvites  = rStInvites.data || [];
+  var reports    = rReports.data || [];
+  var sigReqs    = rSigReqs.data || [];
+  var duers      = rDuer.data || [];
+  var vgps       = rVgp.data || [];
+  var fdsList    = rFds.data || [];
+  var pdps       = rPdp.data || [];
+
+  var newSTs       = sts.filter(function(r){ return inWin(r.created_at); }).length;
+  var newReports   = reports.filter(function(r){ return inWin(r.generated_at); }).length;
+  var sigsPending  = sigReqs.filter(function(s){ return s.status==='pending'; }).length;
+  var pdpsActive   = pdps.filter(function(p){ var t=new Date(); return p.date_debut&&p.date_fin&&new Date(p.date_debut)<=t&&new Date(p.date_fin)>=t; }).length;
+  var pdpsDangereux = pdps.filter(function(p){ return p.travaux_dangereux && JSON.parse(typeof p.travaux_dangereux==='string'?p.travaux_dangereux:'[]').length > 0; }).length;
+
+  // VGP : équipements en retard
+  var today = new Date();
+  var vgpRetard = 0;
+  try {
+    var VGP_PERIOS = { 'chariot_elevateur':12,'pont_roulant':12,'echafaudage':6,'nacelle':12,'extincteur':12,'installation_electrique':12,'appareil_levage':12,'compresseur':12,'machine_outil':12,'vehicule_utilitaire':12 };
+    vgpRetard = vgps.filter(function(v){
+      var p = VGP_PERIOS[v.equipement] || 12;
+      if (!v.derniere_verification) return true;
+      var next = new Date(v.derniere_verification); next.setMonth(next.getMonth()+p);
+      return next < today;
+    }).length;
+  } catch(e){}
+
+  // FDS : à renouveler (>3 ans)
+  var lim3 = new Date(); lim3.setFullYear(lim3.getFullYear()-3);
+  var fdsToRenew = fdsList.filter(function(f){ return f.version_date && new Date(f.version_date)<lim3; }).length;
+
+  // DUER : score risques critiques
+  var duerCritiques = 0;
+  try {
+    var duerRes = await sb.from('duer_entries').select('data').eq('org_id', orgId);
+    (duerRes.data||[]).forEach(function(d){
+      var entries = typeof d.data === 'string' ? JSON.parse(d.data) : (d.data||[]);
+      entries.forEach(function(e){ if (e.gravite*e.probabilite >= 16) duerCritiques++; });
+    });
+  } catch(e){}
+
+  var kpis = [
+    { icon:'🤝', label:'ST actifs',           value: sts.length,      sub: '+'+newSTs+' rattachements',          color:'#A855F7', trend: newSTs },
+    { icon:'📩', label:'Invitations ST',       value: stInvites.length,sub: 'En attente de réponse',             color:'#6366F1', trend: 0, noTrend:true },
+    { icon:'📋', label:'PdP en cours',         value: pdpsActive,      sub: pdps.length+' plans — '+pdpsDangereux+' travaux dangereux', color:'#3B82F6', trend:0, noTrend:true },
+    { icon:'🔴', label:'Risques critiques',    value: duerCritiques,   sub: 'DUER — Cotation ≥16',               color: duerCritiques>0?'#EF4444':'#22C55E', trend:-duerCritiques },
+    { icon:'🔧', label:'VGP en retard',        value: vgpRetard,       sub: vgps.length+' équipements suivis',    color: vgpRetard>0?'#EF4444':'#22C55E', trend:-vgpRetard },
+    { icon:'⚗️', label:'FDS à renouveler',    value: fdsToRenew,      sub: fdsList.length+' fiches gérées',      color: fdsToRenew>0?'#F59E0B':'#22C55E', trend:-fdsToRenew },
+    { icon:'📊', label:'Rapports générés',     value: reports.length,  sub: '+'+newReports+' sur la période',     color:'#F97316', trend: newReports },
+    { icon:'✍️', label:'Signatures en cours', value: sigsPending,     sub: sigReqs.length+' demandes totales',   color:'#06B6D4', trend:0, noTrend:true },
+  ];
+
+  _renderRoleKpiGrid(role, kpis);
+  _renderRoleActivityChart(role, [
+    { label:'Rapports', items: reports, tsField:'generated_at', color:'#F97316' },
+    { label:'PdP',      items: pdps,    tsField:'created_at',   color:'#3B82F6' },
+    { label:'FDS',      items: fdsList, tsField:'created_at',   color:'#A855F7' },
+  ], win);
+
+  // Tableau ST avec statut conformité
+  var stIds = sts.map(function(r){ return r.st_org_id; });
+  if (stIds.length > 0) {
+    var stOrgsRes = await sb.from('organizations').select('id, name, type').in('id', stIds);
+    var stOrgs    = stOrgsRes.data || [];
+    _renderHSEStTable(role, stOrgs, sts);
+  }
+}
+
+// ─────────────────────────────────────────────────────
+// TRAINER (Centre de Formation) KPI
+// Focus : volume formations, délais, taux succès
+// ─────────────────────────────────────────────────────
+async function _renderTrainerAnalytics(orgId, userId, win, inWin) {
+  var role = 'Trainer';
+  var [rPending, rValidated, rRejected, rAll] = await Promise.all([
+    sb.from('documents').select('id, doc_type, created_at, owner_id').eq('training_center_id', orgId).eq('center_status','pending'),
+    sb.from('documents').select('id, doc_type, created_at, expires_at, owner_id').eq('training_center_id', orgId).eq('center_status','validated'),
+    sb.from('documents').select('id, doc_type, created_at, owner_id').eq('training_center_id', orgId).eq('center_status','rejected'),
+    sb.from('documents').select('id, doc_type, created_at, expires_at, owner_id, center_status').eq('training_center_id', orgId),
+  ]);
+
+  var pending   = rPending.data   || [];
+  var validated = rValidated.data || [];
+  var rejected  = rRejected.data  || [];
+  var allDocs   = rAll.data       || [];
+
+  var total        = allDocs.length;
+  var newInPeriod  = allDocs.filter(function(d){ return inWin(d.created_at); }).length;
+  var validInPer   = validated.filter(function(d){ return inWin(d.created_at); }).length;
+  var successRate  = (validated.length + rejected.length) > 0
+    ? Math.round(validated.length / (validated.length + rejected.length) * 100) : 0;
+  var soon30       = new Date(); soon30.setDate(soon30.getDate()+30);
+  var expiringSoon = validated.filter(function(d){ return d.expires_at && new Date(d.expires_at)<soon30 && new Date(d.expires_at)>new Date(); }).length;
+
+  // Délai moyen de traitement (créé → validé) — approche: comparaison des timestamps
+  // On prend uniquement ceux de la période pour le delta moyen
+  var avgDelayDays = 0;
+  var delayCount   = 0;
+  validated.filter(function(d){ return inWin(d.created_at); }).forEach(function(d){
+    var delta = (new Date(d.expires_at || d.created_at) - new Date(d.created_at)) / 86400000;
+    if (delta > 0 && delta < 365) { avgDelayDays += delta; delayCount++; }
+  });
+  var avgDelay = delayCount > 0 ? Math.round(avgDelayDays / delayCount) : null;
+
+  // Stagiaires uniques
+  var uniqueWorkers = new Set(allDocs.map(function(d){ return d.owner_id; })).size;
+
+  // Répartition par type
+  var byType = {};
+  allDocs.forEach(function(d){ byType[d.doc_type||'autre'] = (byType[d.doc_type||'autre']||0)+1; });
+  var topTypes = Object.entries(byType).sort(function(a,b){ return b[1]-a[1]; }).slice(0,5);
+
+  var kpis = [
+    { icon:'👷', label:'Stagiaires suivis',    value: uniqueWorkers,   sub: 'Apprenants uniques',                  color:'#6366F1', trend: 0, noTrend:true },
+    { icon:'📋', label:'Formations totales',   value: total,           sub: '+'+newInPeriod+' sur la période',     color:'#A855F7', trend: newInPeriod },
+    { icon:'⏳', label:'En attente',           value: pending.length,  sub: 'Demandes à traiter',                  color: pending.length>10?'#EF4444':pending.length>3?'#F59E0B':'#22C55E', trend:-pending.length },
+    { icon:'✅', label:'Validées',             value: validated.length,sub: '+'+validInPer+' sur la période',      color:'#22C55E', trend: validInPer },
+    { icon:'❌', label:'Refusées',             value: rejected.length, sub: 'Non conformes',                       color:'#EF4444', trend: -rejected.length },
+    { icon:'🎯', label:'Taux de succès',       value: successRate+'%', sub: validated.length+'✓ / '+rejected.length+'✗', color: successRate>=80?'#22C55E':successRate>=60?'#F59E0B':'#EF4444', trend:0, noTrend:true },
+    { icon:'⏱', label:'Délai moyen',          value: avgDelay !== null ? avgDelay+'j' : '—', sub: 'Réception → validation', color:'#06B6D4', trend:0, noTrend:true },
+    { icon:'⚠️', label:'Expirations <30j',    value: expiringSoon,    sub: 'Habilitations à renouveler',          color: expiringSoon>0?'#F59E0B':'#22C55E', trend:-expiringSoon },
+  ];
+
+  _renderRoleKpiGrid(role, kpis);
+  _renderRoleActivityChart(role, [
+    { label:'Reçues',   items: allDocs,   tsField:'created_at', color:'#6366F1' },
+    { label:'Validées', items: validated, tsField:'created_at', color:'#22C55E' },
+    { label:'Refusées', items: rejected,  tsField:'created_at', color:'#EF4444' },
+  ], win);
+  _renderTrainerTypesTable(role, topTypes, byType, validated, rejected);
+}
+
+// ── Helpers communs ──────────────────────────────────
+
+function _renderRoleKpiGrid(role, kpis) {
+  var html = kpis.map(function(k) {
+    var trendHtml;
+    if (k.noTrend) {
+      trendHtml = '<div class="analytics-kpi-sub">' + k.sub + '</div>';
+    } else {
+      var cls = k.trend > 0 ? 'up' : k.trend < 0 ? 'down' : 'neutral';
+      var arr = k.trend > 0 ? '▲' : k.trend < 0 ? '▼' : '—';
+      trendHtml = '<div class="analytics-kpi-trend ' + cls + '">' + arr + ' ' + k.sub + '</div>';
+    }
+    return '<div class="analytics-kpi-card">'
+      + '<div class="analytics-kpi-header"><span class="analytics-kpi-icon">' + k.icon + '</span>'
+      + '<span class="analytics-kpi-label">' + k.label + '</span></div>'
+      + '<div class="analytics-kpi-value" style="color:' + k.color + '">' + (typeof k.value === 'number' ? k.value.toLocaleString('fr-FR') : k.value) + '</div>'
+      + trendHtml + '</div>';
+  }).join('');
+  var el = document.getElementById('ra-kpis-' + role);
+  if (el) el.innerHTML = html;
+}
+
+function _renderRoleActivityChart(role, series, win) {
+  var chartsEl = document.getElementById('ra-charts-' + role);
+  if (!chartsEl) return;
+
+  var from   = new Date(win.from);
+  var to     = new Date(win.to);
+  var diffD  = Math.ceil((to - from) / 86400000);
+  var byWeek = diffD > 90;
+  var step   = byWeek ? 7 : 1;
+
+  function bucketKey(ts) {
+    var d = new Date(ts);
+    if (byWeek) { d.setHours(0,0,0,0); d.setDate(d.getDate()-d.getDay()); }
+    return d.toISOString().slice(0,10);
+  }
+
+  // Build timeline keys
+  var keys = [];
+  var cur = new Date(from); cur.setHours(0,0,0,0);
+  if (byWeek) cur.setDate(cur.getDate()-cur.getDay());
+  while (cur <= to) { keys.push(cur.toISOString().slice(0,10)); cur.setDate(cur.getDate()+step); }
+  if (!keys.length) return;
+
+  // Build series data
+  var seriesData = series.map(function(s) {
+    var buckets = {};
+    keys.forEach(function(k){ buckets[k] = 0; });
+    (s.items || []).forEach(function(item) {
+      var ts = item[s.tsField]; if (!ts || ts < win.from || ts > win.to) return;
+      var k = bucketKey(ts); if (k in buckets) buckets[k]++;
+    });
+    return { label: s.label, color: s.color, vals: keys.map(function(k){ return buckets[k]; }) };
+  });
+
+  var maxVal = Math.max(1, Math.max.apply(null, seriesData.map(function(s){ return Math.max.apply(null, s.vals); })));
+  var W = 700, H = 160, padL = 36, padB = 24, padT = 12, padR = 12;
+  var plotW = W - padL - padR;
+  var plotH = H - padB - padT;
+  var n     = keys.length;
+  var barW  = Math.max(2, Math.floor(plotW / n / series.length) - 1);
+
+  var bars = '';
+  seriesData.forEach(function(s, si) {
+    s.vals.forEach(function(v, i) {
+      var bh  = Math.round((v / maxVal) * plotH);
+      var x   = padL + Math.round(i * plotW / n) + si * (barW + 1);
+      var y   = padT + plotH - bh;
+      bars += '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + (bh||1) + '" rx="2" fill="' + (v ? s.color : 'rgba(148,163,184,.1)') + '" opacity="' + (v ? '.8' : '1') + '"/>';
+    });
+  });
+
+  var yLabels = [0, Math.round(maxVal/2), maxVal].map(function(v) {
+    var y = padT + plotH - Math.round((v/maxVal)*plotH) + 4;
+    return '<text x="' + (padL-4) + '" y="' + y + '" fill="rgba(148,163,184,.5)" font-size="9" text-anchor="end">' + v + '</text>';
+  }).join('');
+
+  var step2 = Math.max(1, Math.floor(n/6));
+  var xLabels = keys.filter(function(_,i){ return i%step2===0||i===n-1; }).map(function(k, i) {
+    var idx = keys.indexOf(k);
+    var x   = padL + Math.round(idx * plotW / n) + barW/2;
+    var lbl = new Date(k).toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+    return '<text x="' + x + '" y="' + (H-4) + '" fill="rgba(148,163,184,.4)" font-size="9" text-anchor="middle">' + lbl + '</text>';
+  }).join('');
+
+  var legendHtml = seriesData.map(function(s) {
+    var tot = s.vals.reduce(function(a,b){ return a+b; },0);
+    return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;margin-right:14px">'
+      + '<span style="width:10px;height:10px;border-radius:3px;background:' + s.color + ';flex-shrink:0"></span>'
+      + s.label + ' <strong>' + tot + '</strong></span>';
+  }).join('');
+
+  chartsEl.innerHTML = '<div class="analytics-chart-card" style="margin-bottom:16px">'
+    + '<div class="analytics-chart-title">📅 Activité ' + (byWeek ? 'hebdomadaire' : 'journalière') + '</div>'
+    + '<svg width="100%" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">'
+    + '<line x1="' + padL + '" y1="' + padT + '" x2="' + padL + '" y2="' + (padT+plotH) + '" stroke="rgba(148,163,184,.15)"/>'
+    + '<line x1="' + padL + '" y1="' + (padT+plotH) + '" x2="' + (padL+plotW) + '" y2="' + (padT+plotH) + '" stroke="rgba(148,163,184,.15)"/>'
+    + yLabels + xLabels + bars
+    + '</svg>'
+    + '<div style="margin-top:8px">' + legendHtml + '</div>'
+    + '</div>';
+}
+
+function _renderRoleWorkerTable(role, workers, docs) {
+  var tablesEl = document.getElementById('ra-tables-' + role);
+  if (!tablesEl || !workers.length) { if(tablesEl) tablesEl.innerHTML=''; return; }
+
+  var docsByWorker = {};
+  docs.forEach(function(d){ if(!docsByWorker[d.owner_id]) docsByWorker[d.owner_id]=[]; docsByWorker[d.owner_id].push(d); });
+
+  var rows = workers.map(function(w) {
+    var wd     = docsByWorker[w.id] || [];
+    var ok     = wd.filter(function(d){ return d.status==='validated'; }).length;
+    var total  = wd.length;
+    var rate   = total > 0 ? Math.round(ok/total*100) : 0;
+    var rateColor = rate>=80?'#4ADE80':rate>=50?'#FCD34D':'#FCA5A5';
+    var soon30 = new Date(); soon30.setDate(soon30.getDate()+30);
+    var exp    = wd.filter(function(d){ return d.expires_at&&new Date(d.expires_at)<soon30&&new Date(d.expires_at)>new Date(); }).length;
+    var barW   = Math.min(80, rate * 0.8);
+    return '<tr>'
+      + '<td style="font-weight:700;font-size:13px">' + escapeHtml(w.full_name||'—') + '</td>'
+      + '<td>' + total + ' <span style="font-size:10px;color:var(--muted)">(' + ok + ' ✓)</span></td>'
+      + '<td><span class="a-bar" style="width:' + barW + 'px;background:' + rateColor + '"></span><span style="font-size:13px;font-weight:700;color:' + rateColor + '">' + rate + '%</span></td>'
+      + '<td>' + (exp > 0 ? '<span style="color:#FCD34D;font-weight:700">⚠️ ' + exp + '</span>' : '<span style="color:var(--muted)">—</span>') + '</td>'
+      + '</tr>';
+  }).join('');
+
+  tablesEl.innerHTML = '<div class="analytics-section-title" style="margin-top:24px">👷 Intervenants</div>'
+    + '<div style="overflow-x:auto"><table class="analytics-table"><thead><tr>'
+    + '<th>Nom</th><th>Documents</th><th>Taux habilitation</th><th>Expir. <30j</th>'
+    + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+
+function _renderHSEStTable(role, stOrgs, rels) {
+  var tablesEl = document.getElementById('ra-tables-' + role);
+  if (!tablesEl || !stOrgs.length) { if(tablesEl) tablesEl.innerHTML=''; return; }
+
+  var relByOrg = {};
+  rels.forEach(function(r){ relByOrg[r.st_org_id] = r; });
+
+  var rows = stOrgs.map(function(org) {
+    var rel  = relByOrg[org.id];
+    var date = rel?.created_at ? new Date(rel.created_at).toLocaleDateString('fr-FR') : '—';
+    var type = { company:'Entreprise', subcontractor:'Sous-Traitant' }[org.type] || org.type || '—';
+    return '<tr>'
+      + '<td style="font-weight:700;font-size:13px">' + escapeHtml(org.name||'—') + '</td>'
+      + '<td style="font-size:12px;color:var(--muted)">' + type + '</td>'
+      + '<td style="font-size:12px;color:var(--muted)">Rattaché le ' + date + '</td>'
+      + '</tr>';
+  }).join('');
+
+  tablesEl.innerHTML = '<div class="analytics-section-title" style="margin-top:24px">🤝 Sous-Traitants partenaires</div>'
+    + '<div style="overflow-x:auto"><table class="analytics-table"><thead><tr>'
+    + '<th>Organisation</th><th>Type</th><th>Rattachement</th>'
+    + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+
+function _renderTrainerTypesTable(role, topTypes, byType, validated, rejected) {
+  var tablesEl = document.getElementById('ra-tables-' + role);
+  if (!tablesEl || !topTypes.length) { if(tablesEl) tablesEl.innerHTML=''; return; }
+
+  var validByType = {};
+  validated.forEach(function(d){ validByType[d.doc_type||'autre'] = (validByType[d.doc_type||'autre']||0)+1; });
+  var rejByType = {};
+  rejected.forEach(function(d){ rejByType[d.doc_type||'autre'] = (rejByType[d.doc_type||'autre']||0)+1; });
+
+  var rows = topTypes.map(function(e) {
+    var type  = e[0], total = e[1];
+    var val   = validByType[type] || 0;
+    var rej   = rejByType[type]   || 0;
+    var rate  = (val+rej) > 0 ? Math.round(val/(val+rej)*100) : 0;
+    var rateColor = rate>=80?'#4ADE80':rate>=60?'#FCD34D':'#FCA5A5';
+    var barW  = Math.min(80, rate * 0.8);
+    return '<tr>'
+      + '<td style="font-weight:700;font-size:13px">' + escapeHtml(type) + '</td>'
+      + '<td>' + total + '</td>'
+      + '<td style="color:#4ADE80">' + val + '</td>'
+      + '<td style="color:#FCA5A5">' + rej + '</td>'
+      + '<td><span class="a-bar" style="width:' + barW + 'px;background:' + rateColor + '"></span><span style="font-size:13px;font-weight:700;color:' + rateColor + '">' + rate + '%</span></td>'
+      + '</tr>';
+  }).join('');
+
+  tablesEl.innerHTML = '<div class="analytics-section-title" style="margin-top:24px">🎓 Formations par type</div>'
+    + '<div style="overflow-x:auto"><table class="analytics-table"><thead><tr>'
+    + '<th>Type de formation</th><th>Total</th><th>Validées</th><th>Refusées</th><th>Taux de succès</th>'
+    + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
 
 var _analyticsRange  = 'month';
 var _analyticsFrom   = null;
