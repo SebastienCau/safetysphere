@@ -6309,6 +6309,7 @@ async function renderDuerSection(role) {
     + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
     + '<button class="btn-sm btn-view" onclick="openDuerTemplateModal(\'' + role + '\')">📋 Importer un modèle secteur</button>'
     + '<button class="btn-sm btn-upload" onclick="openDuerModal(null,\'' + role + '\')">➕ Ajouter une unité</button>'
+    + (hasDuer ? '<button class="btn-sm" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#A5B4FC" onclick="generateDuerPDF()">📥 Télécharger le rapport</button>' : '')
     + '</div></div>';
 
   if (hasDuer) {
@@ -6445,6 +6446,126 @@ async function deleteDuerEntry(id, role) {
   if (result.error) { showToast('Erreur : ' + result.error.message, 'error'); return; }
   showToast('Unité supprimée', 'success');
   renderDuerSection(role || _conformRole);
+}
+
+async function generateDuerPDF() {
+  var result = await sb.from('duer_entries').select('*').eq('org_id', currentProfile.org_id).order('created_at');
+  var entries = result.data;
+  if (!entries || entries.length === 0) { showToast('Aucune unité à exporter', 'error'); return; }
+
+  var orgName = (currentProfile.org_name || currentProfile.company_name || currentProfile.nom_entreprise || 'Mon Entreprise');
+  var now     = new Date();
+  var dateStr = now.toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+  var totalEntries = entries.length;
+  var critiques = entries.filter(function(e) { return e.gravite * e.probabilite >= 12; }).length;
+  var eleves    = entries.filter(function(e) { var c = e.gravite * e.probabilite; return c >= 6 && c < 12; }).length;
+  var maitris   = totalEntries - critiques - eleves;
+
+  function riskColor(g, p) {
+    var c = g * p;
+    if (c >= 16) return { bg:'#FEE2E2', border:'#EF4444', text:'#991B1B', label:'Critique' };
+    if (c >= 9)  return { bg:'#FFEDD5', border:'#F97316', text:'#9A3412', label:'Élevé' };
+    if (c >= 4)  return { bg:'#FEF3C7', border:'#F59E0B', text:'#92400E', label:'Modéré' };
+    return             { bg:'#DCFCE7', border:'#22C55E', text:'#166534', label:'Faible' };
+  }
+
+  var tableRows = entries.map(function(e, i) {
+    var g = e.gravite || 1; var p = e.probabilite || 1; var c = g * p;
+    var rc = riskColor(g, p);
+    var pct = Math.round((c / 25) * 100);
+    var risques = Array.isArray(e.risques) ? e.risques : (e.risques ? JSON.parse(e.risques) : []);
+    var mesures = Array.isArray(e.mesures) ? e.mesures : (e.mesures ? JSON.parse(e.mesures) : []);
+    var rowBg = i % 2 === 0 ? '#ffffff' : '#F9FAFB';
+    return '<tr style="background:' + rowBg + ';border-bottom:1px solid #E5E7EB">'
+      + '<td style="padding:12px 14px;font-weight:600;font-size:13px;border-right:1px solid #E5E7EB">' + escapeHtml(e.unite_travail) + '</td>'
+      + '<td style="padding:12px 14px;text-align:center;border-right:1px solid #E5E7EB">'
+        + '<div style="display:inline-block;width:100%;background:#E5E7EB;border-radius:4px;height:8px;margin-bottom:6px"><div style="height:8px;border-radius:4px;background:' + rc.border + ';width:' + pct + '%"></div></div>'
+        + '<span style="display:inline-block;padding:3px 10px;background:' + rc.bg + ';color:' + rc.text + ';border:1px solid ' + rc.border + ';border-radius:12px;font-size:11px;font-weight:700">' + rc.label + ' ' + c + '/25</span>'
+        + '<div style="font-size:11px;color:#6B7280;margin-top:4px">G:' + g + ' × P:' + p + '</div>'
+      + '</td>'
+      + '<td style="padding:12px 14px;font-size:12px;border-right:1px solid #E5E7EB">'
+        + (risques.length ? risques.map(function(r){ return '<div style="margin-bottom:4px">⚠ ' + escapeHtml(r) + '</div>'; }).join('') : '<span style="color:#9CA3AF">—</span>')
+      + '</td>'
+      + '<td style="padding:12px 14px;font-size:12px">'
+        + (mesures.length ? mesures.map(function(m){ return '<div style="margin-bottom:4px;color:#166534">✓ ' + escapeHtml(m) + '</div>'; }).join('') : '<span style="color:#9CA3AF">—</span>')
+      + '</td>'
+      + '</tr>';
+  }).join('');
+
+  var html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">'
+    + '<title>DUER — ' + escapeHtml(orgName) + '</title>'
+    + '<style>'
+    + '@page { size: A4 landscape; margin: 18mm 14mm; }'
+    + 'body { font-family: "Segoe UI", Arial, sans-serif; color: #111827; margin:0; padding:0; background:#fff; }'
+    + '.page-break { page-break-after: always; }'
+    + 'table { width:100%; border-collapse:collapse; }'
+    + 'th { background:#1E3A5F; color:#fff; padding:11px 14px; font-size:12px; text-align:left; font-weight:700; }'
+    + 'tr:hover { background:#F0F9FF !important; }'
+    + '.badge-stat { display:inline-block; padding:6px 14px; border-radius:8px; font-weight:700; font-size:14px; }'
+    + 'h1 { font-size:26px; color:#1E3A5F; margin:0 0 4px 0; }'
+    + 'h2 { font-size:13px; color:#6B7280; font-weight:400; margin:0 0 20px 0; }'
+    + '.header-bar { display:flex; align-items:center; justify-content:space-between; border-bottom:3px solid #F97316; padding-bottom:16px; margin-bottom:24px; }'
+    + '.logo-hex { width:40px; height:40px; background:#F97316; clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); display:inline-flex; align-items:center; justify-content:center; color:#fff; font-weight:900; font-size:16px; }'
+    + '.stat-row { display:flex; gap:14px; margin-bottom:28px; }'
+    + '.stat-box { flex:1; border-radius:10px; padding:14px 18px; }'
+    + '.stat-box-val { font-size:28px; font-weight:900; }'
+    + '.stat-box-lbl { font-size:11px; margin-top:3px; font-weight:600; }'
+    + '.footer { margin-top:28px; padding-top:12px; border-top:1px solid #E5E7EB; font-size:11px; color:#9CA3AF; display:flex; justify-content:space-between; }'
+    + '@media print { .no-print { display:none !important; } a { text-decoration:none; } }'
+    + '</style></head><body>'
+
+    // Header
+    + '<div class="header-bar">'
+    + '<div style="display:flex;align-items:center;gap:14px">'
+    + '<div class="logo-hex">S</div>'
+    + '<div><h1>Document Unique d\'Évaluation des Risques</h1>'
+    + '<h2>' + escapeHtml(orgName) + ' — Établi le ' + dateStr + '</h2></div>'
+    + '</div>'
+    + '<div style="text-align:right;font-size:11px;color:#6B7280">Réf. légale : Art. R4121-1 Code du Travail<br>À mettre à jour au minimum annuellement</div>'
+    + '</div>'
+
+    // Stats
+    + '<div class="stat-row">'
+    + '<div class="stat-box" style="background:#EFF6FF;border:1px solid #BFDBFE">'
+      + '<div class="stat-box-val" style="color:#1D4ED8">' + totalEntries + '</div><div class="stat-box-lbl" style="color:#1D4ED8">Unités de travail</div></div>'
+    + '<div class="stat-box" style="background:#FEE2E2;border:1px solid #FECACA">'
+      + '<div class="stat-box-val" style="color:#DC2626">' + critiques + '</div><div class="stat-box-lbl" style="color:#DC2626">Risques critiques</div></div>'
+    + '<div class="stat-box" style="background:#FEF3C7;border:1px solid #FDE68A">'
+      + '<div class="stat-box-val" style="color:#B45309">' + eleves + '</div><div class="stat-box-lbl" style="color:#B45309">Risques élevés</div></div>'
+    + '<div class="stat-box" style="background:#DCFCE7;border:1px solid #BBF7D0">'
+      + '<div class="stat-box-val" style="color:#15803D">' + maitris + '</div><div class="stat-box-lbl" style="color:#15803D">Risques maîtrisés</div></div>'
+    + '</div>'
+
+    // Table
+    + '<table>'
+    + '<thead><tr>'
+    + '<th style="width:22%">Unité de travail</th>'
+    + '<th style="width:16%;text-align:center">Criticité</th>'
+    + '<th style="width:31%">Risques identifiés</th>'
+    + '<th style="width:31%">Mesures de prévention</th>'
+    + '</tr></thead>'
+    + '<tbody>' + tableRows + '</tbody>'
+    + '</table>'
+
+    // Footer
+    + '<div class="footer">'
+    + '<span>SafetySphere — ' + escapeHtml(orgName) + '</span>'
+    + '<span>Document généré le ' + dateStr + ' • Confidentiel</span>'
+    + '</div>'
+
+    // Print button (masqué à l'impression)
+    + '<div class="no-print" style="margin-top:28px;text-align:center">'
+    + '<button onclick="window.print()" style="background:#F97316;color:#fff;border:none;padding:12px 32px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer">🖨️ Imprimer / Enregistrer en PDF</button>'
+    + '&nbsp;&nbsp;<button onclick="window.close()" style="background:#E5E7EB;color:#374151;border:none;padding:12px 24px;border-radius:8px;font-size:14px;cursor:pointer">Fermer</button>'
+    + '</div>'
+    + '</body></html>';
+
+  var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  var url  = URL.createObjectURL(blob);
+  var win  = window.open(url, '_blank');
+  if (!win) { showToast('Autorisez les pop-ups pour télécharger le rapport', 'error'); return; }
+  showToast('Rapport généré — utilisez Ctrl+P pour enregistrer en PDF', 'success');
+  setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
 }
 
 function openDuerTemplateModal(role) {
