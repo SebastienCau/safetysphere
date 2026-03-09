@@ -2343,7 +2343,15 @@ async function loadCompanyWorkers() {
 
 function togglePanel(id) {
   const el = document.getElementById(id);
-  el.style.display = (el.style.display === 'block') ? 'none' : 'block';
+  const isOpening = el.style.display !== 'block';
+  el.style.display = isOpening ? 'block' : 'none';
+  if (isOpening) {
+    setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  } else {
+    // Remonter vers la card qui a déclenché la fermeture
+    const card = el.previousElementSibling;
+    if (card) setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+  }
 }
 
 // ══════════════════════════════
