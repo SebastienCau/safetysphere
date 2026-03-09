@@ -171,21 +171,27 @@ var _allSigUsers  = [];
 
 // ── Vérifier si la signature OTP est activée pour l'utilisateur courant ──
 async function isSignatureEnabled() {
-  // 1. Paramètre global
-  var globalRes = await sb.from('signature_settings').select('enabled').eq('scope','global').eq('scope_id','global').single();
-  if (globalRes.data && globalRes.data.enabled === false) return false;
+  try {
+    // 1. Paramètre global
+    var globalRes = await sb.from('signature_settings').select('enabled').eq('scope','global').eq('scope_id','global').single();
+    if (globalRes.data && globalRes.data.enabled === false) return false;
 
-  // 2. Désactivé pour l'organisation
-  if (currentProfile.org_id) {
-    var orgRes = await sb.from('signature_settings').select('enabled').eq('scope','org').eq('scope_id', currentProfile.org_id).single();
-    if (orgRes.data && orgRes.data.enabled === false) return false;
+    // 2. Désactivé pour l'organisation
+    if (currentProfile.org_id) {
+      var orgRes = await sb.from('signature_settings').select('enabled').eq('scope','org').eq('scope_id', currentProfile.org_id).single();
+      if (orgRes.data && orgRes.data.enabled === false) return false;
+    }
+
+    // 3. Désactivé pour l'utilisateur
+    var userRes = await sb.from('signature_settings').select('enabled').eq('scope','user').eq('scope_id', currentUser.id).single();
+    if (userRes.data && userRes.data.enabled === false) return false;
+
+    return true;
+  } catch(e) {
+    // Table absente ou erreur réseau → on bypass la signature (mode dégradé)
+    console.warn('isSignatureEnabled error (bypass activé) :', e);
+    return true;
   }
-
-  // 3. Désactivé pour l'utilisateur
-  var userRes = await sb.from('signature_settings').select('enabled').eq('scope','user').eq('scope_id', currentUser.id).single();
-  if (userRes.data && userRes.data.enabled === false) return false;
-
-  return true;
 }
 
 // ── Ouvrir la modale de signature ────────────────────────────
