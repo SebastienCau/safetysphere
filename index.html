@@ -204,7 +204,8 @@
     /* ── WIDGETS DRAGGABLES ── */
     .dash-grid { display:flex; flex-direction:column; gap:16px; }
     .db-widget { position:relative; border-radius:16px; transition:opacity .2s, transform .2s; }
-    .db-widget.hidden-widget > .db-widget-inner { opacity:.25; pointer-events:none; filter:blur(1px); }
+    .db-widget.hidden-widget > .db-widget-inner { display:none; }
+    .db-widget.hidden-widget { opacity:.5; }
     .db-widget.dragging { opacity:.4; transform:scale(.98); }
     .db-widget.drag-over { outline:2px dashed var(--orange); outline-offset:4px; border-radius:16px; }
     .db-widget-inner { border-radius:16px; overflow:hidden; }
@@ -3659,6 +3660,8 @@ const WIDGET_DEFS = {
 
 let _customizeMode = false;
 let _dragSrcWidget = null;
+let _dragClone     = null;
+let _dragOffX = 0, _dragOffY = 0;
 
 // ── Point d'entrée : wrappé les éléments DOM existants dans des widgets ──
 async function initDashboardWidgets(role) {
@@ -3712,13 +3715,8 @@ async function initDashboardWidgets(role) {
     widget.appendChild(inner);
     grid.appendChild(widget);
 
-    // Events drag (activés uniquement via la poignée)
-    const handle = bar.querySelector('.db-widget-handle');
-    handle.addEventListener('mousedown', () => { widget.draggable = true; });
-    widget.addEventListener('dragstart', onWidgetDragStart);
-    widget.addEventListener('dragend',   onWidgetDragEnd);
-    widget.addEventListener('dragover',  onWidgetDragOver);
-    widget.addEventListener('drop',      onWidgetDrop);
+    // Events drag touch+mouse
+    initWidgetDrag(widget);
   });
 
   // Remplacer le contenu de l'overview (après titre + subtitle)
@@ -3771,38 +3769,94 @@ function wrapHSEBlocks(overview) {
 
 
 
-// Contenu HTML de chaque widget (capturé depuis le DOM après rendu)
-// ── Drag & drop ──
-function onWidgetDragStart(e) {
-  _dragSrcWidget = this;
-  this.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', this.dataset.widgetId);
+// ── Drag & drop universel (mouse + touch) ──
+function initWidgetDrag(widget) {
+  const handle = widget.querySelector('.db-widget-handle');
+  if (!handle) return;
+
+  // Mouse
+  handle.addEventListener('mousedown', e => startDrag(e, widget, e.clientX, e.clientY));
+  // Touch
+  handle.addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    startDrag(e, widget, t.clientX, t.clientY);
+  }, { passive: false });
 }
-function onWidgetDragEnd(e) {
-  this.classList.remove('dragging');
-  this.draggable = false;
+
+function startDrag(e, widget, clientX, clientY) {
+  e.preventDefault();
+  _dragSrcWidget = widget;
+  const rect = widget.getBoundingClientRect();
+  _dragOffX = clientX - rect.left;
+  _dragOffY = clientY - rect.top;
+
+  // Clone flottant
+  _dragClone = widget.cloneNode(true);
+  _dragClone.style.cssText = `
+    position:fixed; z-index:9999; pointer-events:none;
+    width:${rect.width}px; opacity:.85;
+    left:${rect.left}px; top:${rect.top}px;
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+    border-radius:16px; transition:none;`;
+  document.body.appendChild(_dragClone);
+  widget.style.opacity = '.3';
+
+  // Events globaux
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup',   onDragEnd);
+  document.addEventListener('touchmove',  onDragMove, { passive: false });
+  document.addEventListener('touchend',   onDragEnd);
+}
+
+function onDragMove(e) {
+  if (!_dragClone) return;
+  e.preventDefault();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  _dragClone.style.left = (clientX - _dragOffX) + 'px';
+  _dragClone.style.top  = (clientY - _dragOffY) + 'px';
+
+  // Trouver le widget cible sous le curseur
+  _dragClone.style.display = 'none';
+  const el = document.elementFromPoint(clientX, clientY);
+  _dragClone.style.display = '';
+  const target = el?.closest('.db-widget');
+
+  document.querySelectorAll('.db-widget').forEach(w => w.classList.remove('drag-over'));
+  if (target && target !== _dragSrcWidget) target.classList.add('drag-over');
+}
+
+function onDragEnd(e) {
+  document.removeEventListener('mousemove', onDragMove);
+  document.removeEventListener('mouseup',   onDragEnd);
+  document.removeEventListener('touchmove',  onDragMove);
+  document.removeEventListener('touchend',   onDragEnd);
+
+  const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+  const clientY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+
+  // Trouver la cible
+  if (_dragClone) { _dragClone.style.display = 'none'; }
+  const el     = document.elementFromPoint(clientX, clientY);
+  const target = el?.closest('.db-widget');
+  if (_dragClone) { _dragClone.style.display = ''; }
+
+  if (target && target !== _dragSrcWidget) {
+    const grid   = _dragSrcWidget.closest('.dash-grid');
+    const widgets = [...grid.querySelectorAll(':scope > .db-widget')];
+    const srcIdx  = widgets.indexOf(_dragSrcWidget);
+    const tgtIdx  = widgets.indexOf(target);
+    if (srcIdx < tgtIdx) grid.insertBefore(_dragSrcWidget, target.nextSibling);
+    else                  grid.insertBefore(_dragSrcWidget, target);
+    saveLayout(currentProfile.role);
+  }
+
+  // Nettoyer
+  if (_dragClone) { _dragClone.remove(); _dragClone = null; }
+  if (_dragSrcWidget) { _dragSrcWidget.style.opacity = ''; _dragSrcWidget = null; }
   document.querySelectorAll('.db-widget').forEach(w => w.classList.remove('drag-over'));
 }
-function onWidgetDragOver(e) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  document.querySelectorAll('.db-widget').forEach(w => w.classList.remove('drag-over'));
-  if (this !== _dragSrcWidget) this.classList.add('drag-over');
-}
-function onWidgetDrop(e) {
-  e.preventDefault();
-  if (this === _dragSrcWidget) return;
-  const grid = this.closest('.dash-grid');
-  if (!grid) return;
-  const widgets  = [...grid.querySelectorAll('.db-widget')];
-  const srcIdx   = widgets.indexOf(_dragSrcWidget);
-  const tgtIdx   = widgets.indexOf(this);
-  if (srcIdx < tgtIdx) grid.insertBefore(_dragSrcWidget, this.nextSibling);
-  else                  grid.insertBefore(_dragSrcWidget, this);
-  this.classList.remove('drag-over');
-  saveLayout(currentProfile.role);
-}
+
 
 // ── Resize par handle bas ──
 // ── Masquer/Afficher ──
