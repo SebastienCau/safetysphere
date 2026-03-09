@@ -147,6 +147,7 @@ report_num, report_type, workflow_mode, position, sig_url
 ---
 
 ### v2.1.1 — Export Passeport Prévention ⏳ PRIORITÉ 1 BIS 🔥
+**Mis à jour le 2026-03-09 avec infos techniques officielles**
 **Contexte** : Le Passeport Prévention (dispositif légal obligatoire Ministère du Travail)
 a ouvert son espace employeurs le 16 mars 2026 — aujourd'hui même.
 Les employeurs ont désormais l'obligation de déclarer les formations SST de leurs salariés.
@@ -315,3 +316,41 @@ mop_readings   -- (worker_id, mop_id, signed_at, sig_url)
 | v2.2.0 | — | Personnel interne (onboarding salariés EU) |
 | v2.3.0 | — | Modes opératoires (MOP) |
 | v2.4.0 | — | Zones blanches (badge PDF + offline) |
+
+---
+
+## Passeport Prévention — Notes techniques (2026-03-09)
+
+### Format d'échange
+- Pas d'API REST publique à ce jour
+- Format : **fichier CSV** à déposer sur le portail employeur
+- Trame CSV officielle disponible sur :
+  https://passeport-prevention.travail-emploi.gouv.fr/employeurs/guide
+- Deux types de déclarations :
+  1. Attestation de formation (suivi de formation)
+  2. Justificatif de réussite (certification obtenue)
+
+### Champs requis (à confirmer sur la trame officielle)
+nom, prénom, date de naissance, identifiant CPF,
+intitulé formation, dates formation, type attestation, niveau obtenu
+
+### Calendrier obligations employeur
+- 16/03/2026 : espace ouvert, obligation démarre (périmètre limité)
+  → formations obligatoires réglementées uniquement :
+    amiante, habilitation électrique, conduite engins, hyperbare...
+- 09/07/2026 : import masse CSV disponible
+- 01/10/2026 : toutes les formations concernées à déclarer
+- Délai déclaration : 6 mois après fin du trimestre de formation (9 mois max)
+- Période transitoire : délai prolongé de 3 mois jusqu'au 09/07/2026
+
+### Action SafetySphere
+1. Récupérer la trame CSV officielle (lien ci-dessus)
+2. Coder l'export CSV dans workers.js ou conformite.js
+3. Mai 2026 : candidater comme testeur officiel
+   → levier marketing : apparaître dans les communications du Ministère
+4. Juillet 2026 : feature live le jour J
+
+### Ressources officielles
+- Portail : https://passeport-prevention.travail-emploi.gouv.fr
+- Guide employeur : https://passeport-prevention.travail-emploi.gouv.fr/employeurs/guide
+- Replay webinaire : https://www.youtube.com/watch?v=GvhpGgKE0i4
