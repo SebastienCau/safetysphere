@@ -6502,6 +6502,8 @@ async function buildReportMeta(typeCode) {
   var timePart   = pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
   var orgSuffix  = (currentProfile.org_id || 'XXXX').slice(-4).toUpperCase();
   var reportNum  = typeCode + '-' + datePart + '-' + timePart + '-' + orgSuffix;
+  // Version de l'application
+  var appVersion = document.querySelector('meta[name="app-version"]')?.content || '1.1.0';
 
   return {
     orgName    : (orgRow && orgRow.name)       || 'Entreprise non renseignée',
@@ -6511,6 +6513,7 @@ async function buildReportMeta(typeCode) {
     responsable: currentProfile.full_name      || currentProfile.email || 'Utilisateur inconnu',
     email      : currentProfile.email          || '',
     reportNum  : reportNum,
+    appVersion : appVersion,
     dateStr    : now.toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' }),
     timeStr    : pad(now.getHours()) + 'h' + pad(now.getMinutes()),
     isoDate    : isoDate,
@@ -6520,13 +6523,25 @@ async function buildReportMeta(typeCode) {
 // ── CSS commun à tous les rapports ────────────────────
 function reportCSS(landscape) {
   return '<style>'
-    + '@page { size: A4 ' + (landscape ? 'landscape' : 'portrait') + '; margin: 15mm 14mm 18mm 14mm; }'
+    + '@page { size: A4 ' + (landscape ? 'landscape' : 'portrait') + '; margin: 15mm 14mm 20mm 14mm; }'
     + 'body { font-family:"Segoe UI",Arial,sans-serif; color:#111827; margin:0; padding:0; background:#fff; font-size:13px; }'
     + 'table { width:100%; border-collapse:collapse; }'
     + 'th { background:#1E3A5F; color:#fff; padding:10px 13px; font-size:11px; text-align:left; font-weight:700; text-transform:uppercase; letter-spacing:.4px; }'
     + 'tr:nth-child(even) td { background:#F9FAFB; }'
     + 'td { border-bottom:1px solid #E5E7EB; vertical-align:top; }'
-    + '.report-header { border-bottom:3px solid #F97316; padding-bottom:14px; margin-bottom:0; display:flex; align-items:stretch; gap:0; }'
+    /* ── Bandeau SafetySphere supérieur ── */
+    + '.ss-topbar { background:linear-gradient(135deg,#0D1B2A 0%,#1E3A5F 100%); padding:8px 18px; display:flex; align-items:center; justify-content:space-between; margin-bottom:0; }'
+    + '.ss-topbar-brand { display:flex; align-items:center; gap:10px; }'
+    + '.ss-hex { width:28px; height:28px; background:#F97316; clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:900; font-size:12px; flex-shrink:0; }'
+    + '.ss-brand-name { font-size:15px; font-weight:900; color:#fff; letter-spacing:.5px; }'
+    + '.ss-brand-name span { color:#F97316; }'
+    + '.ss-brand-tag { font-size:9px; color:rgba(255,255,255,.55); letter-spacing:.3px; margin-top:1px; }'
+    + '.ss-topbar-trust { display:flex; align-items:center; gap:18px; }'
+    + '.ss-trust-item { display:flex; align-items:center; gap:5px; font-size:9px; color:rgba(255,255,255,.7); font-weight:600; letter-spacing:.2px; }'
+    + '.ss-trust-icon { font-size:11px; }'
+    + '.ss-version { font-size:9px; color:rgba(255,255,255,.4); letter-spacing:.3px; font-family:monospace; }'
+    /* ── En-tête document ── */
+    + '.report-header { border-bottom:3px solid #F97316; padding:14px 0; margin-bottom:0; display:flex; align-items:stretch; gap:0; }'
     + '.report-header-left { flex:1; display:flex; align-items:center; gap:14px; }'
     + '.report-header-right { width:220px; background:#F8FAFC; border:1px solid #E5E7EB; border-radius:8px; padding:12px 14px; font-size:11px; }'
     + '.hex { width:44px; height:44px; background:#F97316; clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:900; font-size:18px; flex-shrink:0; }'
@@ -6544,19 +6559,47 @@ function reportCSS(landscape) {
     + '.stat-box { flex:1; border-radius:8px; padding:12px 14px; }'
     + '.stat-box-val { font-size:26px; font-weight:900; line-height:1; }'
     + '.stat-box-lbl { font-size:10px; margin-top:4px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; }'
-    + '.report-footer { margin-top:20px; padding-top:10px; border-top:1px solid #E5E7EB; font-size:10px; color:#9CA3AF; display:flex; justify-content:space-between; align-items:center; }'
-    + '.signature-block { margin-top:28px; display:flex; gap:24px; }'
-    + '.signature-box { flex:1; border:1px solid #D1D5DB; border-radius:8px; padding:16px 18px; }'
-    + '.signature-box-title { font-size:10px; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:.5px; margin-bottom:40px; }'
+    /* ── Pied de page ── */
+    + '.report-footer { margin-top:16px; padding-top:10px; border-top:1px solid #E5E7EB; font-size:10px; color:#9CA3AF; display:flex; justify-content:space-between; align-items:center; }'
+    /* ── Signatures ── */
+    + '.signature-block { margin-top:20px; display:flex; gap:20px; }'
+    + '.signature-box { flex:1; border:1px solid #D1D5DB; border-radius:8px; padding:14px 16px; }'
+    + '.signature-box-title { font-size:10px; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:.5px; margin-bottom:36px; }'
     + '.signature-box-line { border-top:1px solid #374151; padding-top:6px; font-size:10px; color:#6B7280; }'
-    + '@media print { .no-print { display:none !important; } body { font-size:11px; } .report-title { font-size:17px; } }'
+    /* ── Bandeau marketing bas de page ── */
+    + '.ss-footer-bar { margin-top:18px; background:linear-gradient(135deg,#0D1B2A,#1E3A5F); border-radius:10px; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; gap:20px; }'
+    + '.ss-footer-left { display:flex; align-items:center; gap:12px; }'
+    + '.ss-footer-hex { width:32px; height:32px; background:#F97316; clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:900; font-size:13px; flex-shrink:0; }'
+    + '.ss-footer-brand { font-size:14px; font-weight:900; color:#fff; }'
+    + '.ss-footer-brand span { color:#F97316; }'
+    + '.ss-footer-sub { font-size:9px; color:rgba(255,255,255,.5); margin-top:2px; }'
+    + '.ss-footer-badges { display:flex; gap:10px; flex-wrap:wrap; }'
+    + '.ss-badge { display:flex; align-items:center; gap:4px; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.15); border-radius:6px; padding:4px 10px; font-size:9px; color:rgba(255,255,255,.8); font-weight:600; white-space:nowrap; }'
+    + '.ss-badge-icon { font-size:10px; }'
+    + '.ss-footer-url { font-size:9px; color:rgba(249,115,22,.8); font-weight:700; letter-spacing:.3px; white-space:nowrap; }'
+    + '@media print { .no-print { display:none !important; } body { font-size:11px; } .report-title { font-size:17px; } .ss-footer-bar { -webkit-print-color-adjust:exact; print-color-adjust:exact; } .ss-topbar { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }'
     + '</style>';
 }
 
 // ── En-tête commun (HTML) ─────────────────────────────
 function reportHeaderHTML(meta, docTitle, legalRef) {
   var siretFmt = meta.siret ? meta.siret.replace(/(\d{3})(\d{3})(\d{3})(\d{5})/, '$1 $2 $3 $4') : '—';
-  return '<div class="report-header">'
+  return ''
+    /* Bandeau SafetySphere supérieur */
+    + '<div class="ss-topbar">'
+    + '<div class="ss-topbar-brand">'
+    + '<div class="ss-hex">S</div>'
+    + '<div><div class="ss-brand-name">Safety<span>Sphere</span></div><div class="ss-brand-tag">Plateforme de conformité HSE · Tiers de confiance certifié</div></div>'
+    + '</div>'
+    + '<div class="ss-topbar-trust">'
+    + '<div class="ss-trust-item"><span class="ss-trust-icon">🔒</span>Données chiffrées</div>'
+    + '<div class="ss-trust-item"><span class="ss-trust-icon">✅</span>Traçabilité garantie</div>'
+    + '<div class="ss-trust-item"><span class="ss-trust-icon">🇫🇷</span>Hébergement France</div>'
+    + '<div class="ss-version">v' + escapeHtml(meta.appVersion) + '</div>'
+    + '</div>'
+    + '</div>'
+    /* En-tête document */
+    + '<div class="report-header">'
     + '<div class="report-header-left">'
     + '<div class="hex">S</div>'
     + '<div>'
@@ -6579,27 +6622,32 @@ function reportHeaderHTML(meta, docTitle, legalRef) {
     + '</div>';
 }
 
-// ── Pied de page + bloc signature ─────────────────────
+// ── Pied de page + bloc signature + bandeau marketing ─
 function reportFooterHTML(meta, docTitle) {
   return '<div class="report-footer">'
-    + '<span>SafetySphere · ' + escapeHtml(meta.orgName) + ' · Réf. ' + escapeHtml(meta.reportNum) + '</span>'
-    + '<span>Document généré le ' + escapeHtml(meta.dateStr) + ' · Confidentiel</span>'
+    + '<span>SafetySphere v' + escapeHtml(meta.appVersion) + ' · ' + escapeHtml(meta.orgName) + ' · Réf. ' + escapeHtml(meta.reportNum) + '</span>'
+    + '<span>Généré le ' + escapeHtml(meta.dateStr) + ' · Document confidentiel</span>'
     + '</div>'
     + '<div class="signature-block">'
-    + '<div class="signature-box">'
-    + '<div class="signature-box-title">Établi par</div>'
-    + '<div class="signature-box-line">' + escapeHtml(meta.responsable) + ' — ' + escapeHtml(meta.dateStr) + '</div>'
+    + '<div class="signature-box"><div class="signature-box-title">Établi par</div><div class="signature-box-line">' + escapeHtml(meta.responsable) + ' — ' + escapeHtml(meta.dateStr) + '</div></div>'
+    + '<div class="signature-box"><div class="signature-box-title">Vérifié / Validé par</div><div class="signature-box-line">Signature et cachet</div></div>'
+    + '<div class="signature-box"><div class="signature-box-title">Archivé le</div><div class="signature-box-line">&nbsp;</div></div>'
     + '</div>'
-    + '<div class="signature-box">'
-    + '<div class="signature-box-title">Vérifié / Validé par</div>'
-    + '<div class="signature-box-line">Signature et cachet</div>'
+    /* Bandeau marketing SafetySphere */
+    + '<div class="ss-footer-bar">'
+    + '<div class="ss-footer-left">'
+    + '<div class="ss-footer-hex">S</div>'
+    + '<div><div class="ss-footer-brand">Safety<span>Sphere</span></div><div class="ss-footer-sub">Ce document a été généré et certifié par SafetySphere — Plateforme HSE tiers de confiance</div></div>'
     + '</div>'
-    + '<div class="signature-box">'
-    + '<div class="signature-box-title">Archivé le</div>'
-    + '<div class="signature-box-line">&nbsp;</div>'
+    + '<div class="ss-footer-badges">'
+    + '<div class="ss-badge"><span class="ss-badge-icon">🔒</span>Données chiffrées AES-256</div>'
+    + '<div class="ss-badge"><span class="ss-badge-icon">📋</span>Traçabilité horodatée</div>'
+    + '<div class="ss-badge"><span class="ss-badge-icon">🇫🇷</span>Hébergement France</div>'
+    + '<div class="ss-badge"><span class="ss-badge-icon">⚖️</span>Conforme RGPD</div>'
     + '</div>'
+    + '<div class="ss-footer-url">safetysphere.fr</div>'
     + '</div>'
-    + '<div class="no-print" style="margin-top:24px;text-align:center">'
+    + '<div class="no-print" style="margin-top:20px;text-align:center">'
     + '<button onclick="window.print()" style="background:#F97316;color:#fff;border:none;padding:11px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">🖨️ Imprimer / Enregistrer en PDF</button>'
     + '&nbsp;&nbsp;<button onclick="window.close()" style="background:#E5E7EB;color:#374151;border:none;padding:11px 20px;border-radius:8px;font-size:13px;cursor:pointer">Fermer</button>'
     + '</div>';
