@@ -516,7 +516,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-worker">👷 Intervenant</span>
     <span class="topbar-user" id="workerUserName"></span>
-    <button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="notif-bell" id="notifBell-Worker" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="notif-bell" id="notifBell-Worker" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Worker','overview',this)">🏠 Accueil</button>
@@ -565,7 +565,8 @@
       <!-- Alertes expiration -->
       <div id="workerExpiryAlerts"></div>
       <!-- Notifications -->
-      <div id="notifs-Worker" ></div>
+      <div id="notifs-Worker"></div>
+      <div class="stats-grid" id="worker-stats-grid">
         <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value" id="wStat1">0</div><div class="stat-label">Documents validés</div></div>
         <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value" id="wStat2">0</div><div class="stat-label">En attente</div></div>
         <div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value" id="wStat3">0</div><div class="stat-label">Expirent bientôt</div></div>
@@ -612,7 +613,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-company">🏢 Société</span>
     <span class="topbar-user" id="companyUserName"></span>
-    <button class="notif-bell" id="notifBell-Company" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="notif-bell" id="notifBell-Company" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Company','overview',this)">🏠 Accueil</button>
@@ -636,7 +637,7 @@
       </div>
       <!-- Notifications -->
       <div id="notifs-Company" ></div>
-      <div class="stats-grid">
+      <div class="stats-grid" id="company-stats-grid">
         <div class="stat-card"><div class="stat-icon">👷</div><div class="stat-value" id="cStat1">0</div><div class="stat-label">Intervenants</div></div>
         <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value" id="cStat2">0</div><div class="stat-label">Validations en attente</div></div>
         <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value" id="cStat3">0</div><div class="stat-label">Docs société valides</div></div>
@@ -682,7 +683,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge" style="background:rgba(168,85,247,.15);color:#D8B4FE;border:1px solid rgba(168,85,247,.3)">🤝 Sous-Traitant</span>
     <span class="topbar-user" id="stUserName"></span>
-    <button class="notif-bell" id="notifBell-Subcontractor" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="notif-bell" id="notifBell-Subcontractor" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Subcontractor','overview',this)">🏠 Accueil</button>
@@ -697,7 +698,7 @@
       <div class="dash-subtitle">Tableau de bord Sous-Traitant</div>
       <!-- Notifications -->
       <div id="notifs-Subcontractor" ></div>
-      <div class="stats-grid">
+      <div class="stats-grid" id="st-stats-grid">
         <div class="stat-card"><div class="stat-icon">🏭</div><div class="stat-value" id="stStat1">0</div><div class="stat-label">EU partenaires</div></div>
         <div class="stat-card"><div class="stat-icon">👷</div><div class="stat-value" id="stStat3">0</div><div class="stat-label">Intervenants</div></div>
         <div class="stat-card"><div class="stat-icon">📄</div><div class="stat-value" id="stStat4">0</div><div class="stat-label">Documents</div></div>
@@ -745,7 +746,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-hse">🏭 HSE</span>
     <span class="topbar-user" id="hseUserName"></span>
-    <button class="notif-bell" id="notifBell-HSE" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="notif-bell" id="notifBell-HSE" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('HSE','overview',this)">🏠 Accueil</button>
@@ -759,7 +760,7 @@
       <div class="dash-subtitle">Tableau de bord Responsable HSE</div>
       <!-- Notifications -->
       <div id="notifs-HSE" ></div>
-      <div class="stats-grid">
+      <div class="stats-grid" id="hse-stats-grid">
         <div class="stat-card"><div class="stat-icon">🏢</div><div class="stat-value" id="hseStat1">0</div><div class="stat-label">Sociétés ST</div></div>
         <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value" id="hseStat2">0</div><div class="stat-label">Invitations en attente</div></div>
         <div class="stat-card"><div class="stat-icon">📋</div><div class="stat-value">0</div><div class="stat-label">PdP actifs</div></div>
@@ -815,7 +816,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-trainer">🎓 Formation</span>
     <span class="topbar-user" id="trainerUserName"></span>
-    <button class="notif-bell" id="notifBell-Trainer" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="notif-bell" id="notifBell-Trainer" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Trainer','overview',this)">🏠 Accueil</button>
@@ -837,7 +838,7 @@
       </div>
       <!-- Notifications -->
       <div id="notifs-Trainer" ></div>
-      <div class="stats-grid">
+      <div class="stats-grid" id="trainer-stats-grid">
         <div class="stat-card"><div class="stat-icon">📋</div><div class="stat-value" id="tStat1">0</div><div class="stat-label">Demandes en attente</div></div>
         <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value" id="tStat2">0</div><div class="stat-label">Validations ce mois</div></div>
         <div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value" id="tStat3">0</div><div class="stat-label">Expirations à venir</div></div>
@@ -3626,199 +3627,151 @@ async function processQrUrl(url) {
 // DASHBOARD PERSONNALISABLE
 // ══════════════════════════════════════
 
+// ── Définition des widgets par rôle ──
+// Chaque widget liste les IDs DOM à regrouper dedans
 const WIDGET_DEFS = {
   worker: [
-    { id:'w-notifs',   label:'🔔 Notifications',    size:'md', hidden:false },
-    { id:'w-employer', label:'🏢 Mon Employeur',     size:'md', hidden:false },
-    { id:'w-stats',    label:'📊 Statistiques',      size:'md', hidden:false },
+    { id:'w-employer', label:'🏢 Mon Employeur',  elIds:['linkCompanyBanner','linkedCompanyBanner','changeEmployerPanel','workerExpiryAlerts'], hidden:false },
+    { id:'w-notifs',   label:'🔔 Notifications',  elIds:['notifs-Worker'],    hidden:false },
+    { id:'w-stats',    label:'📊 Statistiques',   elIds:['worker-stats-grid'], hidden:false },
   ],
   company: [
-    { id:'c-notifs',   label:'🔔 Notifications',    size:'md', hidden:false },
-    { id:'c-teamcode', label:'🔑 Code Équipe',       size:'sm', hidden:false },
-    { id:'c-stats',    label:'📊 Statistiques',      size:'md', hidden:false },
+    { id:'c-teamcode', label:'🔑 Code Équipe',    elIds:['teamCodeBanner'],    hidden:false },
+    { id:'c-notifs',   label:'🔔 Notifications',  elIds:['notifs-Company'],   hidden:false },
+    { id:'c-stats',    label:'📊 Statistiques',   elIds:['company-stats-grid'],hidden:false },
   ],
   hse: [
-    { id:'h-notifs',   label:'🔔 Notifications',    size:'md', hidden:false },
-    { id:'h-stats',    label:'📊 Statistiques',      size:'md', hidden:false },
-    { id:'h-compliance',label:'🎯 Conformité',       size:'md', hidden:false },
-    { id:'h-modules',  label:'🚀 Modules à venir',   size:'sm', hidden:false },
+    { id:'h-notifs',     label:'🔔 Notifications', elIds:['notifs-HSE'],         hidden:false },
+    { id:'h-stats',      label:'📊 Statistiques',  elIds:['hse-stats-grid'],      hidden:false },
+    { id:'h-compliance', label:'🎯 Conformité',    elIds:['hse-compliance-wrap'], hidden:false },
+    { id:'h-modules',    label:'🚀 À venir',        elIds:['hse-modules-wrap'],   hidden:false },
   ],
   subcontractor: [
-    { id:'s-notifs',   label:'🔔 Notifications',    size:'md', hidden:false },
-    { id:'s-stats',    label:'📊 Statistiques',      size:'md', hidden:false },
+    { id:'s-notifs', label:'🔔 Notifications', elIds:['notifs-Subcontractor'], hidden:false },
+    { id:'s-stats',  label:'📊 Statistiques',  elIds:['st-stats-grid'],         hidden:false },
   ],
   trainer: [
-    { id:'t-booking',  label:'📅 Lien Réservation',  size:'sm', hidden:false },
-    { id:'t-notifs',   label:'🔔 Notifications',    size:'md', hidden:false },
-    { id:'t-stats',    label:'📊 Statistiques',      size:'md', hidden:false },
+    { id:'t-booking', label:'📅 Réservation',   elIds:['trainerBookingBanner'],  hidden:false },
+    { id:'t-notifs',  label:'🔔 Notifications', elIds:['notifs-Trainer'],        hidden:false },
+    { id:'t-stats',   label:'📊 Statistiques',  elIds:['trainer-stats-grid'],    hidden:false },
   ],
 };
 
-// Contenu HTML de chaque widget (capturé depuis le DOM après rendu)
-const WIDGET_CONTENT_IDS = {
-  'w-notifs':     ['notifs-Worker'],
-  'w-employer':   ['linkCompanyBanner','linkedCompanyBanner','changeEmployerPanel','workerExpiryAlerts'],
-  'w-stats':      ['__worker-stats-grid'],
-  'c-notifs':     ['notifs-Company'],
-  'c-teamcode':   ['teamCodeBanner'],
-  'c-stats':      ['__company-stats-grid'],
-  'h-notifs':     ['notifs-HSE'],
-  'h-stats':      ['__hse-stats-grid'],
-  'h-compliance': ['__hse-compliance-block'],
-  'h-modules':    ['__hse-modules-block'],
-  's-notifs':     ['notifs-Subcontractor'],
-  's-stats':      ['__st-stats-grid'],
-  't-booking':    ['trainerBookingBanner'],
-  't-notifs':     ['notifs-Trainer'],
-  't-stats':      ['__trainer-stats-grid'],
-};
+let _customizeMode = false;
+let _dragSrcWidget = null;
 
-let _customizeMode  = false;
-let _dragSrcWidget  = null;
-let _currentLayout  = null;
-
-function getDashboardEl(role) {
-  const map = { worker:'Worker', company:'Company', hse:'HSE', subcontractor:'Subcontractor', trainer:'Trainer' };
-  const dash = map[role];
-  return dash ? document.getElementById(`${dash}-overview`) : null;
-}
-
-// ── Initialisation widgets au chargement du dashboard ──
+// ── Point d'entrée : wrappé les éléments DOM existants dans des widgets ──
 async function initDashboardWidgets(role) {
-  const overview = getDashboardEl(role);
-  if (!overview) return;
+  const roleMap = { worker:'Worker', company:'Company', hse:'HSE', subcontractor:'Subcontractor', trainer:'Trainer' };
+  const dash    = roleMap[role];
+  const overview = document.getElementById(`${dash}-overview`);
+  if (!overview || overview.dataset.widgetsInit) return;
+  overview.dataset.widgetsInit = '1';
 
-  // Charger layout sauvegardé
-  const saved = currentProfile?.dashboard_layout?.[role];
-  const defs  = JSON.parse(JSON.stringify(WIDGET_DEFS[role] || []));
-  _currentLayout = saved ? mergeLayout(defs, saved) : defs;
+  // HSE : wrapper conformité + modules dans des divs identifiables
+  if (role === 'hse') wrapHSEBlocks(overview);
 
-  // Marquer les stats-grids avec des IDs pour les capturer
-  tagStatGrids(role, overview);
+  // Charger le layout sauvegardé
+  const saved  = currentProfile?.dashboard_layout?.[role];
+  const defs   = JSON.parse(JSON.stringify(WIDGET_DEFS[role] || []));
+  const layout = saved ? mergeLayout(defs, saved) : defs;
 
   // Créer le conteneur grid
   const grid = document.createElement('div');
   grid.className = 'dash-grid';
   grid.id = `dash-grid-${role}`;
 
-  // Déplacer les éléments existants dans des widgets
-  _currentLayout.forEach(wDef => {
-    const widget = buildWidget(wDef, role, overview);
-    if (widget) grid.appendChild(widget);
+  // Pour chaque widget : trouver les éléments, les wrapper
+  layout.forEach(wDef => {
+    const els = wDef.elIds.map(id => document.getElementById(id)).filter(Boolean);
+    if (!els.length) return;
+
+    const widget = document.createElement('div');
+    widget.className = 'db-widget';
+    widget.dataset.widgetId = wDef.id;
+    if (wDef.hidden) widget.classList.add('hidden-widget');
+
+    // Barre de contrôle (visible seulement en mode édition)
+    const bar = document.createElement('div');
+    bar.className = 'db-widget-bar';
+    bar.innerHTML = `
+      <span class="db-widget-handle" title="Déplacer">⠿</span>
+      <span class="db-widget-label">${wDef.label}</span>
+      <div class="db-widget-actions">
+        <button class="db-widget-btn ${wDef.hidden ? 'active' : ''}"
+          onclick="toggleWidgetVisibility(this,'${wDef.id}','${role}')"
+        >${wDef.hidden ? '👁 Afficher' : '🙈 Masquer'}</button>
+      </div>`;
+
+    // Inner : déplacer les éléments dedans
+    const inner = document.createElement('div');
+    inner.className = 'db-widget-inner';
+    els.forEach(el => inner.appendChild(el));
+
+    widget.appendChild(bar);
+    widget.appendChild(inner);
+    grid.appendChild(widget);
+
+    // Events drag (activés uniquement via la poignée)
+    const handle = bar.querySelector('.db-widget-handle');
+    handle.addEventListener('mousedown', () => { widget.draggable = true; });
+    widget.addEventListener('dragstart', onWidgetDragStart);
+    widget.addEventListener('dragend',   onWidgetDragEnd);
+    widget.addEventListener('dragover',  onWidgetDragOver);
+    widget.addEventListener('drop',      onWidgetDrop);
   });
 
-  // Remplacer le contenu de overview (après le titre)
-  const welcome = overview.querySelector('.dash-welcome');
+  // Remplacer le contenu de l'overview (après titre + subtitle)
+  const welcome  = overview.querySelector('.dash-welcome');
   const subtitle = overview.querySelector('.dash-subtitle');
-  // Vider overview sauf titre/subtitle
-  while (overview.children.length > 0) overview.removeChild(overview.lastChild);
-  overview.appendChild(welcome);
-  overview.appendChild(subtitle);
+  // Vider et remettre titre + grid
+  Array.from(overview.children).forEach(c => {
+    if (c !== welcome && c !== subtitle) overview.removeChild(c);
+  });
   overview.appendChild(grid);
 
-  // Afficher boutons Personnaliser
-  showCustomizeBtn(role);
+  // Afficher le bouton Personnaliser de ce dashboard
+  const bellId = { worker:'notifBell-Worker', company:'notifBell-Company', hse:'notifBell-HSE', subcontractor:'notifBell-Subcontractor', trainer:'notifBell-Trainer' }[role];
+  if (bellId) {
+    const bell = document.getElementById(bellId);
+    const btn  = bell?.previousElementSibling;
+    if (btn?.classList.contains('btn-customize')) btn.style.display = '';
+  }
 }
 
-function tagStatGrids(role, overview) {
-  const grids = overview.querySelectorAll('.stats-grid');
-  const idMap = {
-    worker: ['__worker-stats-grid'],
-    company: ['__company-stats-grid'],
-    hse: ['__hse-stats-grid'],
-    subcontractor: ['__st-stats-grid'],
-    trainer: ['__trainer-stats-grid'],
-  };
-  const ids = idMap[role] || [];
-  grids.forEach((g, i) => { if (ids[i]) g.id = ids[i]; });
-
-  // HSE : tagger conformité et modules
-  if (role === 'hse') {
-    const blocks = overview.querySelectorAll('.section-title, .doc-grid, #complianceWidget, [style*="justify-content:space-between"]');
-    let compBlock = document.createElement('div');
-    compBlock.id = '__hse-compliance-block';
-    let modBlock = document.createElement('div');
-    modBlock.id = '__hse-modules-block';
-
-    const compWidget = overview.querySelector('#complianceWidget');
+// Wrapper les blocs HSE conformité + modules dans des divs avec IDs
+function wrapHSEBlocks(overview) {
+  // Conformité
+  if (!document.getElementById('hse-compliance-wrap')) {
+    const compWidget = document.getElementById('complianceWidget');
     const compHeader = compWidget?.previousElementSibling;
-    if (compWidget && compHeader) {
-      compBlock.appendChild(compHeader.cloneNode(true));
-      compBlock.appendChild(compWidget.cloneNode(true));
-      compHeader.replaceWith(compBlock);
-      compWidget.remove();
+    if (compWidget && compHeader && compHeader.style?.justifyContent === 'space-between') {
+      const wrap = document.createElement('div');
+      wrap.id = 'hse-compliance-wrap';
+      compHeader.parentNode.insertBefore(wrap, compHeader);
+      wrap.appendChild(compHeader);
+      wrap.appendChild(compWidget);
     }
-
-    const sectionTitles = overview.querySelectorAll('.section-title');
-    sectionTitles.forEach(t => {
-      if (t.textContent.includes('Prochains')) {
-        const docGrid = t.nextElementSibling;
-        modBlock.appendChild(t.cloneNode(true));
-        if (docGrid) modBlock.appendChild(docGrid.cloneNode(true));
-        t.replaceWith(modBlock);
-        if (docGrid) docGrid.remove();
+  }
+  // Modules à venir
+  if (!document.getElementById('hse-modules-wrap')) {
+    const titles = overview.querySelectorAll('.section-title');
+    titles.forEach(t => {
+      if (t.textContent.includes('Prochains') || t.textContent.includes('modules')) {
+        const wrap = document.createElement('div');
+        wrap.id = 'hse-modules-wrap';
+        const next = t.nextElementSibling;
+        t.parentNode.insertBefore(wrap, t);
+        wrap.appendChild(t);
+        if (next) wrap.appendChild(next);
       }
     });
   }
 }
 
-function buildWidget(wDef, role, overview) {
-  const contentIds = WIDGET_CONTENT_IDS[wDef.id] || [];
-  const elements   = [];
 
-  contentIds.forEach(cid => {
-    const el = overview.querySelector(`#${cid}`) || document.getElementById(cid);
-    if (el) elements.push(el);
-  });
 
-  if (!elements.length) return null;
-
-  const widget = document.createElement('div');
-  widget.className = 'db-widget';
-  widget.dataset.widgetId = wDef.id;
-  widget.dataset.size     = wDef.size || 'md';
-  widget.draggable        = false; // activé seulement en mode edit
-  if (wDef.hidden) widget.classList.add('hidden-widget');
-
-  // Barre de contrôle
-  const bar = document.createElement('div');
-  bar.className = 'db-widget-bar';
-  bar.innerHTML = `
-    <span class="db-widget-handle" title="Déplacer">⠿⠿</span>
-    <span class="db-widget-label">${wDef.label}</span>
-    <div class="db-widget-actions">
-      <button class="db-widget-btn ${wDef.size === 'sm' ? '' : ''}" onclick="resizeWidget(this,'${wDef.id}','${role}')" title="Changer la taille">⊡ Taille</button>
-      <button class="db-widget-btn ${wDef.hidden ? 'active' : ''}" onclick="toggleWidgetVisibility(this,'${wDef.id}','${role}')" title="Masquer/Afficher">${wDef.hidden ? '👁 Afficher' : '🙈 Masquer'}</button>
-    </div>`;
-
-  // Contenu
-  const inner = document.createElement('div');
-  inner.className = 'db-widget-inner';
-  elements.forEach(el => inner.appendChild(el));
-
-  // Handle resize bas
-  const resizeHandle = document.createElement('div');
-  resizeHandle.className = 'db-widget-resize';
-  resizeHandle.title = 'Redimensionner';
-
-  widget.appendChild(bar);
-  widget.appendChild(inner);
-  widget.appendChild(resizeHandle);
-
-  // Events drag
-  const handle = bar.querySelector('.db-widget-handle');
-  handle.addEventListener('mousedown', () => { widget.draggable = true; });
-  widget.addEventListener('dragstart', onWidgetDragStart);
-  widget.addEventListener('dragend',   onWidgetDragEnd);
-  widget.addEventListener('dragover',  onWidgetDragOver);
-  widget.addEventListener('drop',      onWidgetDrop);
-
-  // Resize par le bas
-  initResizeHandle(resizeHandle, inner);
-
-  return widget;
-}
-
+// Contenu HTML de chaque widget (capturé depuis le DOM après rendu)
 // ── Drag & drop ──
 function onWidgetDragStart(e) {
   _dragSrcWidget = this;
@@ -3852,43 +3805,6 @@ function onWidgetDrop(e) {
 }
 
 // ── Resize par handle bas ──
-function initResizeHandle(handle, inner) {
-  let startY, startH;
-  handle.addEventListener('mousedown', e => {
-    e.preventDefault();
-    startY = e.clientY;
-    startH = inner.offsetHeight;
-    const onMove = ev => {
-      const newH = Math.max(80, startH + (ev.clientY - startY));
-      inner.style.maxHeight = newH + 'px';
-      inner.style.overflow  = 'hidden';
-    };
-    const onUp = () => {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      saveLayout(currentProfile.role);
-    };
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  });
-}
-
-// ── Resize bouton ──
-function resizeWidget(btn, widgetId, role) {
-  const widget = document.querySelector(`[data-widget-id="${widgetId}"]`);
-  if (!widget) return;
-  const sizes  = ['sm','md','lg'];
-  const cur    = widget.dataset.size || 'md';
-  const next   = sizes[(sizes.indexOf(cur) + 1) % sizes.length];
-  const inner  = widget.querySelector('.db-widget-inner');
-  widget.dataset.size = next;
-  inner.style.maxHeight = '';
-  inner.style.overflow  = '';
-  const labels = { sm:'Compact', md:'Normal', lg:'Large' };
-  btn.textContent = `⊡ ${labels[next]}`;
-  saveLayout(role);
-}
-
 // ── Masquer/Afficher ──
 function toggleWidgetVisibility(btn, widgetId, role) {
   const widget  = document.querySelector(`[data-widget-id="${widgetId}"]`);
