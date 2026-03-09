@@ -7,6 +7,165 @@
 //               openReportViewer, archiveReport)
 // ============================================================
 
+// ── NAVIGATION MODALE SIGNATURE + UPLOAD MANUEL ──────────────
+
+// ══ NAVIGATION MODALE SIGNATURE ══════════════════════════════
+
+function goToStep(n) {
+  [0,1,2,3,4,5].forEach(function(i) {
+    var el = document.getElementById('sigOtpStep' + i);
+    if (el) el.style.display = (i === n ? '' : 'none');
+  });
+}
+
+function chooseSignatureMode(mode) {
+  if (mode === 'otp') {
+    document.getElementById('sigOtpRequestBtn').disabled = false;
+    document.getElementById('sigOtpRequestBtn').textContent = '📧 Envoyer le code de vérification';
+    goToStep(1);
+  } else {
+    goToStep(4);
+  }
+}
+
+// ── Télécharger le rapport vierge (sans cachet) pour impression ──
+function downloadUnsignedReport() {
+  if (!_sigContext) return;
+  var html, title;
+  if (_sigContext.reportType === 'DUER' && _sigContext._entries) {
+    html  = buildDuerHTML(_sigContext._entries, _sigContext.meta, buildManualSignatureBlockHTML());
+    title = 'DUER';
+  } else if (_sigContext.reportType === 'VGP' && _sigContext._records) {
+    html  = buildVgpHTML(_sigContext._records, _sigContext.meta, buildManualSignatureBlockHTML());
+    title = 'VGP';
+  } else {
+    showToast('Données rapport non disponibles', 'error'); return;
+  }
+  // Télécharger directement en HTML (le navigateur peut l'imprimer en PDF)
+  var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href     = url;
+  a.download = title + '-' + _sigContext.reportNum + '-A-SIGNER.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
+  showToast('Document téléchargé — imprimez et signez', 'success');
+}
+
+// Bloc réservé pour signature manuscrite (bas de rapport)
+function buildManualSignatureBlockHTML() {
+  return '<div style="margin-top:24px;border:2px dashed #D1D5DB;border-radius:10px;padding:20px;page-break-inside:avoid">'
+    + '<div style="font-size:10px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:16px">Signature manuscrite</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px">'
+    + sigLineHTML('Établi par')
+    + sigLineHTML('Vérifié par')
+    + sigLineHTML('Date')
+    + '</div>'
+    + '<div style="margin-top:16px;height:60px;border-bottom:1px solid #9CA3AF;position:relative">'
+    + '<span style="position:absolute;bottom:6px;left:0;font-size:10px;color:#9CA3AF">Signature</span></div>'
+    + '</div>';
+}
+function sigLineHTML(label) {
+  return '<div><div style="font-size:9px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:20px">'+label+'</div>'
+    + '<div style="border-bottom:1px solid #9CA3AF;height:24px"></div></div>';
+}
+
+// ── Upload scan signé ─────────────────────────────────────────
+var _manualSigFile = null;
+
+function onManualSigFileChange(input) {
+  _manualSigFile = input.files[0] || null;
+  var dropText = document.getElementById('manualSigDropText');
+  var uploadBtn = document.getElementById('manualSigUploadBtn');
+  if (dropText) dropText.textContent = _manualSigFile ? _manualSigFile.name : 'Cliquez pour sélectionner';
+  if (uploadBtn) uploadBtn.disabled = !_manualSigFile;
+}
+
+async function uploadManualSignature() {
+  if (!_manualSigFile || !_sigContext) return;
+  var btn = document.getElementById('manualSigUploadBtn');
+  btn.disabled = true; btn.textContent = '⏳ Archivage...';
+
+  var pad     = function(n){ return String(n).padStart(2,'0'); };
+  var now     = new Date();
+  var sigId   = 'SIG-MAN-' + now.getFullYear() + pad(now.getMonth()+1) + pad(now.getDate()) + '-' + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+  var filePath = currentProfile.org_id + '/' + sigId + '-' + _manualSigFile.name;
+
+  var fileUrl = null;
+  var upRes = await sb.storage.from('rapport-archives').upload(filePath, _manualSigFile, { upsert: true });
+  if (!upRes.error) {
+    var signed = await sb.storage.from('rapport-archives').createSignedUrl(filePath, 60 * 60 * 24 * 365);
+    if (!signed.error) fileUrl = signed.data.signedUrl;
+  }
+
+  // Enregistrer en base
+  var sigEntry = {
+    org_id      : currentProfile.org_id,
+    user_id     : currentUser.id,
+    responsable : currentProfile.full_name || currentProfile.email,
+    email       : currentProfile.email,
+    report_num  : _sigContext.reportNum,
+    report_type : _sigContext.reportType,
+    sig_id      : sigId,
+    method      : 'manuscrite_scannee',
+    signed_at   : now.toISOString(),
+  };
+  await sb.from('report_signatures').insert(sigEntry);
+
+  // Archiver aussi le fichier dans report_archive
+  if (fileUrl) {
+    await sb.from('report_archive').insert({
+      org_id       : currentProfile.org_id,
+      created_by   : currentUser.id,
+      responsable  : currentProfile.full_name || currentProfile.email,
+      email        : currentProfile.email || '',
+      report_num   : sigId,
+      report_type  : _sigContext.reportType,
+      label        : _sigContext.reportType + ' — signature manuscrite scannée',
+      source       : 'manuscrit',
+      generated_at : now.toISOString(),
+      file_url     : fileUrl,
+    });
+  }
+
+  var sigDate = now.toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+  var sigTime = pad(now.getHours()) + 'h' + pad(now.getMinutes());
+  document.getElementById('sigManualSuccessDetail').innerHTML =
+    'Réf. : <strong>' + sigId + '</strong><br>'
+    + sigDate + ' à ' + sigTime + '<br>'
+    + '<span style="color:var(--muted)">Conservé dans l\'historique · Méthode : manuscrite scannée</span>';
+
+  _manualSigFile = null;
+  goToStep(5);
+  showToast('✓ Document signé archivé', 'success');
+}
+
+// ── Patch openSignatureModal — stocker entries/records pour téléchargement ──
+var _origOpenSignatureModal = openSignatureModal;
+openSignatureModal = async function(reportNum, reportType, meta, onSuccess, extraData) {
+  // Stocker les données dans le contexte pour downloadUnsignedReport
+  await _origOpenSignatureModal(reportNum, reportType, meta, onSuccess);
+  if (_sigContext && extraData) {
+    _sigContext._entries = extraData.entries || null;
+    _sigContext._records = extraData.records || null;
+  }
+};
+
+
+
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// WORKFLOW SIGNATURE V2 — Parallèle / Séquentiel configurable par type de doc
+// ══════════════════════════════════════════════════════════════════════════════
+
+// ── Config workflow par type doc (chargée depuis doc_workflow_config) ──
+var _workflowConfig = {}; // { 'DUER': 'parallel', 'VGP': 'parallel', 'PDP': 'sequential', ... }
+
+async function loadWorkflowConfig() {
+
 // ══════════════════════════════════════════════════════════════
 // SYSTÈME DE SIGNATURE OTP
 // Tables : signature_settings (global/org/user), report_signatures
