@@ -1,0 +1,211 @@
+================================================================================
+SAFETYSPHERE — JOURNAL DE DÉVELOPPEMENT
+Date    : 2026-03-09
+Session : v1.4.2 → v2.0.0 (Refactorisation architecture multi-fichiers)
+================================================================================
+
+
+────────────────────────────────────────────────────────────────────────────────
+1. CONTEXTE & ÉTAT DE DÉPART
+────────────────────────────────────────────────────────────────────────────────
+
+Reprise après session v1.4.2 (Analytics Admin + Analytics par rôle).
+Fichier unique index.html — 12 844 lignes — 380 fonctions JS.
+Objectif : refactoriser sans réécrire aucune logique.
+
+
+────────────────────────────────────────────────────────────────────────────────
+2. REFACTORISATION ARCHITECTURE (v2.0.0)
+────────────────────────────────────────────────────────────────────────────────
+
+2.1 Nouvelle structure de fichiers
+  Ancienne : 1 fichier index.html (12 844 lignes)
+  Nouvelle  :
+    safetysphere/
+    ├── index.html                  (1 930 lignes — squelette HTML pur)
+    ├── index_v142_backup.html      (sauvegarde version monolithique)
+    ├── css/
+    │   ├── base.css                (41 lignes — reset + variables CSS :root)
+    │   ├── components.css          (579 lignes — composants UI + modules métier)
+    │   └── themes.css              (213 lignes — overrides body.theme-light)
+    └── js/
+        ├── core.js                 (692 lignes — Supabase init, auth, routing, theme)
+        ├── analytics.js            (1 227 lignes — analytics admin + 4 rôles)
+        ├── workers.js              (4 315 lignes — workers, docs, missions, QR, ST)
+        ├── signatures.js           (2 105 lignes — OTP, workflow, page publique)
+        ├── reports.js              (2 035 lignes — rapports, historique, widgets, impersonation)
+        └── conformite.js           (1 848 lignes — DUER, VGP, FDS, PDP, personnalisation)
+
+2.2 Ordre de chargement (index.html)
+  <script src="js/core.js"></script>       <!-- 1. Init Supabase, auth, routing, globals -->
+  <script src="js/analytics.js"></script>  <!-- 2. Analytics admin + rôles -->
+  <script src="js/workers.js"></script>    <!-- 3. Workers, invitations, missions, QR -->
+  <script src="js/signatures.js"></script> <!-- 4. Workflow signature, OTP, page publique -->
+  <script src="js/reports.js"></script>    <!-- 5. Rapports, archivage, historique, widgets -->
+  <script src="js/conformite.js"></script> <!-- 6. DUER, VGP, FDS, PDP, perso -->
+
+2.3 Dépendances inter-fichiers
+  core.js         → exporté vers tous (sb, currentUser, currentProfile, escapeHtml, showToast)
+  analytics.js    → dépend de core.js uniquement
+  workers.js      → dépend de core.js
+  signatures.js   → dépend de core.js + reports.js (renderHistoriqueSection, archiveReport)
+  reports.js      → dépend de core.js + signatures.js (openSendForSignatureModal)
+  conformite.js   → dépend de core.js + reports.js + signatures.js
+
+2.4 Points techniques résolus pendant la refacto
+  • WIDGET_DEFS déclaré en double (workers.js + reports.js) → supprimé de workers.js
+  • reports.js se terminait au milieu de goToStep → corrigé, goToStep déplacé dans signatures.js
+  • Accolades non fermées dans reports.js et signatures.js → détectées par node --check
+    et corrigées en ajustant les limites de découpage
+  • Tous les fichiers validés avec node --check avant déploiement
+
+2.5 Déploiement
+  • Branche de travail : refacto/multi-fichiers
+  • Merge sur main via upload manuel (conflit PR résolu manuellement)
+  • Déployé sur Vercel → safetysphere.vercel.app ✅
+  • Version meta tag : 2.0.0
+
+2.6 Valeur temps-homme estimée (cumul depuis le début)
+  Architecture & auth Supabase          : 3 jours
+  5 dashboards rôles + navigation       : 4 jours
+  Gestion documentaire + validation     : 3 jours
+  Workflow signature OTP + page publique: 5 jours
+  DUER + VGP + FDS + PDP               : 6 jours
+  Analytics admin + 4 rôles            : 4 jours
+  QR code + missions ST↔EU             : 3 jours
+  Conformité personnalisable + widgets  : 3 jours
+  Refacto architecture multi-fichiers   : 1 jour
+  TOTAL                                 : ~32 jours (~19 000€ tarif senior)
+
+
+────────────────────────────────────────────────────────────────────────────────
+3. MÉTHODOLOGIE DE DÉVELOPPEMENT (nouvelles règles v2.0.0)
+────────────────────────────────────────────────────────────────────────────────
+
+Depuis la refacto, chaque session suit ce protocole :
+
+  1. Fournir à Claude : CONTEXT.md + journal + fichiers JS concernés (1 à 3 max)
+  2. Claude génère uniquement les fichiers modifiés
+  3. Remplacement sur GitHub via crayon ✏️ (Edit file)
+  4. Vercel déploie automatiquement en 30 secondes
+
+Règle : on ne fournit JAMAIS tous les fichiers — uniquement ceux touchés par la feature.
+
+  Type de tâche                    → Fichiers à fournir
+  Nouvelle fonctionnalité isolée   → Aucun ou 1 fichier
+  Modifier un module existant      → Le fichier du module
+  Bug multi-modules                → Les 2-3 fichiers concernés
+
+
+────────────────────────────────────────────────────────────────────────────────
+4. PROCHAINES ÉTAPES (priorisées)
+────────────────────────────────────────────────────────────────────────────────
+
+HAUTE PRIORITÉ
+  • Edge Function "send-signature-email" (Supabase + Resend)
+    - Nouveau fichier Supabase : supabase/functions/send-signature-email/index.ts
+    - Paramètres : to, signer_name, signer_role, emitter_name,
+      report_num, report_type, workflow_mode, position, sig_url
+    - Template HTML email avec bouton "Signer le document"
+    - Expiration token : 30 jours
+    - Déclenchement depuis signatures.js → sendSignatureRequest()
+    - Fichiers à modifier : signatures.js
+    - Prérequis : compte Resend + clé API re_xxx + variable env RESEND_API_KEY dans Supabase
+
+  • Badge PDF imprimable intervenant (solution zones blanches)
+    - PDF avec habilitations + QR code + dates d'expiration
+    - Imprimable avant intervention en zone sans réseau
+    - Fichiers à modifier : workers.js
+    - Complexité : 1 jour
+
+MOYEN TERME
+  • Mode offline localStorage (zones blanches)
+    - Sauvegarde automatique données intervenant au login
+    - Page hors-ligne en lecture seule
+    - Fichiers à modifier : core.js, workers.js
+    - Complexité : 2-3 jours
+
+  • Bumper version meta tag → 2.0.0 dans index.html ✅ (déjà fait)
+
+  • Activer PdP dans checklist conformité Admin
+    (actuellement disabled dans Admin-compliance)
+    - Fichiers à modifier : conformite.js
+
+  • Export CSV/PDF des tableaux Analytics
+    - Fichiers à modifier : analytics.js
+
+  • Analytics Worker (intervenant individuel)
+    - Fichiers à modifier : analytics.js, workers.js
+
+  • Comparaison inter-périodes dans les charts (N vs N-1)
+    - Fichiers à modifier : analytics.js
+
+BACKLOG
+  • Permis de travail (module suivant conformité)
+    - Nouveau module → conformite.js ou nouveau fichier permis.js
+  • Notifications push / email digest hebdo
+  • PWA (Progressive Web App) — offline complet
+  • Application mobile native
+
+
+────────────────────────────────────────────────────────────────────────────────
+5. ÉTAT FINAL v2.0.0
+────────────────────────────────────────────────────────────────────────────────
+
+Stack technique :
+  Frontend  : HTML/CSS/JS vanilla (SPA)
+  Backend   : Supabase (PostgreSQL + Auth + Storage + Edge Functions)
+  Déploiement : Vercel (auto-deploy sur push main)
+  Email     : Resend (à configurer — session suivante)
+  Repo      : github.com/SebastienCau/safetysphere
+  URL prod  : safetysphere.vercel.app
+
+Fichiers JS : 6 fichiers — 12 222 lignes (dont 380 fonctions, 0 doublon)
+Validation  : node --check ✅ sur les 6 fichiers
+Version app : 2.0.0
+
+Onglets Analytics présents :
+  ✅ Admin    → loadAdminAnalytics()
+  ✅ Company  → loadRoleAnalytics('Company')
+  ✅ ST       → loadRoleAnalytics('Subcontractor')
+  ✅ HSE      → loadRoleAnalytics('HSE')
+  ✅ Trainer  → loadRoleAnalytics('Trainer')
+
+Modules conformité présents :
+  ✅ DUER (templates sectoriels, cotation, rapport PDF)
+  ✅ VGP (registre légaux, J-30, rapport PDF)
+  ✅ FDS (bibliothèque, pictogrammes, statuts)
+  ✅ PDP (multi-sections, workflow EU→ST→SPS, rapport PDF)
+
+Signature :
+  ✅ OTP email (à connecter à Resend)
+  ✅ Workflow parallèle / séquentiel configurable
+  ✅ Page publique token
+  ✅ Document consolidé final
+  ✅ Upload scan signé manuel
+  ⏳ Email automatique au signataire (session suivante)
+
+
+────────────────────────────────────────────────────────────────────────────────
+6. POSITIONNEMENT MARCHÉ
+────────────────────────────────────────────────────────────────────────────────
+
+Concurrents directs FR : Preventeo, Daxium, Qualintra, SafetyCulture
+  → 80-300€/mois/utilisateur, interface lourde, pensé grands groupes
+
+Différenciateurs SafetySphere :
+  • Relation EU↔ST native (angle rare sur le marché)
+  • Signature numérique intégrée
+  • Interface moderne SPA
+  • Onboarding QR code (zéro friction terrain)
+  • Accessible PME/ETI
+
+Valorisable dès maintenant :
+  • Bêta payante 3-5 clients pilotes (50-100€/mois)
+  • Présentation investisseurs angel / BPI
+  • Revente projet (15 000-50 000€)
+  • Recrutement co-fondateur commercial HSE
+
+================================================================================
+FIN DU JOURNAL — 2026-03-09 — v2.0.0
+================================================================================
