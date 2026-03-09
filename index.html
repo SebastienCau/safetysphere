@@ -1992,6 +1992,20 @@
   </div>
 </div>
 
+
+<!-- ══ MODALE VISIONNEUSE RAPPORT ══ -->
+<div class="modal-overlay" id="reportViewerModal" style="padding:0;align-items:stretch;background:rgba(0,0,0,.85)">
+  <div style="display:flex;flex-direction:column;width:100%;height:100%;max-width:100%;max-height:100%;border-radius:0">
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;background:#0D1B2A;border-bottom:2px solid #F97316;flex-shrink:0">
+      <div style="width:28px;height:28px;background:#F97316;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:12px">S</div>
+      <span id="reportViewerTitle" style="font-weight:700;color:#fff;font-size:14px;flex:1">Rapport</span>
+      <button onclick="printReportViewer()" style="background:rgba(249,115,22,.2);border:1px solid rgba(249,115,22,.4);color:#FDBA74;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:700">🖨️ Imprimer / PDF</button>
+      <button onclick="closeReportViewer()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px">✕ Fermer</button>
+    </div>
+    <iframe id="reportViewerFrame" style="flex:1;width:100%;border:none;background:#fff"></iframe>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -7608,7 +7622,7 @@ async function renderHistoriqueSection(role) {
           + '</div>'
           + '<span class="archive-badge ' + (isSS ? 'ss' : 'ext') + '">' + (isSS ? '⬡ SafetySphere' : '📤 Externe') + '</span>'
           + '<div class="archive-actions">'
-          + (a.file_url ? '<a href="' + a.file_url + '" target="_blank" class="btn-sm btn-view" style="padding:5px 12px;font-size:11px;text-decoration:none">📄 Consulter</a>' : '<span style="font-size:11px;color:var(--muted)">Pas de fichier</span>')
+          + (a.file_url ? '<button class="btn-sm btn-view" style="padding:5px 12px;font-size:11px" onclick="openReportViewer(\'' + a.file_url + '\',\'' + escapeHtml(a.report_num||a.label) + '\',\'' + (a.source==='safetysphere'?'html':'ext') + '\')">📄 Consulter</button>' : '<span style="font-size:11px;color:var(--muted)">Pas de fichier</span>')
           + '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.25);color:#FCA5A5" onclick="moveToTrash(\'' + a.id + '\',\'' + role + '\')">🗑️</button>'
           + '</div>'
           + '</div>';
@@ -7744,6 +7758,75 @@ async function saveExternalReport() {
   // Rafraîchir l'onglet historique si ouvert
   var role = currentProfile.role === 'hse' ? 'HSE' : 'Company';
   renderHistoriqueSection(role);
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// VISIONNEUSE RAPPORT — iframe plein écran
+// ══════════════════════════════════════════════════════════════
+
+async function openReportViewer(url, title, sourceType) {
+  var modal = document.getElementById('reportViewerModal');
+  var frame = document.getElementById('reportViewerFrame');
+  var titleEl = document.getElementById('reportViewerTitle');
+  if (!modal || !frame) return;
+
+  titleEl.textContent = title || 'Rapport';
+  frame.src = 'about:blank';
+  modal.classList.add('open');
+
+  if (sourceType === 'html') {
+    // Rapport SafetySphere : récupérer le HTML via fetch et l'afficher dans l'iframe
+    try {
+      var resp = await fetch(url);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      var html = await resp.text();
+      // Injecter dans l'iframe via blob pour contourner le Content-Type text/plain
+      var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      var blobUrl = URL.createObjectURL(blob);
+      frame.src = blobUrl;
+      frame._blobUrl = blobUrl;
+      // Nettoyer le blob après chargement
+      frame.onload = function() {
+        setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 10000);
+      };
+    } catch(e) {
+      // Fallback : afficher une page d'erreur propre dans l'iframe
+      var errHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'
+        + 'body{font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;background:#F9FAFB;color:#374151}'
+        + 'h2{color:#EF4444}.sub{font-size:13px;color:#6B7280;margin-top:8px;text-align:center}'
+        + '</style></head><body>'
+        + '<h2>⚠️ Impossible de charger le rapport</h2>'
+        + '<p class="sub">Le lien signé a peut-être expiré.<br>Régénérez le rapport depuis SafetySphere pour obtenir un lien valide.</p>'
+        + '<a href="' + url + '" target="_blank" style="margin-top:16px;padding:10px 24px;background:#F97316;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">Ouvrir le lien direct</a>'
+        + '</body></html>';
+      var eb = new Blob([errHtml], { type:'text/html' });
+      frame.src = URL.createObjectURL(eb);
+    }
+  } else {
+    // Rapport externe (PDF, DOCX) : afficher dans iframe directement
+    // Pour les PDF les navigateurs les affichent nativement
+    frame.src = url;
+  }
+}
+
+function closeReportViewer() {
+  var modal = document.getElementById('reportViewerModal');
+  var frame = document.getElementById('reportViewerFrame');
+  if (modal) modal.classList.remove('open');
+  if (frame) {
+    // Révoquer un éventuel blob url encore actif
+    if (frame._blobUrl) { URL.revokeObjectURL(frame._blobUrl); frame._blobUrl = null; }
+    frame.src = 'about:blank';
+  }
+}
+
+function printReportViewer() {
+  var frame = document.getElementById('reportViewerFrame');
+  if (frame && frame.contentWindow) {
+    frame.contentWindow.focus();
+    frame.contentWindow.print();
+  }
 }
 
 </script>
