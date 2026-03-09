@@ -1915,8 +1915,3 @@ function updateImpersonateLogDisplay() {
     }).join('')
     + '</div>';
 }
-
-// ══ NAVIGATION MODALE SIGNATURE ══════════════════════════════
-
-function goToStep(n) {
-  [0,1,2,3,4,5].forEach(function(i) {
