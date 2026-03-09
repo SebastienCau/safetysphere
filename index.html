@@ -15,6 +15,8 @@
        v0.9.0 — QR Code entreprise : génération, page publique scan, copie lien & téléchargement
        v0.9.1 — Rattachement par scan QR : Worker→Employeur et ST→EU via caméra ou URL
        v0.9.2 — Missions ST→EU : création, soumission, validation EU/HSE, intervenants, docs partagés
+       v0.9.3 — Fix chargement Mes EU + création missions côté HSE/Company + modales propres
+       v0.9.4 — Notifications : cloche topbar + section accueil par rôle (worker/company/hse/st/trainer)
   -->
   <meta name="app-version" content="0.8.1" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
@@ -184,6 +186,22 @@
     .topbar-user { font-size: 13px; color: var(--muted); }
     .btn-logout { padding: 6px 14px; background: transparent; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; color: var(--muted); font-family: 'Barlow',sans-serif; font-size: 13px; cursor: pointer; transition: all .2s; }
     .btn-logout:hover { border-color: var(--orange); color: var(--orange); }
+    .notif-bell { position:relative; background:none; border:1px solid rgba(255,255,255,.12); border-radius:20px; padding:5px 12px; cursor:pointer; font-size:15px; color:var(--muted); transition:all .2s; display:flex; align-items:center; gap:6px; }
+    .notif-bell:hover { border-color:var(--orange); color:var(--orange); }
+    .notif-bell-dot { position:absolute; top:4px; right:6px; width:8px; height:8px; background:#EF4444; border-radius:50%; border:2px solid var(--topbar-bg); display:none; }
+    .notif-bell.has-notif .notif-bell-dot { display:block; }
+    body.theme-light .notif-bell { border-color:rgba(0,0,0,.15); color:#64748B; }
+    .notif-item { display:flex; align-items:flex-start; gap:12px; padding:12px 14px; border-radius:12px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); margin-bottom:8px; cursor:pointer; transition:all .15s; }
+    .notif-item:hover { background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.15); }
+    .notif-item.notif-warning { border-color:rgba(245,158,11,.3); background:rgba(245,158,11,.06); }
+    .notif-item.notif-danger  { border-color:rgba(239,68,68,.3);  background:rgba(239,68,68,.06); }
+    .notif-item.notif-success { border-color:rgba(34,197,94,.3);  background:rgba(34,197,94,.06); }
+    .notif-item.notif-info    { border-color:rgba(99,102,241,.3); background:rgba(99,102,241,.06); }
+    .notif-icon { font-size:22px; flex-shrink:0; margin-top:1px; }
+    .notif-body { flex:1; }
+    .notif-body-title { font-size:13px; font-weight:700; margin-bottom:2px; }
+    .notif-body-sub   { font-size:12px; color:var(--muted); }
+    .notif-action { font-size:11px; font-weight:700; color:var(--orange); white-space:nowrap; margin-top:2px; }
     .nav-tabs { display: flex; gap: 2px; padding: 0 28px; background: rgba(13,27,42,.8); border-bottom: 1px solid rgba(255,255,255,.05); overflow-x: auto; }
     .nav-tab { padding: 13px 18px; background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--muted); font-family: 'Barlow',sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s; white-space: nowrap; }
     .nav-tab:hover { color: var(--white); }
@@ -373,7 +391,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.9.3</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.9.4</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -455,7 +473,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-worker">👷 Intervenant</span>
     <span class="topbar-user" id="workerUserName"></span>
-    <button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="notif-bell" id="notifBell" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Worker','overview',this)">🏠 Accueil</button>
@@ -503,8 +521,8 @@
 
       <!-- Alertes expiration -->
       <div id="workerExpiryAlerts"></div>
-
-      <div class="stats-grid">
+      <!-- Notifications -->
+      <div id="notifs-Worker" style="margin-bottom:24px"></div>
         <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value" id="wStat1">0</div><div class="stat-label">Documents validés</div></div>
         <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value" id="wStat2">0</div><div class="stat-label">En attente</div></div>
         <div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value" id="wStat3">0</div><div class="stat-label">Expirent bientôt</div></div>
@@ -551,7 +569,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-company">🏢 Société</span>
     <span class="topbar-user" id="companyUserName"></span>
-    <button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="notif-bell" id="notifBell" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Company','overview',this)">🏠 Accueil</button>
@@ -573,6 +591,8 @@
         </div>
         <button onclick="copyTeamCode()" style="margin-left:auto;padding:7px 14px;background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.3);border-radius:8px;color:var(--orange);font-size:12px;font-weight:700;cursor:pointer">📋 Copier</button>
       </div>
+      <!-- Notifications -->
+      <div id="notifs-Company" style="margin-bottom:24px"></div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon">👷</div><div class="stat-value" id="cStat1">0</div><div class="stat-label">Intervenants</div></div>
         <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value" id="cStat2">0</div><div class="stat-label">Validations en attente</div></div>
@@ -619,7 +639,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge" style="background:rgba(168,85,247,.15);color:#D8B4FE;border:1px solid rgba(168,85,247,.3)">🤝 Sous-Traitant</span>
     <span class="topbar-user" id="stUserName"></span>
-    <button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="notif-bell" id="notifBell" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Subcontractor','overview',this)">🏠 Accueil</button>
@@ -632,6 +652,8 @@
     <div class="page-section active" id="Subcontractor-overview">
       <div class="dash-welcome">Bonjour, <em id="stFirstName">—</em> 👋</div>
       <div class="dash-subtitle">Tableau de bord Sous-Traitant</div>
+      <!-- Notifications -->
+      <div id="notifs-Subcontractor" style="margin-bottom:24px"></div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon">🏭</div><div class="stat-value" id="stStat1">0</div><div class="stat-label">EU partenaires</div></div>
         <div class="stat-card"><div class="stat-icon">👷</div><div class="stat-value" id="stStat3">0</div><div class="stat-label">Intervenants</div></div>
@@ -680,7 +702,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-hse">🏭 HSE</span>
     <span class="topbar-user" id="hseUserName"></span>
-    <button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="notif-bell" id="notifBell" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('HSE','overview',this)">🏠 Accueil</button>
@@ -692,6 +714,8 @@
     <div class="page-section active" id="HSE-overview">
       <div class="dash-welcome">Bonjour, <em id="hseFirstName">—</em> 👋</div>
       <div class="dash-subtitle">Tableau de bord Responsable HSE</div>
+      <!-- Notifications -->
+      <div id="notifs-HSE" style="margin-bottom:24px"></div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon">🏢</div><div class="stat-value" id="hseStat1">0</div><div class="stat-label">Sociétés ST</div></div>
         <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value" id="hseStat2">0</div><div class="stat-label">Invitations en attente</div></div>
@@ -748,7 +772,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-trainer">🎓 Formation</span>
     <span class="topbar-user" id="trainerUserName"></span>
-    <button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="notif-bell" id="notifBell" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Trainer','overview',this)">🏠 Accueil</button>
@@ -768,6 +792,8 @@
           <div id="trainerBookingUrl" style="font-size:14px;font-weight:600;color:#5EEAD4">—</div>
         </div>
       </div>
+      <!-- Notifications -->
+      <div id="notifs-Trainer" style="margin-bottom:24px"></div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon">📋</div><div class="stat-value" id="tStat1">0</div><div class="stat-label">Demandes en attente</div></div>
         <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value" id="tStat2">0</div><div class="stat-label">Validations ce mois</div></div>
@@ -808,7 +834,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-admin">⚙️ Admin</span>
     <span class="topbar-user" id="adminUserName"></span>
-    <button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="notif-bell" id="notifBell" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Admin','overview',this)">📊 Vue globale</button>
@@ -958,7 +984,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge" style="background:rgba(20,184,166,.15);color:#5EEAD4;border:1px solid rgba(20,184,166,.3)">👁 Client</span>
     <span class="topbar-user" id="guestUserName"></span>
-    <button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="notif-bell" id="notifBell" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Guest','shared',this)">📂 Documents reçus</button>
@@ -1664,21 +1690,25 @@ function showDashboard(role, fullName) {
     document.getElementById('workerUserName').textContent  = fullName || '';
     loadWorkerStats();
     checkPendingWorkerInvites();
+    loadNotifications('worker');
   } else if (role === 'company') {
     document.getElementById('dashCompany').classList.add('active');
     document.getElementById('companyFirstName').textContent = firstName;
     document.getElementById('companyUserName').textContent  = fullName || '';
     loadCompanyStats();
+    loadNotifications('company');
   } else if (role === 'hse') {
     document.getElementById('dashHSE').classList.add('active');
     document.getElementById('hseFirstName').textContent = firstName;
     document.getElementById('hseUserName').textContent  = fullName || '';
     loadHSEStats();
+    loadNotifications('hse');
   } else if (role === 'trainer') {
     document.getElementById('dashTrainer').classList.add('active');
     document.getElementById('trainerFirstName').textContent = firstName;
     document.getElementById('trainerUserName').textContent  = fullName || '';
     loadTrainerStats();
+    loadNotifications('trainer');
   } else if (role === 'guest') {
     document.getElementById('dashGuest').classList.add('active');
     document.getElementById('guestUserName').textContent = fullName || '';
@@ -1689,6 +1719,7 @@ function showDashboard(role, fullName) {
     document.getElementById('stUserName').textContent  = fullName || '';
     loadSTStats();
     checkPendingSTInvites();
+    loadNotifications('subcontractor');
   } else if (role === 'admin') {
     document.getElementById('dashAdmin').classList.add('active');
     document.getElementById('adminUserName').textContent = fullName || '';
@@ -3537,8 +3568,168 @@ async function processQrUrl(url) {
 
 
 // ══════════════════════════════════════
-// MISSIONS
+// SYSTÈME DE NOTIFICATIONS
 // ══════════════════════════════════════
+
+function scrollToNotifs() {
+  const role = currentProfile?.role;
+  const map  = { worker:'Worker', company:'Company', hse:'HSE', subcontractor:'Subcontractor', trainer:'Trainer' };
+  const dash = map[role];
+  if (!dash) return;
+  // Aller sur la page d'accueil
+  const overviewTab = document.querySelector(`#dash${dash.replace('Subcontractor','Subcontractor')} .nav-tab`);
+  if (overviewTab) overviewTab.click();
+  setTimeout(() => {
+    const el = document.getElementById(`notifs-${dash}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
+}
+
+function renderNotifItem(icon, title, sub, type, action, onClick) {
+  const div = document.createElement('div');
+  div.className = `notif-item notif-${type}`;
+  div.innerHTML = `
+    <div class="notif-icon">${icon}</div>
+    <div class="notif-body">
+      <div class="notif-body-title">${title}</div>
+      <div class="notif-body-sub">${sub}</div>
+      ${action ? `<div class="notif-action">→ ${action}</div>` : ''}
+    </div>`;
+  if (onClick) div.addEventListener('click', onClick);
+  return div;
+}
+
+async function loadNotifications(role) {
+  const map  = { worker:'Worker', company:'Company', hse:'HSE', subcontractor:'Subcontractor', trainer:'Trainer' };
+  const dash = map[role];
+  if (!dash) return;
+  const container = document.getElementById(`notifs-${dash}`);
+  if (!container) return;
+
+  const items  = [];
+  const now    = new Date();
+  const soon   = new Date(now); soon.setDate(soon.getDate() + 30);
+  const nowIso = now.toISOString();
+  const soonIso= soon.toISOString();
+
+  // ── WORKER ──
+  if (role === 'worker') {
+    const [{ data: docs }, { data: invites }] = await Promise.all([
+      sb.from('documents').select('doc_type, status, expires_at').eq('owner_id', currentUser.id).eq('category','worker'),
+      sb.from('worker_invites').select('id, org_id').eq('worker_email', currentProfile.email)
+    ]);
+
+    // Docs refusés
+    (docs || []).filter(d => d.status === 'rejected').forEach(d =>
+      items.push({ icon:'❌', title:`Document refusé : ${d.doc_type}`, sub:'Déposez une nouvelle version pour le soumettre à validation', type:'danger', action:'Mes Habilitations', onClick:() => document.querySelector('#dashWorker .nav-tab:nth-child(2)').click() })
+    );
+    // Docs en attente depuis longtemps
+    (docs || []).filter(d => d.status === 'pending').forEach(d =>
+      items.push({ icon:'⏳', title:`En attente de validation : ${d.doc_type}`, sub:'Un centre de formation va traiter votre demande', type:'info', action:null })
+    );
+    // Expirations proches
+    (docs || []).filter(d => d.status === 'validated' && d.expires_at && d.expires_at <= soonIso && d.expires_at > nowIso).forEach(d => {
+      const days = Math.ceil((new Date(d.expires_at) - now) / 86400000);
+      items.push({ icon:'⚠️', title:`Expire dans ${days} jour(s) : ${d.doc_type}`, sub:`Date d'expiration : ${new Date(d.expires_at).toLocaleDateString('fr-FR')}`, type:'warning', action:'Voir mes habilitations', onClick:() => document.querySelector('#dashWorker .nav-tab:nth-child(2)').click() });
+    });
+    // Docs expirés
+    (docs || []).filter(d => d.expires_at && d.expires_at < nowIso && d.status === 'validated').forEach(d =>
+      items.push({ icon:'🚨', title:`Expiré : ${d.doc_type}`, sub:`Expiré le ${new Date(d.expires_at).toLocaleDateString('fr-FR')} — renouvelez dès que possible`, type:'danger', action:'Renouveler', onClick:() => document.querySelector('#dashWorker .nav-tab:nth-child(2)').click() })
+    );
+  }
+
+  // ── COMPANY ──
+  else if (role === 'company') {
+    const orgId = currentProfile.org_id;
+    const [{ data: pending }, { data: missions }, { data: myDocs }] = await Promise.all([
+      sb.from('documents').select('id, doc_type, owner_id').eq('category','worker').eq('status','pending').in('owner_id',
+        (await sb.from('profiles').select('id').eq('org_id', orgId)).data?.map(p=>p.id) || []
+      ),
+      sb.from('missions').select('id, title, st_org_id').eq('eu_org_id', orgId).eq('status','pending'),
+      sb.from('documents').select('doc_type, expires_at, status').eq('owner_id', currentUser.id).eq('category','company')
+    ]);
+
+    (pending || []).forEach(d =>
+      items.push({ icon:'📋', title:`Document en attente de validation`, sub:`Un intervenant attend votre validation`, type:'info', action:'Voir les intervenants', onClick:() => document.querySelector('#dashCompany .nav-tab:nth-child(4)').click() })
+    );
+    (missions || []).forEach(m =>
+      items.push({ icon:'🏗', title:`Nouvelle mission à valider : ${m.title}`, sub:`Un sous-traitant soumet une mission pour approbation`, type:'info', action:'Voir sous-traitants', onClick:() => document.querySelector('#dashCompany .nav-tab:nth-child(5)').click() })
+    );
+    (myDocs || []).filter(d => d.status === 'validated' && d.expires_at && d.expires_at <= soonIso && d.expires_at > nowIso).forEach(d => {
+      const days = Math.ceil((new Date(d.expires_at) - now) / 86400000);
+      items.push({ icon:'⚠️', title:`Document société expire dans ${days} jour(s) : ${d.doc_type}`, sub:`Renouvelez votre document avant expiration`, type:'warning', action:'Mes Documents', onClick:() => document.querySelector('#dashCompany .nav-tab:nth-child(3)').click() });
+    });
+  }
+
+  // ── HSE ──
+  else if (role === 'hse') {
+    const orgId = currentProfile.org_id;
+    const { data: missions } = await sb.from('missions').select('id, title, st_org_id').eq('eu_org_id', orgId).eq('status','pending');
+
+    (missions || []).forEach(m =>
+      items.push({ icon:'🏗', title:`Nouvelle mission à valider : ${m.title}`, sub:`Un sous-traitant attend votre approbation`, type:'info', action:'Voir sous-traitants', onClick:() => document.querySelector('#dashHSE .nav-tab:nth-child(3)').click() })
+    );
+
+    // Docs workers expirés ou proches dans les EU gérées
+    const { data: rels } = await sb.from('org_relationships').select('st_org_id').eq('eu_org_id', orgId);
+    if (rels && rels.length) {
+      const stIds = rels.map(r => r.st_org_id);
+      const { data: stProfiles } = await sb.from('profiles').select('id').in('org_id', stIds).eq('role','worker');
+      const wIds = (stProfiles || []).map(p => p.id);
+      if (wIds.length) {
+        const { data: expDocs } = await sb.from('documents').select('doc_type, expires_at').in('owner_id', wIds).eq('category','worker').eq('status','validated').lte('expires_at', soonIso).gte('expires_at', nowIso);
+        if (expDocs && expDocs.length)
+          items.push({ icon:'⚠️', title:`${expDocs.length} habilitation(s) expirent bientôt`, sub:`Des intervenants de vos ST ont des documents à renouveler`, type:'warning', action:'Voir sous-traitants', onClick:() => document.querySelector('#dashHSE .nav-tab:nth-child(3)').click() });
+      }
+    }
+  }
+
+  // ── SUBCONTRACTOR ──
+  else if (role === 'subcontractor') {
+    const orgId = currentProfile.org_id;
+    const { data: missions } = await sb.from('missions').select('id, title, status, eu_org_id').eq('st_org_id', orgId).in('status',['approved','rejected']);
+
+    (missions || []).filter(m => m.status === 'approved').forEach(m =>
+      items.push({ icon:'✅', title:`Mission validée : ${m.title}`, sub:`L'EU a approuvé votre mission — vous pouvez démarrer`, type:'success', action:'Voir mes EU', onClick:() => { document.querySelector('#dashSubcontractor .nav-tab:nth-child(4)').click(); loadSTEU(); } })
+    );
+    (missions || []).filter(m => m.status === 'rejected').forEach(m =>
+      items.push({ icon:'❌', title:`Mission refusée : ${m.title}`, sub:`L'EU a refusé cette mission — modifiez-la et soumettez à nouveau`, type:'danger', action:'Voir mes EU', onClick:() => { document.querySelector('#dashSubcontractor .nav-tab:nth-child(4)').click(); loadSTEU(); } })
+    );
+
+    // Docs société expiration proche
+    const { data: myDocs } = await sb.from('documents').select('doc_type, expires_at, status').eq('owner_id', currentUser.id).eq('category','company');
+    (myDocs || []).filter(d => d.status === 'validated' && d.expires_at && d.expires_at <= soonIso && d.expires_at > nowIso).forEach(d => {
+      const days = Math.ceil((new Date(d.expires_at) - now) / 86400000);
+      items.push({ icon:'⚠️', title:`Document société expire dans ${days} jour(s) : ${d.doc_type}`, sub:`Renouvelez avant expiration pour rester conforme`, type:'warning', action:'Mes Documents', onClick:() => document.querySelector('#dashSubcontractor .nav-tab:nth-child(5)').click() });
+    });
+  }
+
+  // ── TRAINER ──
+  else if (role === 'trainer') {
+    const { data: pending } = await sb.from('documents').select('id, doc_type').eq('training_center_id', currentProfile.org_id).eq('center_status','pending');
+    if (pending && pending.length)
+      items.push({ icon:'📋', title:`${pending.length} demande(s) de validation en attente`, sub:`Des intervenants attendent votre traitement`, type:'info', action:'Voir les demandes', onClick:() => document.querySelector('#dashTrainer .nav-tab:nth-child(3)').click() });
+  }
+
+  // ── RENDU ──
+  container.innerHTML = '';
+  if (!items.length) return;
+
+  // En-tête section
+  const header = document.createElement('div');
+  header.id = 'notifsSectionAnchor';
+  header.innerHTML = `<div class="section-title" style="margin-bottom:12px">🔔 Notifications <span style="font-size:12px;font-weight:400;color:var(--muted)">(${items.length})</span></div>`;
+  container.appendChild(header);
+
+  items.forEach(item => {
+    container.appendChild(renderNotifItem(item.icon, item.title, item.sub, item.type, item.action, item.onClick));
+  });
+
+  // Activer la cloche
+  document.querySelectorAll('.notif-bell').forEach(b => b.classList.add('has-notif'));
+}
+
+
 
 // ── Modale création / édition ──
 function openCreateMissionModal(euOrgId, euName) {
