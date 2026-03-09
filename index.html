@@ -230,7 +230,9 @@
     .settings-reset:hover { border-color: rgba(255,255,255,.25); color: var(--text); }
     body.theme-light .settings-reset { background: rgba(0,0,0,.04); border-color: rgba(0,0,0,.1); }
 
-    /* ── Application zoom police ── */
+    /* ── Contraste global (filter sur appContent) ── */
+    #appContent.contrast-high { filter: contrast(1.2) brightness(1.04); }
+    #appContent.contrast-max  { filter: contrast(1.45) brightness(1.07); }
     /* zoom sur #appContent → n'affecte pas le panneau settings (hors du wrapper) */
     #appContent { zoom: var(--ui-zoom, 1); }
     /* Fallback Firefox */
@@ -1607,9 +1609,25 @@ function applyContrast(level) {
   saveDisplayPrefs();
 }
 
+function applyGlobalContrast(level) {
+  const l = Math.min(2, Math.max(0, parseInt(level)));
+  const app = document.getElementById('appContent');
+  if (app) { app.classList.remove('contrast-high', 'contrast-max'); }
+  if (l === 1 && app) app.classList.add('contrast-high');
+  if (l === 2 && app) app.classList.add('contrast-max');
+  document.getElementById('globalContrastSlider').value = l;
+  const labels = ['Normal', 'Élevé', 'Maximum'];
+  document.getElementById('globalContrastLabel').textContent = labels[l];
+  document.querySelectorAll('#settingsPanel .settings-presets')[2]
+    ?.querySelectorAll('.settings-preset')
+    .forEach((el, i) => el.classList.toggle('active', i === l));
+  saveDisplayPrefs();
+}
+
 function resetDisplaySettings() {
   applyFontSize(100);
   applyContrast(0);
+  applyGlobalContrast(0);
 }
 
 function toggleSettingsPanel(btn) {
@@ -1639,8 +1657,10 @@ async function saveDisplayPrefs() {
   const contrast = document.body.classList.contains('clarity-3') ? 3
                  : document.body.classList.contains('clarity-2') ? 2
                  : document.body.classList.contains('clarity-1') ? 1 : 0;
+  const globalContrast = appContent?.classList.contains('contrast-max') ? 2
+                       : appContent?.classList.contains('contrast-high') ? 1 : 0;
   const existing = currentProfile.dashboard_layout || {};
-  existing._prefs = { fontSize, contrast };
+  existing._prefs = { fontSize, contrast, globalContrast };
   currentProfile.dashboard_layout = existing;
   await sb.from('profiles').update({ dashboard_layout: existing }).eq('id', currentUser.id);
 }
@@ -1650,6 +1670,7 @@ function loadDisplayPrefs() {
   if (!prefs) return;
   if (prefs.fontSize && prefs.fontSize !== 100) applyFontSize(prefs.fontSize);
   if (prefs.contrast) applyContrast(prefs.contrast);
+  if (prefs.globalContrast) applyGlobalContrast(prefs.globalContrast);
 }
 
 function showToast(msg, type = 'success') {
@@ -5487,6 +5508,21 @@ function copyAllWorkerInvites() {
   </div>
 
   <button class="settings-reset" onclick="resetDisplaySettings()">↺ Réinitialiser l'affichage</button>
+
+  <div class="settings-row" style="margin-bottom:0">
+    <div class="settings-label">
+      Contraste global
+      <span id="globalContrastLabel">Normal</span>
+    </div>
+    <input type="range" class="settings-slider" id="globalContrastSlider"
+           min="0" max="2" step="1" value="0"
+           oninput="applyGlobalContrast(this.value)" aria-label="Contraste global">
+    <div class="settings-presets">
+      <div class="settings-preset active" onclick="applyGlobalContrast(0)">Normal</div>
+      <div class="settings-preset" onclick="applyGlobalContrast(1)">Élevé</div>
+      <div class="settings-preset" onclick="applyGlobalContrast(2)">Maximum</div>
+    </div>
+  </div>
 </div>
 
 </body>
