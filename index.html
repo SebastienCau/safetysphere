@@ -679,6 +679,24 @@
     .risque-slider { flex:1; -webkit-appearance:none; appearance:none; height:4px; border-radius:4px; background:rgba(255,255,255,.12); outline:none; cursor:pointer; }
     .risque-slider::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:var(--orange); cursor:pointer; }
     .risque-val { font-size:13px; font-weight:900; color:var(--orange); width:20px; text-align:center; font-family:'Barlow Condensed',sans-serif; }
+    /* ══ HISTORIQUE RAPPORTS ══ */
+    .archive-card { background:var(--inset-bg); border:1px solid var(--inset-border); border-radius:14px; padding:16px 18px; display:flex; align-items:center; gap:14px; transition:border-color .2s; }
+    .archive-card:hover { border-color:rgba(249,115,22,.3); }
+    .archive-card.trashed { opacity:.55; border-style:dashed; }
+    .archive-icon { font-size:28px; flex-shrink:0; }
+    .archive-meta { flex:1; min-width:0; }
+    .archive-ref { font-family:monospace; font-size:10px; background:rgba(30,58,95,.6); color:#93C5FD; padding:2px 7px; border-radius:4px; display:inline-block; margin-bottom:4px; }
+    .archive-title { font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .archive-sub { font-size:11px; color:var(--muted); margin-top:2px; }
+    .archive-badge { font-size:10px; font-weight:700; padding:2px 9px; border-radius:10px; white-space:nowrap; }
+    .archive-badge.ss { background:rgba(249,115,22,.15); color:#FDBA74; border:1px solid rgba(249,115,22,.25); }
+    .archive-badge.ext { background:rgba(99,102,241,.15); color:#A5B4FC; border:1px solid rgba(99,102,241,.25); }
+    .archive-badge.trash { background:rgba(239,68,68,.12); color:#FCA5A5; border:1px solid rgba(239,68,68,.25); }
+    .archive-actions { display:flex; gap:6px; flex-shrink:0; }
+    .trash-ttl { font-size:10px; color:var(--muted); font-style:italic; }
+    body.theme-light .archive-card { background:#fff; border-color:#E2E8F0; }
+    body.theme-light .archive-ref { background:#EFF6FF; color:#1D4ED8; }
+
     /* ══ KPI CATALOG ══ */
     .kpi-catalog-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; max-height:420px; overflow-y:auto; padding-right:4px; }
     .kpi-catalog-card { background:var(--inset-bg); border:2px solid var(--inset-border); border-radius:14px; padding:16px; cursor:pointer; transition:all .2s; position:relative; }
@@ -998,10 +1016,12 @@
         <button class="conform-tab active" onclick="switchConformTab('Company','duer',this)">📄 DUER</button>
         <button class="conform-tab" onclick="switchConformTab('Company','vgp',this)">🔧 Registre VGP</button>
         <button class="conform-tab" onclick="switchConformTab('Company','fds',this)">⚗️ FDS Chimiques</button>
+        <button class="conform-tab" onclick="switchConformTab('Company','historique',this)">📁 Historique</button>
       </div>
       <div id="Company-conform-duer" class="conform-section active"></div>
       <div id="Company-conform-vgp"  class="conform-section"></div>
       <div id="Company-conform-fds"  class="conform-section"></div>
+      <div id="Company-conform-historique" class="conform-section"></div>
     </div>
     <div class="page-section" id="Company-received">
       <div class="dash-welcome">Documents <em>Reçus</em></div>
@@ -1146,10 +1166,12 @@
         <button class="conform-tab active" onclick="switchConformTab('HSE','duer',this)">📄 DUER</button>
         <button class="conform-tab" onclick="switchConformTab('HSE','vgp',this)">🔧 Registre VGP</button>
         <button class="conform-tab" onclick="switchConformTab('HSE','fds',this)">⚗️ FDS Chimiques</button>
+        <button class="conform-tab" onclick="switchConformTab('HSE','historique',this)">📁 Historique</button>
       </div>
       <div id="HSE-conform-duer" class="conform-section active"></div>
       <div id="HSE-conform-vgp"  class="conform-section"></div>
       <div id="HSE-conform-fds"  class="conform-section"></div>
+      <div id="HSE-conform-historique" class="conform-section"></div>
     </div>
     <div class="page-section" id="HSE-received">
       <div class="dash-welcome">Documents <em>Reçus</em></div>
@@ -1920,6 +1942,52 @@
     <div style="display:flex;gap:10px;margin-top:20px">
       <button id="kpiAddBtn" onclick="addSelectedKpis()" class="btn-sm btn-validate" style="flex:1;padding:11px;font-size:13px" disabled>✓ Ajouter la sélection</button>
       <button onclick="closeKpiCatalog()" class="btn-sm btn-view" style="padding:11px 18px;font-size:13px">Annuler</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ MODALE UPLOAD RAPPORT EXTERNE ══ -->
+<div class="modal-overlay" id="reportUploadModal">
+  <div class="modal" style="max-width:520px">
+    <button class="modal-close" onclick="closeReportUploadModal()">✕</button>
+    <div class="modal-title">📤 Archiver un rapport externe</div>
+    <div class="modal-subtitle">Téléversez un rapport produit hors SafetySphere pour le conserver dans l'historique</div>
+    <div style="display:flex;flex-direction:column;gap:16px;margin-top:4px">
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Type de document *</label>
+        <select class="form-input" id="extReport_type">
+          <option value="DUER">📄 DUER — Document Unique d'Évaluation des Risques</option>
+          <option value="VGP">🔧 VGP — Vérifications Générales Périodiques</option>
+          <option value="FDS">⚗️ FDS — Fiche de Données de Sécurité</option>
+          <option value="PDP">📋 PdP — Plan de Prévention</option>
+          <option value="AUDIT">🔍 Rapport d'audit HSE</option>
+          <option value="AUTRE">📎 Autre document de conformité</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Intitulé du document *</label>
+        <input type="text" class="form-input" id="extReport_label" placeholder="Ex: DUER 2024 — site principal" />
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Auteur / Organisme producteur *</label>
+        <input type="text" class="form-input" id="extReport_author" placeholder="Ex: Cabinet Sécurité & Co" />
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Date du document</label>
+        <input type="date" class="form-input" id="extReport_date" />
+      </div>
+      <div class="form-group" style="margin:0">
+        <label class="form-label">Fichier PDF *</label>
+        <div class="file-drop-zone" id="extReportDropZone" onclick="document.getElementById('extReportFile').click()" style="cursor:pointer">
+          <div class="file-drop-text" id="extReportDropText">Cliquez pour sélectionner le fichier PDF</div>
+        </div>
+        <input type="file" id="extReportFile" accept=".pdf,.doc,.docx,.xlsx" style="display:none" onchange="onExtReportFileChange(this)" />
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button onclick="saveExternalReport()" class="btn-sm btn-validate" style="flex:1;padding:11px;font-size:13px">📤 Archiver ce rapport</button>
+      <button onclick="closeReportUploadModal()" class="btn-sm btn-view" style="padding:11px 18px;font-size:13px">Annuler</button>
     </div>
   </div>
 </div>
@@ -6299,15 +6367,17 @@ async function loadConformite(role) {
 
 function switchConformTab(role, tab, btn) {
   _conformTab = tab;
-  ['duer','vgp','fds'].forEach(function(t) {
+  ['duer','vgp','fds','historique'].forEach(function(t) {
     var s = document.getElementById(role + '-conform-' + t);
     if (s) s.classList.toggle('active', t === tab);
   });
   document.querySelectorAll('#conformTabs-' + role + ' .conform-tab').forEach(function(b) { b.classList.remove('active'); });
   if (btn) btn.classList.add('active');
-  if (tab === 'duer') renderDuerSection(role);
-  if (tab === 'vgp')  renderVgpSection(role);
-  if (tab === 'fds')  renderFdsSection(role);
+  _histShowTrash = false;
+  if (tab === 'duer')       renderDuerSection(role);
+  if (tab === 'vgp')        renderVgpSection(role);
+  if (tab === 'fds')        renderFdsSection(role);
+  if (tab === 'historique') renderHistoriqueSection(role);
 }
 
 // ══════════════════════════════
@@ -6654,13 +6724,17 @@ function reportFooterHTML(meta, docTitle) {
 }
 
 // ── Ouvrir le rapport dans un nouvel onglet ────────────
-function openReportWindow(html, title) {
+function openReportWindow(html, title, meta) {
   var blob = new Blob([html], { type:'text/html;charset=utf-8' });
   var url  = URL.createObjectURL(blob);
   var win  = window.open(url, '_blank');
   if (!win) { showToast('Autorisez les pop-ups pour générer le rapport', 'error'); return false; }
   showToast('Rapport généré — Ctrl+P pour enregistrer en PDF', 'success');
   setTimeout(function(){ URL.revokeObjectURL(url); }, 90000);
+  // Archivage automatique en arrière-plan
+  if (meta && title) {
+    archiveReport(meta, title, html).catch(function(e){ console.warn('Archive background error:', e); });
+  }
   return true;
 }
 
@@ -6717,7 +6791,7 @@ async function generateDuerPDF() {
     + reportFooterHTML(meta, 'DUER')
     + '</body></html>';
 
-  openReportWindow(html, 'DUER');
+  openReportWindow(html, 'DUER', meta);
 }
 
 function openDuerTemplateModal(role) {
@@ -6942,7 +7016,7 @@ async function generateVgpPDF() {
     + reportFooterHTML(meta, 'Registre VGP')
     + '</body></html>';
 
-  openReportWindow(html, 'VGP');
+  openReportWindow(html, 'VGP', meta);
 }
 
 function openVgpModal(equipKey, role) {
@@ -7398,6 +7472,278 @@ async function reloadSavedKpis(role) {
       if (el) el.classList.add('hidden-widget');
     }
   }
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// SYSTÈME D'ARCHIVE DES RAPPORTS
+// Tables Supabase : report_archive, report_trash
+// ══════════════════════════════════════════════════════════════
+
+var _extReportFile = null;
+var _histShowTrash = false;
+
+// ── Archiver automatiquement à chaque génération SafetySphere ─
+async function archiveReport(meta, reportType, htmlContent) {
+  if (!currentProfile || !currentProfile.org_id) return;
+
+  // Stocker le HTML dans Supabase Storage (bucket rapport-archives)
+  var filePath = currentProfile.org_id + '/' + meta.reportNum + '.html';
+  var htmlBlob = new Blob([htmlContent], { type:'text/html;charset=utf-8' });
+  var uploadRes = await sb.storage.from('rapport-archives').upload(filePath, htmlBlob, { upsert: true });
+  var fileUrl = null;
+  if (!uploadRes.error) {
+    var signed = await sb.storage.from('rapport-archives').createSignedUrl(filePath, 60 * 60 * 24 * 365);
+    if (!signed.error) fileUrl = signed.data.signedUrl;
+  }
+
+  var entry = {
+    org_id        : currentProfile.org_id,
+    created_by    : currentUser.id,
+    responsable   : meta.responsable,
+    email         : meta.email,
+    report_num    : meta.reportNum,
+    report_type   : reportType,
+    label         : reportType + ' — ' + meta.orgName,
+    source        : 'safetysphere',
+    app_version   : meta.appVersion,
+    generated_at  : meta.isoDate,
+    file_url      : fileUrl,
+  };
+
+  var res = await sb.from('report_archive').insert(entry);
+  if (res.error) console.warn('Archive error:', res.error.message);
+}
+
+// ── Afficher l'onglet Historique ──────────────────────────────
+async function renderHistoriqueSection(role) {
+  var container = document.getElementById(role + '-conform-historique');
+  if (!container) return;
+  container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement de l\'historique...</div></div>';
+
+  // Charger archive + corbeille
+  var archRes   = await sb.from('report_archive').select('*').eq('org_id', currentProfile.org_id).order('generated_at', { ascending: false });
+  var trashRes  = await sb.from('report_trash').select('*').eq('org_id', currentProfile.org_id).order('deleted_at', { ascending: false });
+
+  var archives = archRes.data || [];
+  var trashed  = trashRes.data || [];
+
+  // Purger les éléments corbeille > 30j
+  var now30 = new Date(); now30.setDate(now30.getDate() - 30);
+  var toPurge = trashed.filter(function(t) { return new Date(t.deleted_at) < now30; });
+  if (toPurge.length) {
+    await sb.from('report_trash').delete().in('id', toPurge.map(function(t){ return t.id; }));
+    trashed = trashed.filter(function(t) { return new Date(t.deleted_at) >= now30; });
+  }
+
+  var html = '';
+
+  // Barre d'actions
+  html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap">'
+    + '<button class="btn-sm btn-upload" onclick="openReportUploadModal()" style="padding:8px 16px">📤 Archiver un rapport externe</button>'
+    + '<button class="btn-sm btn-view" onclick="toggleHistTrash(\'' + role + '\')" style="padding:8px 16px">'
+    + (trashed.length ? '🗑️ Corbeille (' + trashed.length + ')' : '🗑️ Corbeille')
+    + '</button>'
+    + '<span style="margin-left:auto;font-size:11px;color:var(--muted)">Corbeille : conservation 30 jours · ' + archives.length + ' rapport(s) archivé(s)</span>'
+    + '</div>';
+
+  if (_histShowTrash) {
+    // ── Vue corbeille ──
+    html += '<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:12px;padding:16px;margin-bottom:20px">'
+      + '<div style="font-size:13px;font-weight:700;color:#FCA5A5;margin-bottom:12px">🗑️ Corbeille — éléments supprimés (restauration possible sous 30 jours)</div>';
+    if (!trashed.length) {
+      html += '<div style="font-size:12px;color:var(--muted);padding:8px">La corbeille est vide.</div>';
+    } else {
+      trashed.forEach(function(t) {
+        var deletedDate = new Date(t.deleted_at).toLocaleDateString('fr-FR');
+        var purgeDateD  = new Date(t.deleted_at); purgeDateD.setDate(purgeDateD.getDate()+30);
+        var daysLeft    = Math.ceil((purgeDateD - new Date()) / 86400000);
+        html += '<div class="archive-card trashed" style="margin-bottom:10px">'
+          + '<div class="archive-icon">' + typeIcon(t.report_type) + '</div>'
+          + '<div class="archive-meta">'
+          + '<div class="archive-ref">' + escapeHtml(t.report_num || '—') + '</div>'
+          + '<div class="archive-title">' + escapeHtml(t.label || t.report_type) + '</div>'
+          + '<div class="archive-sub">Supprimé le ' + deletedDate + ' · Purge dans ' + daysLeft + 'j</div>'
+          + '<div class="archive-sub">Par : ' + escapeHtml(t.responsable || '—') + '</div>'
+          + '</div>'
+          + '<span class="archive-badge trash">Corbeille</span>'
+          + '<div class="archive-actions">'
+          + '<button class="btn-sm btn-validate" style="padding:5px 12px;font-size:11px" onclick="restoreFromTrash(\'' + t.id + '\',\'' + role + '\')">↩ Restaurer</button>'
+          + '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.3);color:#FCA5A5" onclick="purgeTrashItem(\'' + t.id + '\',\'' + role + '\')">✕ Supprimer définitivement</button>'
+          + '</div>'
+          + '</div>';
+      });
+    }
+    html += '</div>';
+  }
+
+  // ── Vue archive principale ──
+  if (!archives.length) {
+    html += '<div class="empty-state"><div class="empty-state-icon">📭</div>'
+      + '<div class="empty-state-text">Aucun rapport archivé<br><small>Les rapports générés via SafetySphere apparaîtront automatiquement ici</small></div></div>';
+  } else {
+    // Grouper par mois
+    var groups = {};
+    archives.forEach(function(a) {
+      var d = new Date(a.generated_at);
+      var key = d.toLocaleDateString('fr-FR', { month:'long', year:'numeric' });
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(a);
+    });
+
+    Object.keys(groups).forEach(function(month) {
+      html += '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin:18px 0 10px">'
+        + month + ' <span style="font-weight:400">(' + groups[month].length + ')</span></div>';
+      groups[month].forEach(function(a) {
+        var genDate  = new Date(a.generated_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' });
+        var genTime  = new Date(a.generated_at).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+        var isSS     = a.source === 'safetysphere';
+        html += '<div class="archive-card" style="margin-bottom:10px">'
+          + '<div class="archive-icon">' + typeIcon(a.report_type) + '</div>'
+          + '<div class="archive-meta">'
+          + '<div class="archive-ref">' + escapeHtml(a.report_num || '—') + '</div>'
+          + '<div class="archive-title">' + escapeHtml(a.label) + '</div>'
+          + '<div class="archive-sub">' + genDate + ' à ' + genTime + ' · Par : ' + escapeHtml(a.responsable || '—') + '</div>'
+          + (a.app_version ? '<div class="archive-sub" style="color:rgba(249,115,22,.7)">SafetySphere v' + escapeHtml(a.app_version) + '</div>' : '')
+          + '</div>'
+          + '<span class="archive-badge ' + (isSS ? 'ss' : 'ext') + '">' + (isSS ? '⬡ SafetySphere' : '📤 Externe') + '</span>'
+          + '<div class="archive-actions">'
+          + (a.file_url ? '<a href="' + a.file_url + '" target="_blank" class="btn-sm btn-view" style="padding:5px 12px;font-size:11px;text-decoration:none">📄 Consulter</a>' : '<span style="font-size:11px;color:var(--muted)">Pas de fichier</span>')
+          + '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.25);color:#FCA5A5" onclick="moveToTrash(\'' + a.id + '\',\'' + role + '\')">🗑️</button>'
+          + '</div>'
+          + '</div>';
+      });
+    });
+  }
+
+  container.innerHTML = html;
+}
+
+function typeIcon(t) {
+  var m = { DUER:'📄', VGP:'🔧', FDS:'⚗️', PDP:'📋', AUDIT:'🔍', AUTRE:'📎' };
+  return m[t] || '📎';
+}
+
+function toggleHistTrash(role) {
+  _histShowTrash = !_histShowTrash;
+  renderHistoriqueSection(role);
+}
+
+// ── Supprimer vers corbeille ──────────────────────────────────
+async function moveToTrash(archiveId, role) {
+  if (!confirm('Déplacer ce rapport vers la corbeille ?\nIl sera définitivement supprimé après 30 jours.')) return;
+
+  // Copier l'entrée dans report_trash
+  var res = await sb.from('report_archive').select('*').eq('id', archiveId).single();
+  if (res.error || !res.data) { showToast('Erreur lors de la suppression', 'error'); return; }
+
+  var entry = Object.assign({}, res.data);
+  delete entry.id;
+  entry.original_id  = archiveId;
+  entry.deleted_at   = new Date().toISOString();
+  entry.deleted_by   = currentUser.id;
+
+  var insRes = await sb.from('report_trash').insert(entry);
+  if (insRes.error) { showToast('Erreur corbeille : ' + insRes.error.message, 'error'); return; }
+
+  // Supprimer de l'archive principale
+  await sb.from('report_archive').delete().eq('id', archiveId);
+  showToast('Rapport déplacé dans la corbeille (30 jours)', 'success');
+  renderHistoriqueSection(role);
+}
+
+// ── Restaurer depuis corbeille ────────────────────────────────
+async function restoreFromTrash(trashId, role) {
+  var res = await sb.from('report_trash').select('*').eq('id', trashId).single();
+  if (res.error || !res.data) { showToast('Introuvable en corbeille', 'error'); return; }
+
+  var entry = Object.assign({}, res.data);
+  delete entry.id;
+  delete entry.original_id;
+  delete entry.deleted_at;
+  delete entry.deleted_by;
+
+  var insRes = await sb.from('report_archive').insert(entry);
+  if (insRes.error) { showToast('Erreur restauration : ' + insRes.error.message, 'error'); return; }
+
+  await sb.from('report_trash').delete().eq('id', trashId);
+  showToast('✓ Rapport restauré dans l\'historique', 'success');
+  renderHistoriqueSection(role);
+}
+
+// ── Suppression définitive ────────────────────────────────────
+async function purgeTrashItem(trashId, role) {
+  if (!confirm('Supprimer définitivement ce rapport ?\nCette action est irréversible.')) return;
+  await sb.from('report_trash').delete().eq('id', trashId);
+  showToast('Rapport définitivement supprimé', 'success');
+  renderHistoriqueSection(role);
+}
+
+// ── Modale upload rapport externe ────────────────────────────
+function openReportUploadModal() {
+  _extReportFile = null;
+  document.getElementById('extReport_label').value  = '';
+  document.getElementById('extReport_author').value = '';
+  document.getElementById('extReport_date').value   = '';
+  document.getElementById('extReport_type').value   = 'DUER';
+  document.getElementById('extReportDropText').textContent = 'Cliquez pour sélectionner le fichier PDF';
+  document.getElementById('reportUploadModal').classList.add('open');
+}
+function closeReportUploadModal() {
+  document.getElementById('reportUploadModal').classList.remove('open');
+  _extReportFile = null;
+}
+function onExtReportFileChange(input) {
+  _extReportFile = input.files[0] || null;
+  document.getElementById('extReportDropText').textContent = _extReportFile ? _extReportFile.name : 'Cliquez pour sélectionner';
+}
+async function saveExternalReport() {
+  var type   = document.getElementById('extReport_type').value;
+  var label  = document.getElementById('extReport_label').value.trim();
+  var author = document.getElementById('extReport_author').value.trim();
+  var date   = document.getElementById('extReport_date').value;
+
+  if (!label)  { showToast('Veuillez saisir un intitulé', 'error'); return; }
+  if (!author) { showToast('Veuillez saisir l\'auteur', 'error'); return; }
+
+  var pad = function(n){ return String(n).padStart(2,'0'); };
+  var now = new Date();
+  var orgSuffix = (currentProfile.org_id || 'XXXX').slice(-4).toUpperCase();
+  var reportNum = type + '-EXT-' + now.getFullYear() + pad(now.getMonth()+1) + pad(now.getDate()) + '-' + orgSuffix;
+
+  var fileUrl = null;
+  if (_extReportFile) {
+    var filePath = currentProfile.org_id + '/' + reportNum + '-' + _extReportFile.name;
+    var upRes = await sb.storage.from('rapport-archives').upload(filePath, _extReportFile, { upsert: true });
+    if (!upRes.error) {
+      var signed = await sb.storage.from('rapport-archives').createSignedUrl(filePath, 60 * 60 * 24 * 365);
+      if (!signed.error) fileUrl = signed.data.signedUrl;
+    }
+  }
+
+  var entry = {
+    org_id       : currentProfile.org_id,
+    created_by   : currentUser.id,
+    responsable  : author,
+    email        : currentProfile.email || '',
+    report_num   : reportNum,
+    report_type  : type,
+    label        : label,
+    source       : 'externe',
+    app_version  : null,
+    generated_at : date ? new Date(date).toISOString() : now.toISOString(),
+    file_url     : fileUrl,
+  };
+
+  var res = await sb.from('report_archive').insert(entry);
+  if (res.error) { showToast('Erreur archivage : ' + res.error.message, 'error'); return; }
+
+  closeReportUploadModal();
+  showToast('✓ Rapport externe archivé', 'success');
+
+  // Rafraîchir l'onglet historique si ouvert
+  var role = currentProfile.role === 'hse' ? 'HSE' : 'Company';
+  renderHistoriqueSection(role);
 }
 
 </script>
