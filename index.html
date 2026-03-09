@@ -17,6 +17,7 @@
        v0.9.2 — Missions ST→EU : création, soumission, validation EU/HSE, intervenants, docs partagés
        v0.9.3 — Fix chargement Mes EU + création missions côté HSE/Company + modales propres
        v0.9.4 — Notifications : cloche topbar + section accueil par rôle (worker/company/hse/st/trainer)
+       v0.9.5 — Dashboard personnalisable : drag & drop, masquer/afficher, resize, sauvegarde Supabase
   -->
   <meta name="app-version" content="0.8.1" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
@@ -193,6 +194,46 @@
     body.theme-light .notif-bell { border-color:rgba(0,0,0,.15); color:#64748B; }
     [id^="notifs-"]:empty { display:none; }
     [id^="notifs-"]:not(:empty) { margin-bottom:24px; }
+
+    /* ── BOUTON PERSONNALISER ── */
+    .btn-customize { background:none; border:1px solid rgba(255,255,255,.12); border-radius:20px; padding:5px 14px; cursor:pointer; font-size:12px; font-weight:700; color:var(--muted); transition:all .2s; white-space:nowrap; }
+    .btn-customize:hover { border-color:var(--orange); color:var(--orange); }
+    .btn-customize.active { background:rgba(249,115,22,.15); border-color:var(--orange); color:var(--orange); }
+    body.theme-light .btn-customize { border-color:rgba(0,0,0,.15); color:#64748B; }
+
+    /* ── WIDGETS DRAGGABLES ── */
+    .dash-grid { display:flex; flex-direction:column; gap:16px; }
+    .db-widget { position:relative; border-radius:16px; transition:opacity .2s, transform .2s; }
+    .db-widget.hidden-widget > .db-widget-inner { opacity:.25; pointer-events:none; filter:blur(1px); }
+    .db-widget.dragging { opacity:.4; transform:scale(.98); }
+    .db-widget.drag-over { outline:2px dashed var(--orange); outline-offset:4px; border-radius:16px; }
+    .db-widget-inner { border-radius:16px; overflow:hidden; }
+
+    /* Barre de contrôle widget (mode édition) */
+    .db-widget-bar { display:none; align-items:center; gap:8px; padding:8px 12px; background:rgba(249,115,22,.08); border:1px solid rgba(249,115,22,.2); border-radius:12px 12px 0 0; margin-bottom:-4px; }
+    .customize-mode .db-widget-bar { display:flex; }
+    .db-widget-handle { cursor:grab; font-size:16px; color:var(--orange); padding:2px 6px; border-radius:6px; transition:background .15s; touch-action:none; }
+    .db-widget-handle:hover { background:rgba(249,115,22,.15); }
+    .db-widget-handle:active { cursor:grabbing; }
+    .db-widget-label { font-size:11px; font-weight:700; color:var(--orange); letter-spacing:.5px; text-transform:uppercase; flex:1; }
+    .db-widget-actions { display:flex; gap:6px; margin-left:auto; }
+    .db-widget-btn { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:6px; padding:3px 8px; font-size:11px; cursor:pointer; color:var(--muted); transition:all .15s; }
+    .db-widget-btn:hover { border-color:rgba(255,255,255,.3); color:var(--white); }
+    .db-widget-btn.active { background:rgba(239,68,68,.15); border-color:rgba(239,68,68,.4); color:#FCA5A5; }
+
+    /* Resize handles */
+    .db-widget-resize { display:none; height:8px; cursor:row-resize; background:linear-gradient(transparent,rgba(249,115,22,.15)); border-radius:0 0 8px 8px; margin-top:-4px; }
+    .customize-mode .db-widget-resize { display:block; }
+
+    /* Tailles */
+    .db-widget[data-size="sm"]  .db-widget-inner { max-height:140px; overflow:hidden; }
+    .db-widget[data-size="md"]  .db-widget-inner { max-height:none; }
+    .db-widget[data-size="lg"]  .db-widget-inner { max-height:none; }
+
+    /* Hint de drop zone */
+    .drop-zone-hint { display:none; height:4px; background:var(--orange); border-radius:4px; margin:4px 0; transition:height .15s; }
+    .customize-mode .drop-zone-hint { display:block; opacity:0; }
+    .drop-zone-hint.active { opacity:1; height:6px; }
     .notif-item { display:flex; align-items:flex-start; gap:12px; padding:12px 14px; border-radius:12px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); margin-bottom:8px; cursor:pointer; transition:all .15s; }
     .notif-item:hover { background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.15); }
     .notif-item.notif-warning { border-color:rgba(245,158,11,.3); background:rgba(245,158,11,.06); }
@@ -393,7 +434,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.9.4</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.9.5</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -475,7 +516,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-worker">👷 Intervenant</span>
     <span class="topbar-user" id="workerUserName"></span>
-    <button class="notif-bell" id="notifBell-Worker" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="notif-bell" id="notifBell-Worker" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Worker','overview',this)">🏠 Accueil</button>
@@ -1693,24 +1734,28 @@ function showDashboard(role, fullName) {
     loadWorkerStats();
     checkPendingWorkerInvites();
     loadNotifications('worker');
+    setTimeout(() => initDashboardWidgets('worker'), 200);
   } else if (role === 'company') {
     document.getElementById('dashCompany').classList.add('active');
     document.getElementById('companyFirstName').textContent = firstName;
     document.getElementById('companyUserName').textContent  = fullName || '';
     loadCompanyStats();
     loadNotifications('company');
+    setTimeout(() => initDashboardWidgets('company'), 200);
   } else if (role === 'hse') {
     document.getElementById('dashHSE').classList.add('active');
     document.getElementById('hseFirstName').textContent = firstName;
     document.getElementById('hseUserName').textContent  = fullName || '';
     loadHSEStats();
     loadNotifications('hse');
+    setTimeout(() => initDashboardWidgets('hse'), 400);
   } else if (role === 'trainer') {
     document.getElementById('dashTrainer').classList.add('active');
     document.getElementById('trainerFirstName').textContent = firstName;
     document.getElementById('trainerUserName').textContent  = fullName || '';
     loadTrainerStats();
     loadNotifications('trainer');
+    setTimeout(() => initDashboardWidgets('trainer'), 200);
   } else if (role === 'guest') {
     document.getElementById('dashGuest').classList.add('active');
     document.getElementById('guestUserName').textContent = fullName || '';
@@ -1722,6 +1767,7 @@ function showDashboard(role, fullName) {
     loadSTStats();
     checkPendingSTInvites();
     loadNotifications('subcontractor');
+    setTimeout(() => initDashboardWidgets('subcontractor'), 200);
   } else if (role === 'admin') {
     document.getElementById('dashAdmin').classList.add('active');
     document.getElementById('adminUserName').textContent = fullName || '';
@@ -3241,6 +3287,13 @@ async function loadOrgProfile(dash) {
 
       <!-- Bouton sauvegarder -->
       <button class="btn-upload" style="max-width:240px" onclick="saveOrgProfile('${org.id}','${dash}','${isTrainer}')">💾 Sauvegarder les modifications</button>
+
+      <!-- Reset dashboard -->
+      <div class="section-card" style="margin-top:8px">
+        <div class="section-title">🎛 Dashboard</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Réinitialiser la mise en page personnalisée de votre tableau de bord</div>
+        <button class="btn-sm btn-reject" onclick="resetDashboardLayout()">↺ Réinitialiser le dashboard</button>
+      </div>
     </div>`;
 
   // Générer le QR code entreprise
@@ -3570,8 +3623,362 @@ async function processQrUrl(url) {
 
 
 // ══════════════════════════════════════
-// SYSTÈME DE NOTIFICATIONS
+// DASHBOARD PERSONNALISABLE
 // ══════════════════════════════════════
+
+const WIDGET_DEFS = {
+  worker: [
+    { id:'w-notifs',   label:'🔔 Notifications',    size:'md', hidden:false },
+    { id:'w-employer', label:'🏢 Mon Employeur',     size:'md', hidden:false },
+    { id:'w-stats',    label:'📊 Statistiques',      size:'md', hidden:false },
+  ],
+  company: [
+    { id:'c-notifs',   label:'🔔 Notifications',    size:'md', hidden:false },
+    { id:'c-teamcode', label:'🔑 Code Équipe',       size:'sm', hidden:false },
+    { id:'c-stats',    label:'📊 Statistiques',      size:'md', hidden:false },
+  ],
+  hse: [
+    { id:'h-notifs',   label:'🔔 Notifications',    size:'md', hidden:false },
+    { id:'h-stats',    label:'📊 Statistiques',      size:'md', hidden:false },
+    { id:'h-compliance',label:'🎯 Conformité',       size:'md', hidden:false },
+    { id:'h-modules',  label:'🚀 Modules à venir',   size:'sm', hidden:false },
+  ],
+  subcontractor: [
+    { id:'s-notifs',   label:'🔔 Notifications',    size:'md', hidden:false },
+    { id:'s-stats',    label:'📊 Statistiques',      size:'md', hidden:false },
+  ],
+  trainer: [
+    { id:'t-booking',  label:'📅 Lien Réservation',  size:'sm', hidden:false },
+    { id:'t-notifs',   label:'🔔 Notifications',    size:'md', hidden:false },
+    { id:'t-stats',    label:'📊 Statistiques',      size:'md', hidden:false },
+  ],
+};
+
+// Contenu HTML de chaque widget (capturé depuis le DOM après rendu)
+const WIDGET_CONTENT_IDS = {
+  'w-notifs':     ['notifs-Worker'],
+  'w-employer':   ['linkCompanyBanner','linkedCompanyBanner','changeEmployerPanel','workerExpiryAlerts'],
+  'w-stats':      ['__worker-stats-grid'],
+  'c-notifs':     ['notifs-Company'],
+  'c-teamcode':   ['teamCodeBanner'],
+  'c-stats':      ['__company-stats-grid'],
+  'h-notifs':     ['notifs-HSE'],
+  'h-stats':      ['__hse-stats-grid'],
+  'h-compliance': ['__hse-compliance-block'],
+  'h-modules':    ['__hse-modules-block'],
+  's-notifs':     ['notifs-Subcontractor'],
+  's-stats':      ['__st-stats-grid'],
+  't-booking':    ['trainerBookingBanner'],
+  't-notifs':     ['notifs-Trainer'],
+  't-stats':      ['__trainer-stats-grid'],
+};
+
+let _customizeMode  = false;
+let _dragSrcWidget  = null;
+let _currentLayout  = null;
+
+function getDashboardEl(role) {
+  const map = { worker:'Worker', company:'Company', hse:'HSE', subcontractor:'Subcontractor', trainer:'Trainer' };
+  const dash = map[role];
+  return dash ? document.getElementById(`${dash}-overview`) : null;
+}
+
+// ── Initialisation widgets au chargement du dashboard ──
+async function initDashboardWidgets(role) {
+  const overview = getDashboardEl(role);
+  if (!overview) return;
+
+  // Charger layout sauvegardé
+  const saved = currentProfile?.dashboard_layout?.[role];
+  const defs  = JSON.parse(JSON.stringify(WIDGET_DEFS[role] || []));
+  _currentLayout = saved ? mergeLayout(defs, saved) : defs;
+
+  // Marquer les stats-grids avec des IDs pour les capturer
+  tagStatGrids(role, overview);
+
+  // Créer le conteneur grid
+  const grid = document.createElement('div');
+  grid.className = 'dash-grid';
+  grid.id = `dash-grid-${role}`;
+
+  // Déplacer les éléments existants dans des widgets
+  _currentLayout.forEach(wDef => {
+    const widget = buildWidget(wDef, role, overview);
+    if (widget) grid.appendChild(widget);
+  });
+
+  // Remplacer le contenu de overview (après le titre)
+  const welcome = overview.querySelector('.dash-welcome');
+  const subtitle = overview.querySelector('.dash-subtitle');
+  // Vider overview sauf titre/subtitle
+  while (overview.children.length > 0) overview.removeChild(overview.lastChild);
+  overview.appendChild(welcome);
+  overview.appendChild(subtitle);
+  overview.appendChild(grid);
+
+  // Afficher boutons Personnaliser
+  showCustomizeBtn(role);
+}
+
+function tagStatGrids(role, overview) {
+  const grids = overview.querySelectorAll('.stats-grid');
+  const idMap = {
+    worker: ['__worker-stats-grid'],
+    company: ['__company-stats-grid'],
+    hse: ['__hse-stats-grid'],
+    subcontractor: ['__st-stats-grid'],
+    trainer: ['__trainer-stats-grid'],
+  };
+  const ids = idMap[role] || [];
+  grids.forEach((g, i) => { if (ids[i]) g.id = ids[i]; });
+
+  // HSE : tagger conformité et modules
+  if (role === 'hse') {
+    const blocks = overview.querySelectorAll('.section-title, .doc-grid, #complianceWidget, [style*="justify-content:space-between"]');
+    let compBlock = document.createElement('div');
+    compBlock.id = '__hse-compliance-block';
+    let modBlock = document.createElement('div');
+    modBlock.id = '__hse-modules-block';
+
+    const compWidget = overview.querySelector('#complianceWidget');
+    const compHeader = compWidget?.previousElementSibling;
+    if (compWidget && compHeader) {
+      compBlock.appendChild(compHeader.cloneNode(true));
+      compBlock.appendChild(compWidget.cloneNode(true));
+      compHeader.replaceWith(compBlock);
+      compWidget.remove();
+    }
+
+    const sectionTitles = overview.querySelectorAll('.section-title');
+    sectionTitles.forEach(t => {
+      if (t.textContent.includes('Prochains')) {
+        const docGrid = t.nextElementSibling;
+        modBlock.appendChild(t.cloneNode(true));
+        if (docGrid) modBlock.appendChild(docGrid.cloneNode(true));
+        t.replaceWith(modBlock);
+        if (docGrid) docGrid.remove();
+      }
+    });
+  }
+}
+
+function buildWidget(wDef, role, overview) {
+  const contentIds = WIDGET_CONTENT_IDS[wDef.id] || [];
+  const elements   = [];
+
+  contentIds.forEach(cid => {
+    const el = overview.querySelector(`#${cid}`) || document.getElementById(cid);
+    if (el) elements.push(el);
+  });
+
+  if (!elements.length) return null;
+
+  const widget = document.createElement('div');
+  widget.className = 'db-widget';
+  widget.dataset.widgetId = wDef.id;
+  widget.dataset.size     = wDef.size || 'md';
+  widget.draggable        = false; // activé seulement en mode edit
+  if (wDef.hidden) widget.classList.add('hidden-widget');
+
+  // Barre de contrôle
+  const bar = document.createElement('div');
+  bar.className = 'db-widget-bar';
+  bar.innerHTML = `
+    <span class="db-widget-handle" title="Déplacer">⠿⠿</span>
+    <span class="db-widget-label">${wDef.label}</span>
+    <div class="db-widget-actions">
+      <button class="db-widget-btn ${wDef.size === 'sm' ? '' : ''}" onclick="resizeWidget(this,'${wDef.id}','${role}')" title="Changer la taille">⊡ Taille</button>
+      <button class="db-widget-btn ${wDef.hidden ? 'active' : ''}" onclick="toggleWidgetVisibility(this,'${wDef.id}','${role}')" title="Masquer/Afficher">${wDef.hidden ? '👁 Afficher' : '🙈 Masquer'}</button>
+    </div>`;
+
+  // Contenu
+  const inner = document.createElement('div');
+  inner.className = 'db-widget-inner';
+  elements.forEach(el => inner.appendChild(el));
+
+  // Handle resize bas
+  const resizeHandle = document.createElement('div');
+  resizeHandle.className = 'db-widget-resize';
+  resizeHandle.title = 'Redimensionner';
+
+  widget.appendChild(bar);
+  widget.appendChild(inner);
+  widget.appendChild(resizeHandle);
+
+  // Events drag
+  const handle = bar.querySelector('.db-widget-handle');
+  handle.addEventListener('mousedown', () => { widget.draggable = true; });
+  widget.addEventListener('dragstart', onWidgetDragStart);
+  widget.addEventListener('dragend',   onWidgetDragEnd);
+  widget.addEventListener('dragover',  onWidgetDragOver);
+  widget.addEventListener('drop',      onWidgetDrop);
+
+  // Resize par le bas
+  initResizeHandle(resizeHandle, inner);
+
+  return widget;
+}
+
+// ── Drag & drop ──
+function onWidgetDragStart(e) {
+  _dragSrcWidget = this;
+  this.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', this.dataset.widgetId);
+}
+function onWidgetDragEnd(e) {
+  this.classList.remove('dragging');
+  this.draggable = false;
+  document.querySelectorAll('.db-widget').forEach(w => w.classList.remove('drag-over'));
+}
+function onWidgetDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.db-widget').forEach(w => w.classList.remove('drag-over'));
+  if (this !== _dragSrcWidget) this.classList.add('drag-over');
+}
+function onWidgetDrop(e) {
+  e.preventDefault();
+  if (this === _dragSrcWidget) return;
+  const grid = this.closest('.dash-grid');
+  if (!grid) return;
+  const widgets  = [...grid.querySelectorAll('.db-widget')];
+  const srcIdx   = widgets.indexOf(_dragSrcWidget);
+  const tgtIdx   = widgets.indexOf(this);
+  if (srcIdx < tgtIdx) grid.insertBefore(_dragSrcWidget, this.nextSibling);
+  else                  grid.insertBefore(_dragSrcWidget, this);
+  this.classList.remove('drag-over');
+  saveLayout(currentProfile.role);
+}
+
+// ── Resize par handle bas ──
+function initResizeHandle(handle, inner) {
+  let startY, startH;
+  handle.addEventListener('mousedown', e => {
+    e.preventDefault();
+    startY = e.clientY;
+    startH = inner.offsetHeight;
+    const onMove = ev => {
+      const newH = Math.max(80, startH + (ev.clientY - startY));
+      inner.style.maxHeight = newH + 'px';
+      inner.style.overflow  = 'hidden';
+    };
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      saveLayout(currentProfile.role);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
+// ── Resize bouton ──
+function resizeWidget(btn, widgetId, role) {
+  const widget = document.querySelector(`[data-widget-id="${widgetId}"]`);
+  if (!widget) return;
+  const sizes  = ['sm','md','lg'];
+  const cur    = widget.dataset.size || 'md';
+  const next   = sizes[(sizes.indexOf(cur) + 1) % sizes.length];
+  const inner  = widget.querySelector('.db-widget-inner');
+  widget.dataset.size = next;
+  inner.style.maxHeight = '';
+  inner.style.overflow  = '';
+  const labels = { sm:'Compact', md:'Normal', lg:'Large' };
+  btn.textContent = `⊡ ${labels[next]}`;
+  saveLayout(role);
+}
+
+// ── Masquer/Afficher ──
+function toggleWidgetVisibility(btn, widgetId, role) {
+  const widget  = document.querySelector(`[data-widget-id="${widgetId}"]`);
+  if (!widget) return;
+  const isHidden = widget.classList.toggle('hidden-widget');
+  btn.classList.toggle('active', isHidden);
+  btn.textContent = isHidden ? '👁 Afficher' : '🙈 Masquer';
+  saveLayout(role);
+}
+
+// ── Mode personnalisation ──
+function toggleCustomizeMode() {
+  _customizeMode = !_customizeMode;
+  const role = currentProfile?.role;
+  const map  = { worker:'Worker', company:'Company', hse:'HSE', subcontractor:'Subcontractor', trainer:'Trainer' };
+  const dash = map[role];
+  if (!dash) return;
+
+  const overview = document.getElementById(`${dash}-overview`);
+  if (!overview) return;
+  overview.classList.toggle('customize-mode', _customizeMode);
+
+  // Mettre à jour tous les boutons personnaliser
+  document.querySelectorAll('.btn-customize').forEach(b => {
+    b.classList.toggle('active', _customizeMode);
+    b.textContent = _customizeMode ? '✓ Terminer' : '✏️ Personnaliser';
+  });
+
+  if (!_customizeMode) saveLayout(role);
+}
+
+function showCustomizeBtn(role) {
+  const map = { worker:'notifBell-Worker', company:'notifBell-Company', hse:'notifBell-HSE', subcontractor:'notifBell-Subcontractor', trainer:'notifBell-Trainer' };
+  const bellId = map[role];
+  if (!bellId) return;
+  const bell = document.getElementById(bellId);
+  if (bell) {
+    const btn = bell.previousElementSibling;
+    if (btn && btn.classList.contains('btn-customize')) btn.style.display = '';
+  }
+}
+
+// ── Sauvegarde layout ──
+async function saveLayout(role) {
+  const map  = { worker:'Worker', company:'Company', hse:'HSE', subcontractor:'Subcontractor', trainer:'Trainer' };
+  const dash = map[role];
+  const grid = document.getElementById(`dash-grid-${role}`);
+  if (!grid || !dash) return;
+
+  const layout = [...grid.querySelectorAll('.db-widget')].map(w => ({
+    id:     w.dataset.widgetId,
+    size:   w.dataset.size || 'md',
+    hidden: w.classList.contains('hidden-widget'),
+    height: w.querySelector('.db-widget-inner')?.style.maxHeight || null,
+  }));
+
+  const existing = currentProfile.dashboard_layout || {};
+  existing[role] = layout;
+  currentProfile.dashboard_layout = existing;
+
+  await sb.from('profiles').update({ dashboard_layout: existing }).eq('id', currentUser.id);
+}
+
+function mergeLayout(defs, saved) {
+  const savedMap = {};
+  saved.forEach(s => savedMap[s.id] = s);
+  // Ordre sauvegardé, fusionné avec les defs par défaut
+  const result = saved.map(s => {
+    const def = defs.find(d => d.id === s.id);
+    return def ? { ...def, ...s } : null;
+  }).filter(Boolean);
+  // Ajouter nouveaux widgets non encore en layout
+  defs.forEach(d => { if (!savedMap[d.id]) result.push(d); });
+  return result;
+}
+
+// ── Réinitialiser (appelé depuis profil) ──
+async function resetDashboardLayout() {
+  if (!confirm('Réinitialiser la mise en page du dashboard ?')) return;
+  const role = currentProfile?.role;
+  const existing = currentProfile.dashboard_layout || {};
+  delete existing[role];
+  currentProfile.dashboard_layout = existing;
+  await sb.from('profiles').update({ dashboard_layout: existing }).eq('id', currentUser.id);
+  showToast('✓ Dashboard réinitialisé', 'success');
+  // Recharger
+  showDashboard(role, currentProfile.full_name);
+}
+
+
 
 function scrollToNotifs() {
   const role = currentProfile?.role;
