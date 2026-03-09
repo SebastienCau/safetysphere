@@ -1310,6 +1310,7 @@
     <button class="nav-tab" onclick="switchPage('Admin','compliance',this)">🎯 Conformité</button>
     <button class="nav-tab" onclick="switchPage('Admin','qr',this);loadAdminQRConfig()">📱 QR Code</button>
     <button class="nav-tab" onclick="switchPage('Admin','signatures',this);loadAdminSignatures()">✍️ Signatures</button>
+    <button class="nav-tab" onclick="switchPage('Admin','simulator',this);loadAdminSimulator()">🎭 Simulateur</button>
   </div>
   <div class="dash-body">
 
@@ -1507,6 +1508,37 @@
             <span style="font-size:13px;color:var(--success);font-weight:600">Statut de conformité en temps réel</span>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- ── SIMULATEUR / IMPERSONATION ── -->
+    <div class="page-section" id="Admin-simulator">
+      <div class="dash-welcome">🎭 <em>Simulateur</em> & Assistance</div>
+      <div class="dash-subtitle">Prévisualisez chaque type de compte, ou connectez-vous en miroir sur un compte utilisateur réel</div>
+
+      <!-- Comptes démo -->
+      <div class="section-card" style="margin-top:28px">
+        <div class="section-title">🎮 Comptes démo — Prévisualisation des rôles</div>
+        <div class="section-subtitle">Accédez instantanément à un dashboard exemple avec données fictives. Aucune écriture Supabase ne sera effectuée.</div>
+        <div id="demoRolesGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-top:20px"></div>
+      </div>
+
+      <!-- Impersonation utilisateur réel -->
+      <div class="section-card" style="margin-top:24px">
+        <div class="section-title">🔍 Connexion miroir — Assistance utilisateur</div>
+        <div class="section-subtitle">Recherchez un compte utilisateur réel et prenez le contrôle de son dashboard pour l'assister à distance. Un bandeau orange persistant signale le mode miroir.</div>
+        <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap">
+          <input type="text" id="impersonateSearch" class="form-input" style="flex:1;min-width:220px" placeholder="Email ou nom de l'utilisateur..." oninput="impersonateSearchLive(this.value)">
+          <button class="btn-sm btn-upload" onclick="impersonateSearch()">🔍 Rechercher</button>
+        </div>
+        <div id="impersonateResults" style="margin-top:16px;display:flex;flex-direction:column;gap:10px"></div>
+      </div>
+
+      <!-- Historique sessions miroir -->
+      <div class="section-card" style="margin-top:24px">
+        <div class="section-title">📋 Historique des sessions miroir</div>
+        <div class="section-subtitle">Log des connexions admin en mode impersonation (session courante)</div>
+        <div id="impersonateLog" style="margin-top:14px;font-size:12px;color:var(--muted)">Aucune session miroir dans cette session.</div>
       </div>
     </div>
 
@@ -9137,6 +9169,289 @@ async function loadSigAuditLog() {
 }
 
 
+// ══════════════════════════════════════════════════════════════════
+// 🎭 SIMULATEUR / IMPERSONATION — Admin
+// ══════════════════════════════════════════════════════════════════
+
+var _adminBackupProfile = null;
+var _adminBackupUser    = null;
+var _impersonateMode    = false;
+var _impersonateTimer   = null;
+var _impersonateSeconds = 0;
+var _impersonateLog     = [];
+var _impersonateDebounce= null;
+
+// ── Données de démo pour chaque rôle ───────────────────────────
+var DEMO_PROFILES = {
+  worker: {
+    id: 'demo-worker-001',
+    role: 'worker',
+    full_name: 'Jean Dupont (Démo)',
+    email: 'jean.dupont@demo.safetysphere.fr',
+    org_id: 'demo-org-company',
+    theme: 'dark',
+    dashboard_layout: null,
+    _demo: true
+  },
+  company: {
+    id: 'demo-company-001',
+    role: 'company',
+    full_name: 'Marie Lefebvre (Démo)',
+    email: 'marie.lefebvre@industrie-nord.demo',
+    org_id: 'demo-org-company',
+    org_name: 'Industrie Nord SAS',
+    theme: 'dark',
+    dashboard_layout: null,
+    _demo: true
+  },
+  hse: {
+    id: 'demo-hse-001',
+    role: 'hse',
+    full_name: 'Pierre Martin (Démo)',
+    email: 'p.martin@securite-pro.demo',
+    org_id: 'demo-org-hse',
+    org_name: 'Sécurité Pro Conseil',
+    theme: 'dark',
+    dashboard_layout: null,
+    _demo: true
+  },
+  subcontractor: {
+    id: 'demo-st-001',
+    role: 'subcontractor',
+    full_name: 'Sophie Bernard (Démo)',
+    email: 'sophie.bernard@electro-services.demo',
+    org_id: 'demo-org-st',
+    org_name: 'Électro Services SARL',
+    theme: 'dark',
+    dashboard_layout: null,
+    _demo: true
+  },
+  trainer: {
+    id: 'demo-trainer-001',
+    role: 'trainer',
+    full_name: 'Luc Fontaine (Démo)',
+    email: 'l.fontaine@cfe-formation.demo',
+    org_id: 'demo-org-trainer',
+    org_name: 'CFE Formation Industrielle',
+    theme: 'light',
+    dashboard_layout: null,
+    _demo: true
+  },
+  guest: {
+    id: 'demo-guest-001',
+    role: 'guest',
+    full_name: 'Auditeur Externe (Démo)',
+    email: 'auditeur@client-externe.demo',
+    org_id: null,
+    theme: 'dark',
+    dashboard_layout: null,
+    _demo: true
+  }
+};
+
+var DEMO_ROLE_META = {
+  worker:        { icon:'👷', label:'Intervenant',      color:'#22C55E', desc:'Habilitations, badge QR, documents partagés' },
+  company:       { icon:'🏢', label:'Entreprise EU',    color:'#3B82F6', desc:'Intervenants, sous-traitants, conformité' },
+  hse:           { icon:'🦺', label:'HSE / QHSE',       color:'#F97316', desc:'Tableau de bord HSE, DUER, VGP, FDS, PdP' },
+  subcontractor: { icon:'🤝', label:'Sous-Traitant',    color:'#A855F7', desc:'Missions EU, documents reçus, équipes' },
+  trainer:       { icon:'🎓', label:'Centre Formation', color:'#14B8A6', desc:'Demandes de validation, historique certifications' },
+  guest:         { icon:'👁', label:'Client / Invité',  color:'#64748B', desc:'Documents reçus en lecture seule' }
+};
+
+function loadAdminSimulator() {
+  renderDemoRolesGrid();
+}
+
+function renderDemoRolesGrid() {
+  var grid = document.getElementById('demoRolesGrid');
+  if (!grid) return;
+  grid.innerHTML = Object.keys(DEMO_ROLE_META).map(function(role) {
+    var m = DEMO_ROLE_META[role];
+    return '<div class="sim-role-card" onclick="launchDemoRole(\'' + role + '\')" style="background:var(--inset-bg);border:1px solid var(--inset-border);border-radius:16px;padding:20px 18px;cursor:pointer;transition:all .2s;text-align:center;position:relative;overflow:hidden">'
+      + '<div style="width:56px;height:56px;border-radius:16px;background:' + m.color + '22;border:2px solid ' + m.color + '44;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 12px">' + m.icon + '</div>'
+      + '<div style="font-size:14px;font-weight:700;margin-bottom:4px">' + m.label + '</div>'
+      + '<div style="font-size:11px;color:var(--muted);line-height:1.4;margin-bottom:14px">' + m.desc + '</div>'
+      + '<button style="width:100%;padding:8px;border-radius:8px;border:1px solid ' + m.color + '55;background:' + m.color + '18;color:' + m.color + ';font-size:12px;font-weight:700;cursor:pointer;font-family:\'Barlow\',sans-serif">▶ Simuler</button>'
+      + '</div>';
+  }).join('');
+
+  // Hover effect
+  grid.querySelectorAll('.sim-role-card').forEach(function(card) {
+    card.addEventListener('mouseenter', function() { card.style.borderColor = 'rgba(249,115,22,.4)'; card.style.transform = 'translateY(-2px)'; });
+    card.addEventListener('mouseleave', function() { card.style.borderColor = 'var(--inset-border)'; card.style.transform = ''; });
+  });
+}
+
+function launchDemoRole(role) {
+  if (_impersonateMode) { showToast('Quittez le mode miroir avant de simuler un rôle', 'error'); return; }
+  var demoProfile = JSON.parse(JSON.stringify(DEMO_PROFILES[role]));
+  _adminBackupProfile = currentProfile;
+  _adminBackupUser    = currentUser;
+
+  currentProfile = demoProfile;
+  currentUser    = { id: demoProfile.id, email: demoProfile.email, _demo: true };
+
+  showToast('Mode démo — ' + DEMO_ROLE_META[role].label + ' · Aucune donnée réelle chargée', 'info');
+  showDemoOverlay(role);
+  showDashboard(role, demoProfile.full_name);
+}
+
+function showDemoOverlay(role) {
+  var m = DEMO_ROLE_META[role];
+  var banner = document.getElementById('impersonateBanner');
+  banner.style.display = 'flex';
+  banner.style.background = 'linear-gradient(90deg,#1B3A5C,' + m.color + '88)';
+  document.getElementById('impersonateBannerInfo').textContent = '🎮 Mode démo — ' + m.icon + ' ' + m.label + ' (aucune donnée réelle)';
+  document.getElementById('impersonateBannerTimer').textContent = 'DÉMO';
+  document.getElementById('appContent').style.paddingTop = '46px';
+}
+
+// ── Impersonation utilisateur réel ──────────────────────────────
+var _impersonateSearchTimeout = null;
+
+function impersonateSearchLive(val) {
+  clearTimeout(_impersonateSearchTimeout);
+  if (val.length < 2) { document.getElementById('impersonateResults').innerHTML = ''; return; }
+  _impersonateSearchTimeout = setTimeout(function() { impersonateSearch(); }, 400);
+}
+
+async function impersonateSearch() {
+  var q = document.getElementById('impersonateSearch').value.trim();
+  if (!q) return;
+  var ctn = document.getElementById('impersonateResults');
+  ctn.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">Recherche en cours...</div>';
+
+  var result = await sb.from('profiles')
+    .select('id,full_name,email,role,org_id')
+    .or('full_name.ilike.%' + q + '%,email.ilike.%' + q + '%')
+    .limit(8);
+
+  if (result.error || !result.data || result.data.length === 0) {
+    ctn.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">Aucun utilisateur trouvé pour "' + escapeHtml(q) + '"</div>';
+    return;
+  }
+
+  ctn.innerHTML = result.data.map(function(u) {
+    var m = DEMO_ROLE_META[u.role] || { icon:'👤', label:u.role, color:'#94A3B8' };
+    return '<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--inset-bg);border:1px solid var(--inset-border);border-radius:12px">'
+      + '<div style="width:40px;height:40px;border-radius:10px;background:' + m.color + '18;border:1px solid ' + m.color + '33;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">' + m.icon + '</div>'
+      + '<div style="flex:1">'
+      + '<div style="font-size:13px;font-weight:700">' + escapeHtml(u.full_name || '—') + '</div>'
+      + '<div style="font-size:11px;color:var(--muted)">' + escapeHtml(u.email || '') + ' · <span style="color:' + m.color + ';font-weight:600">' + m.label + '</span></div>'
+      + '</div>'
+      + '<button class="btn-sm" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);color:#FCA5A5;font-size:11px;white-space:nowrap" onclick="startImpersonation(' + JSON.stringify(u).replace(/"/g,'&quot;') + ')">🔴 Prendre contrôle</button>'
+      + '</div>';
+  }).join('');
+}
+
+async function startImpersonation(userInfo) {
+  if (!confirm('⚠️ Vous allez vous connecter en mode miroir sur le compte de ' + userInfo.full_name + ' (' + userInfo.email + ').\n\nSes données réelles seront chargées. Êtes-vous sûr ?')) return;
+
+  // Charger le profil complet
+  var r = await sb.from('profiles').select('*').eq('id', userInfo.id).single();
+  if (r.error || !r.data) { showToast('Impossible de charger ce profil', 'error'); return; }
+
+  _adminBackupProfile = currentProfile;
+  _adminBackupUser    = currentUser;
+  _impersonateMode    = true;
+  _impersonateSeconds = 0;
+
+  currentProfile = r.data;
+  currentUser    = { id: r.data.id, email: r.data.email, _impersonated: true };
+
+  // Bandeau
+  var banner = document.getElementById('impersonateBanner');
+  banner.style.display = 'flex';
+  banner.style.background = 'linear-gradient(90deg,#DC2626,#EA580C)';
+  document.getElementById('impersonateBannerInfo').textContent =
+    'Miroir actif : ' + (r.data.full_name || r.data.email) + ' · ' + r.data.email + ' · Rôle : ' + (r.data.role || '?');
+  document.getElementById('appContent').style.paddingTop = '46px';
+
+  // Timer
+  clearInterval(_impersonateTimer);
+  _impersonateTimer = setInterval(function() {
+    _impersonateSeconds++;
+    var m = String(Math.floor(_impersonateSeconds / 60)).padStart(2, '0');
+    var s = String(_impersonateSeconds % 60).padStart(2, '0');
+    var el = document.getElementById('impersonateBannerTimer');
+    if (el) el.textContent = m + ':' + s;
+  }, 1000);
+
+  // Log
+  _impersonateLog.push({
+    time: new Date().toLocaleTimeString('fr-FR'),
+    name: r.data.full_name || r.data.email,
+    email: r.data.email,
+    role: r.data.role,
+    duration: null
+  });
+
+  showToast('Mode miroir actif — ' + (r.data.full_name || r.data.email), 'info');
+  showDashboard(r.data.role, r.data.full_name);
+}
+
+function exitImpersonation() {
+  if (!_adminBackupProfile) return;
+
+  // Logger la durée
+  if (_impersonateMode && _impersonateLog.length > 0) {
+    var m = String(Math.floor(_impersonateSeconds / 60)).padStart(2, '0');
+    var s = String(_impersonateSeconds % 60).padStart(2, '0');
+    _impersonateLog[_impersonateLog.length - 1].duration = m + ':' + s;
+  }
+
+  clearInterval(_impersonateTimer);
+  _impersonateTimer   = null;
+  _impersonateMode    = false;
+  _impersonateSeconds = 0;
+
+  // Restaurer l'admin
+  currentProfile = _adminBackupProfile;
+  currentUser    = _adminBackupUser;
+  _adminBackupProfile = null;
+  _adminBackupUser    = null;
+
+  // Cacher le bandeau
+  var banner = document.getElementById('impersonateBanner');
+  banner.style.display = 'none';
+  document.getElementById('appContent').style.paddingTop = '';
+
+  // Retour au dashboard admin
+  showToast('Mode miroir terminé — retour Admin', 'success');
+  showDashboard('admin', currentProfile.full_name);
+  // Re-select simulator tab
+  setTimeout(function() {
+    var tabs = document.querySelectorAll('#dashAdmin .nav-tab');
+    tabs.forEach(function(t) { t.classList.remove('active'); });
+    var simTab = Array.from(tabs).find(function(t) { return t.textContent.includes('Simulateur'); });
+    if (simTab) simTab.classList.add('active');
+    switchPage('Admin', 'simulator', simTab);
+    // Update log display
+    updateImpersonateLogDisplay();
+  }, 100);
+}
+
+function updateImpersonateLogDisplay() {
+  var ctn = document.getElementById('impersonateLog');
+  if (!ctn) return;
+  if (_impersonateLog.length === 0) {
+    ctn.innerHTML = '<span style="color:var(--muted);font-size:12px">Aucune session miroir dans cette session.</span>';
+    return;
+  }
+  ctn.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px">'
+    + _impersonateLog.map(function(entry) {
+      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--inset-bg);border:1px solid var(--inset-border);border-radius:10px">'
+        + '<span style="font-size:16px">🔴</span>'
+        + '<div style="flex:1">'
+        + '<div style="font-size:12px;font-weight:700">' + escapeHtml(entry.name) + ' — ' + escapeHtml(entry.role) + '</div>'
+        + '<div style="font-size:11px;color:var(--muted)">' + escapeHtml(entry.email) + ' · ' + entry.time + (entry.duration ? ' · Durée : ' + entry.duration : ' · En cours') + '</div>'
+        + '</div>'
+        + '<span style="font-size:11px;font-weight:700;color:' + (entry.duration ? 'var(--success)' : 'var(--warn)') + '">' + (entry.duration ? '✅ ' + entry.duration : '🟡 En cours') + '</span>'
+        + '</div>';
+    }).join('')
+    + '</div>';
+}
+
 // ══ NAVIGATION MODALE SIGNATURE ══════════════════════════════
 
 function goToStep(n) {
@@ -10259,6 +10574,21 @@ var _lastArchivedId = null;
   </div>
 
   <button class="settings-reset" onclick="resetDisplaySettings()">↺ Réinitialiser l'affichage</button>
+</div>
+
+<!-- ══ BANDEAU IMPERSONATION ══ -->
+<div id="impersonateBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(90deg,#EA580C,#F97316);padding:10px 20px;display:none;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 4px 20px rgba(249,115,22,.4);flex-wrap:wrap">
+  <div style="display:flex;align-items:center;gap:10px">
+    <span style="font-size:18px">🔴</span>
+    <div>
+      <div style="font-size:13px;font-weight:700;color:#fff">MODE MIROIR ACTIF — Assistance utilisateur</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.85)" id="impersonateBannerInfo">Connecté en tant que : —</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <span id="impersonateBannerTimer" style="font-size:12px;font-weight:700;color:rgba(255,255,255,.9);background:rgba(0,0,0,.2);padding:4px 10px;border-radius:12px">00:00</span>
+    <button onclick="exitImpersonation()" style="background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.3);color:#fff;font-weight:700;font-size:12px;padding:6px 14px;border-radius:8px;cursor:pointer;font-family:'Barlow',sans-serif">✕ Quitter le mode miroir</button>
+  </div>
 </div>
 
 </body>
