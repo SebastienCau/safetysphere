@@ -121,6 +121,8 @@ travaille avec plusieurs EU. Modèle viral type Slack/Figma.
 
 ## Roadmap priorisée
 
+---
+
 ### v2.1.0 — Edge Function email signature ⏳ PRIORITÉ 1
 **Objectif** : email automatique à chaque signataire avec lien de signature.
 
@@ -144,20 +146,50 @@ report_num, report_type, workflow_mode, position, sig_url
 
 ---
 
+### v2.1.1 — Export Passeport Prévention ⏳ PRIORITÉ 1 BIS 🔥
+**Contexte** : Le Passeport Prévention (dispositif légal obligatoire Ministère du Travail)
+a ouvert son espace employeurs le 16 mars 2026 — aujourd'hui même.
+Les employeurs ont désormais l'obligation de déclarer les formations SST de leurs salariés.
+À partir du 9 juillet 2026, un import par fichier sera disponible.
+Des trames de fichiers officielles sont déjà publiées par l'État.
+
+**Opportunité commerciale** :
+> "SafetySphere génère automatiquement votre fichier de déclaration
+> pour le Passeport Prévention — votre nouvelle obligation légale."
+C'est un déclencheur d'achat immédiat pour toute PME qui découvre SafetySphere.
+
+**Ce que la feature fait** :
+- Bouton "Exporter vers le Passeport Prévention" dans dashboard Company/HSE
+- Génère un fichier CSV/Excel au format officiel État à partir des habilitations
+  déjà enregistrées dans SafetySphere (zéro double saisie)
+- L'employeur dépose le fichier directement sur passeport-prevention.travail-emploi.gouv.fr
+- Champs requis : nom, prénom, date naissance, identifiant CPF, intitulé formation,
+  dates formation, type attestation, niveau obtenu
+
+**Complexité** : 1-2 jours — pas d'API à intégrer, juste un export au bon format
+
+**Fichiers à modifier** : `workers.js` ou `conformite.js`
+
+**Pour démarrer cette session** : récupérer la trame officielle sur
+passeport-prevention.travail-emploi.gouv.fr puis fournir `js/workers.js`
+
+---
+
 ### v2.2.0 — Personnel interne (onboarding salariés EU) ⏳ PRIORITÉ 2
 **Objectif** : permettre aux EU d'inviter et gérer leurs propres salariés
 (pas seulement les workers externes / sous-traitants).
 
-**Contexte décisionnel** :
+**Contexte** :
 - Aujourd'hui `worker` = intervenant externe uniquement
-- Les PME ont aussi besoin de gérer les habilitations de leurs propres salariés
+- Les PME ont besoin de gérer les habilitations de leurs propres salariés
 - Douleur réelle : Excel + classeur papier + rappels manuels
-- Argument commercial : SafetySphere remplace l'outil RH habilitations
+- Lien direct avec Passeport Prévention (v2.1.1) — les salariés internes
+  sont exactement les personnes dont les formations doivent être déclarées
 
 **Ce qui change** :
 - Nouveau champ `employment_type: 'internal' | 'external'` dans `profiles`
 - Flux invitation directe EU → salarié par email (sans QR code)
-- Dashboard Worker interne légèrement différent (pas de rattachement ST)
+- Dashboard Worker interne (pas de rattachement ST)
 - Alertes expiration habilitations salariés dans dashboard Company
 - KPI conformité incluant personnel interne
 
@@ -176,40 +208,34 @@ worker_invites -- ajouter flux invitation interne
 ### v2.3.0 — Modes opératoires (MOP) ⏳ PRIORITÉ 3
 **Objectif** : créer, valider et diffuser des procédures de sécurité étape par étape.
 
-**Contenu du module** :
+**Contenu** :
 - Éditeur structuré par étapes numérotées
-- Photos/schémas par étape
-- Pictogrammes EPI requis
-- Niveau de risque par étape
-- Workflow validation (HSE → signature)
-- Accusé de lecture signé par l'intervenant
-- Historique révisions (v1, v2, v3...)
-- Alertes révision périodique
-- Attachable à un PDP
-- Visible dans dashboard Worker (interne ET externe)
+- Photos/schémas par étape, pictogrammes EPI, niveau de risque
+- Workflow validation HSE → signature
+- Accusé de lecture signé par l'intervenant (interne ET externe)
+- Historique révisions (v1, v2, v3...) + alertes révision périodique
+- Attachable à un PDP, visible dans dashboard Worker
 
 **Tables SQL à créer** :
 ```sql
-mop_entries    -- les modes opératoires (titre, version, statut, org_id)
-mop_steps      -- les étapes (ordre, description, epi, niveau_risque, photo_url)
-mop_readings   -- accusés de lecture (worker_id, mop_id, signed_at, sig_url)
+mop_entries    -- (titre, version, statut, org_id)
+mop_steps      -- (ordre, description, epi, niveau_risque, photo_url)
+mop_readings   -- (worker_id, mop_id, signed_at, sig_url)
 ```
 
-**Fichiers** : nouveau fichier `js/mop.js` + modification `index.html`
+**Fichiers** : nouveau `js/mop.js` + modification `index.html`
 
 ---
 
-### v2.4.0 — Zones blanches (offline) ⏳ PRIORITÉ 4
+### v2.4.0 — Zones blanches ⏳ PRIORITÉ 4
 
 **Option A — Badge PDF imprimable (1 jour)**
-- PDF téléchargeable avec habilitations + QR code + dates expiration
-- Imprimable avant intervention en zone sans réseau
-- Fichiers à modifier : `workers.js`
+- PDF avec habilitations + QR code + dates expiration
+- Fichiers : `workers.js`
 
 **Option B — Mode offline localStorage (2-3 jours)**
-- Sauvegarde automatique données intervenant au login
-- Page hors-ligne en lecture seule
-- Fichiers à modifier : `core.js`, `workers.js`
+- Sauvegarde automatique au login, lecture seule sans réseau
+- Fichiers : `core.js`, `workers.js`
 
 ---
 
@@ -218,13 +244,16 @@ mop_readings   -- accusés de lecture (worker_id, mop_id, signed_at, sig_url)
 - Activer PDP dans checklist conformité Admin (`conformite.js`)
 - Export CSV/PDF tableaux Analytics (`analytics.js`)
 - Analytics Worker individuel (`analytics.js`, `workers.js`)
-- Comparaison inter-périodes charts Analytics N vs N-1 (`analytics.js`)
+- Comparaison inter-périodes N vs N-1 (`analytics.js`)
 - Permis de travail (nouveau module `permis.js`)
 - Notifications push / email digest hebdo
 - PWA complète (offline total)
 - Application mobile native
 - Matrice de polyvalence personnel interne
 - Suivi visites médicales
+- Intégration API Passeport Prévention (import automatique attestations
+  dans profil Worker depuis Mon Compte Formation — à surveiller,
+  API non publique à ce jour)
 
 ---
 
@@ -237,14 +266,18 @@ mop_readings   -- accusés de lecture (worker_id, mop_id, signed_at, sig_url)
 - Relation EU↔ST native (angle rare sur le marché)
 - Signature numérique intégrée (pas de renvoi vers DocuSign)
 - Onboarding QR code (zéro friction terrain)
+- Export Passeport Prévention automatique (obligation légale depuis 16/03/2026)
 - Gestion personnel interne + externe dans le même outil (v2.2.0)
 
 **Cible prioritaire** : entreprises qui interviennent chez d'autres
 (électriciens, maintenance industrielle, BTP, nettoyage industriel)
 → 1 EU qui impose SafetySphere à 10 ST = 11 comptes d'un coup
 
-**Déclencheurs d'achat** : contrôle URSSAF, accident, appel d'offres
-exigeant attestation conformité, nouveau donneur d'ordre
+**Déclencheurs d'achat** :
+- Nouvelle obligation Passeport Prévention (16/03/2026) 🔥
+- Contrôle URSSAF / accident
+- Appel d'offres exigeant attestation conformité
+- Nouveau donneur d'ordre
 
 ---
 
@@ -262,7 +295,7 @@ exigeant attestation conformité, nouveau donneur d'ordre
 | Nouvelle fonctionnalité isolée | Aucun ou 1 fichier |
 | Modifier un module existant | Le fichier du module |
 | Bug multi-modules | Les 2-3 fichiers concernés |
-| Nouvelle feature multi-modules | Les fichiers listés dans la roadmap ci-dessus |
+| Nouvelle feature multi-modules | Les fichiers listés dans la roadmap |
 
 ---
 
@@ -278,6 +311,7 @@ exigeant attestation conformité, nouveau donneur d'ordre
 | v1.4.2 | — | Analytics Admin + Analytics par rôle |
 | v2.0.0 | 2026-03-09 | Refacto architecture multi-fichiers |
 | v2.1.0 | — | Edge Function email signature (Resend) |
+| v2.1.1 | — | Export Passeport Prévention (format officiel État) |
 | v2.2.0 | — | Personnel interne (onboarding salariés EU) |
 | v2.3.0 | — | Modes opératoires (MOP) |
 | v2.4.0 | — | Zones blanches (badge PDF + offline) |
