@@ -703,7 +703,6 @@ async function loadNotifications(role) {
 
 
 // ── Modale création / édition ──
-function openCreateMissionModal(euOrgId, euName) {
 
 // ── RAPPORT HELPERS ──────────────────────────────────────
 
@@ -803,6 +802,125 @@ function reportCSS(landscape) {
 
 // ── En-tête commun (HTML) ─────────────────────────────
 function reportHeaderHTML(meta, docTitle, legalRef) {
+  var siretFmt = meta.siret ? meta.siret.replace(/(\d{3})(\d{3})(\d{3})(\d{5})/, '$1 $2 $3 $4') : '—';
+  return ''
+    /* Bandeau SafetySphere supérieur */
+    + '<div class="ss-topbar">'
+    + '<div class="ss-topbar-brand">'
+    + '<div class="ss-hex">S</div>'
+    + '<div><div class="ss-brand-name">Safety<span>Sphere</span></div><div class="ss-brand-tag">Plateforme de conformité HSE · Traçabilité numérique des obligations réglementaires</div></div>'
+    + '</div>'
+    + '<div class="ss-topbar-trust">'
+    + '<div class="ss-trust-item"><span class="ss-trust-icon">🔒</span>Chiffrement TLS + stockage sécurisé</div>'
+    + '<div class="ss-trust-item"><span class="ss-trust-icon">✅</span>Traçabilité horodatée</div>'
+    + '<div class="ss-trust-item"><span class="ss-trust-icon">🇪🇺</span>Données hébergées en Europe</div>'
+    + '<div class="ss-version">v' + escapeHtml(meta.appVersion) + '</div>'
+    + '</div>'
+    + '</div>'
+    /* En-tête document */
+    + '<div class="report-header">'
+    + '<div class="report-header-left">'
+    + '<div class="hex">S</div>'
+    + '<div>'
+    + '<div class="report-title">' + escapeHtml(docTitle) + '</div>'
+    + '<div class="report-subtitle">' + escapeHtml(legalRef) + '</div>'
+    + '</div>'
+    + '</div>'
+    + '<div class="report-header-right">'
+    + '<div class="meta-row"><span class="meta-lbl">Réf.</span><span class="report-num">' + escapeHtml(meta.reportNum) + '</span></div>'
+    + '<div class="meta-row"><span class="meta-lbl">Date</span><span class="meta-val">' + escapeHtml(meta.dateStr) + ' à ' + meta.timeStr + '</span></div>'
+    + '<div class="meta-row"><span class="meta-lbl">Responsable</span><span class="meta-val">' + escapeHtml(meta.responsable) + '</span></div>'
+    + '<div class="meta-row"><span class="meta-lbl">Email</span><span class="meta-val" style="font-size:10px">' + escapeHtml(meta.email) + '</span></div>'
+    + '</div>'
+    + '</div>'
+    + '<div class="org-block">'
+    + '<div class="org-field"><span class="org-field-lbl">Raison sociale</span><span class="org-field-val">' + escapeHtml(meta.orgName) + '</span></div>'
+    + (meta.legalForm ? '<div class="org-field"><span class="org-field-lbl">Forme juridique</span><span class="org-field-val">' + escapeHtml(meta.legalForm) + '</span></div>' : '')
+    + '<div class="org-field"><span class="org-field-lbl">SIRET</span><span class="org-field-val" style="font-family:monospace">' + escapeHtml(siretFmt) + '</span></div>'
+    + (meta.address ? '<div class="org-field"><span class="org-field-lbl">Adresse</span><span class="org-field-val">' + escapeHtml(meta.address) + '</span></div>' : '')
+    + '</div>';
+}
+
+// ── Pied de page + bloc signature + bandeau marketing ─
+function reportFooterHTML(meta, docTitle, hideSigBlock) {
+  return '<div class="report-footer">'
+    + '<span>SafetySphere v' + escapeHtml(meta.appVersion) + ' · ' + escapeHtml(meta.orgName) + ' · Réf. ' + escapeHtml(meta.reportNum) + '</span>'
+    + '<span>Généré le ' + escapeHtml(meta.dateStr) + ' · Document confidentiel</span>'
+    + '</div>'
+    + (hideSigBlock ? '' :
+        '<div class="signature-block">'
+      + '<div class="signature-box"><div class="signature-box-title">Établi par</div><div class="signature-box-line">' + escapeHtml(meta.responsable) + ' — ' + escapeHtml(meta.dateStr) + '</div></div>'
+      + '<div class="signature-box"><div class="signature-box-title">Vérifié / Validé par</div><div class="signature-box-line">Signature et cachet</div></div>'
+      + '<div class="signature-box"><div class="signature-box-title">Archivé le</div><div class="signature-box-line">&nbsp;</div></div>'
+      + '</div>')
+    /* Bandeau marketing SafetySphere */
+    + '<div class="ss-footer-bar">'
+    + '<div class="ss-footer-left">'
+    + '<div class="ss-footer-hex">S</div>'
+    + '<div><div class="ss-footer-brand">Safety<span>Sphere</span></div><div class="ss-footer-sub">Ce document a été généré et certifié par SafetySphere — Plateforme HSE tiers de confiance</div></div>'
+    + '</div>'
+    + '<div class="ss-footer-badges">'
+    + '<div class="ss-badge"><span class="ss-badge-icon">🔒</span>Chiffrement TLS en transit · stockage sécurisé</div>'
+    + '<div class="ss-badge"><span class="ss-badge-icon">📋</span>Archive horodatée · numéro de référence unique</div>'
+    + '<div class="ss-badge"><span class="ss-badge-icon">🇪🇺</span>Données hébergées en Europe (UE)</div>'
+    + '<div class="ss-badge"><span class="ss-badge-icon">⚖️</span>Droit à l&#39;effacement · RLS · RGPD Art. 17</div>'
+    + '</div>'
+    + '<div class="ss-footer-url">safetysphere.fr</div>'
+    + '</div>'
+    + '<div class="no-print" style="margin-top:20px;text-align:center">'
+    + '<button onclick="window.print()" style="background:#F97316;color:#fff;border:none;padding:11px 28px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">🖨️ Imprimer / Enregistrer en PDF</button>'
+    + '&nbsp;&nbsp;<button onclick="window.close()" style="background:#E5E7EB;color:#374151;border:none;padding:11px 20px;border-radius:8px;font-size:13px;cursor:pointer">Fermer</button>'
+    + '</div>';
+}
+
+// ── Ouvrir le rapport dans un nouvel onglet ────────────
+function openReportWindow(html, title, meta) {
+  // Afficher dans la visionneuse iframe intégrée
+  var modal   = document.getElementById('reportViewerModal');
+  var frame   = document.getElementById('reportViewerFrame');
+  var titleEl = document.getElementById('reportViewerTitle');
+  if (!modal || !frame) return false;
+
+  // Panneau signataires : masquer (pas d'archiveId connu à ce stade)
+  var sigPanel  = document.getElementById('viewerSigPanel');
+  var sigToggle = document.getElementById('viewerSigPanelToggle');
+  if (sigPanel)  { sigPanel.style.display = 'none'; sigPanel.dataset.open = '0'; }
+  if (sigToggle) { sigToggle.style.display = 'none'; }
+
+  // Construire le blob et l'injecter dans l'iframe
+  var blob    = new Blob([html], { type:'text/html;charset=utf-8' });
+  var blobUrl = URL.createObjectURL(blob);
+
+  titleEl.textContent = (meta ? meta.reportNum + ' — ' : '') + (title || 'Rapport');
+  frame.src = 'about:blank';
+
+  // Révoquer l'ancien blob éventuel
+  if (frame._blobUrl) { URL.revokeObjectURL(frame._blobUrl); }
+  frame._blobUrl = blobUrl;
+  frame.src = blobUrl;
+  frame.onload = function() {
+    setTimeout(function() { URL.revokeObjectURL(blobUrl); frame._blobUrl = null; }, 30000);
+  };
+
+  modal.classList.add('open');
+  showToast('Rapport prêt — utilisez 🖨️ pour enregistrer en PDF', 'success');
+
+  // Archivage automatique en arrière-plan
+  if (meta && title) {
+    archiveReport(meta, title, html).then(function(archived) {
+      // Une fois archivé, activer le bouton signataires si archive_id dispo
+      if (archived && archived.id) {
+        var toggle = document.getElementById('viewerSigPanelToggle');
+        if (toggle) { toggle.style.display = ''; toggle.dataset.archiveId = archived.id; toggle.onclick = function() { loadViewerSigPanel(archived.id); toggleViewerSigPanel(); }; }
+      }
+    }).catch(function(e){ console.warn('Archive background error:', e); });
+  }
+  return true;
+}
+
+// ══════════════════════════════════════════════════════
+// RAPPORT DUER
+// ══════════════════════════════════════════════════════
 
 // ── KPI CATALOG ──────────────────────────────────────
 
@@ -1718,7 +1836,6 @@ async function inlineArchiveToTrash(archiveId, reportType, role) {
 // ADMIN — Gestion des paramètres de signature
 // ══════════════════════════════════════════════════════════════
 
-async function loadAdminSignatures() {
 
 // ── ADMIN SIMULATOR + IMPERSONATION ──────────────────────────────────────
 
