@@ -23,9 +23,9 @@
        v0.9.8 — Accessibilité : zoom police (80–130%), contraste texte (Normal/Élevé/Maximum), panneau ⚙️ topbar, sauvegarde profil
        v1.0.0 — Fix category_check : contrainte SQL LIKE 'custom_%', upsert onConflict+category ; Onglet "Habilitations" personnalisable (_defaultDocTypes)
        v1.1.0 — Phase 12 : DUER dynamique (templates sectoriels), Registre VGP légaux (J-30), Bibliothèque FDS (Company + HSE)
-       v1.2.0 — Workflow multi-signataires parallèle/séquentiel, page signature publique, document consolidé, config admin workflow
+       v1.3.0 — Module PDP : Plan de Prévention multi-sections (parties, risques coactivité, intervenants, travaux dangereux, EPI, signatures), rapport PDF, workflow séquentiel EU→ST→SPS
   -->
-  <meta name="app-version" content="1.2.0" />
+  <meta name="app-version" content="1.3.0" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -655,6 +655,24 @@
     .fds-meta { font-size:12px; color:var(--muted); }
     body.theme-light .fds-card { background:#fff; border-color:#E2E8F0; }
 
+    /* PDP Cards */
+    .pdp-card { background:var(--inset-bg); border:1px solid var(--inset-border); border-radius:14px; padding:18px 20px; margin-bottom:12px; transition:border-color .2s; }
+    .pdp-card:hover { border-color:rgba(255,255,255,.15); }
+    .pdp-card-header { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+    .pdp-card-icon { width:44px; height:44px; border-radius:12px; background:rgba(249,115,22,.1); border:1px solid rgba(249,115,22,.2); display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+    .pdp-card-title { flex:1; }
+    .pdp-card-name { font-size:14px; font-weight:700; margin-bottom:3px; }
+    .pdp-card-meta { font-size:12px; color:var(--muted); }
+    .pdp-card-parties { display:flex; gap:16px; flex-wrap:wrap; margin-top:8px; border-top:1px solid var(--inset-sep); padding-top:10px; }
+    .pdp-party { display:flex; align-items:center; gap:6px; font-size:12px; }
+    .pdp-party-label { color:var(--muted); }
+    .pdp-party-val { font-weight:600; }
+    .pdp-risque-tag { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:12px; font-size:11px; font-weight:700; background:rgba(239,68,68,.1); color:#FCA5A5; border:1px solid rgba(239,68,68,.2); margin:2px; }
+    body.theme-light .pdp-card { background:#fff; border-color:#E2E8F0; }
+    /* Risque line in modal */
+    .pdp-risque-row { background:var(--inset-bg2); border:1px solid var(--inset-border); border-radius:10px; padding:10px 12px; display:flex; align-items:flex-start; gap:8px; }
+    .pdp-intervenant-row { background:var(--inset-bg2); border:1px solid var(--inset-border); border-radius:10px; padding:10px 12px; display:flex; align-items:center; gap:8px; }
+
     .sector-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; margin-bottom:28px; }
     .sector-card { background:var(--inset-bg); border:2px solid var(--inset-border); border-radius:14px; padding:18px 14px; cursor:pointer; text-align:center; transition:all .2s; }
     .sector-card:hover { border-color:rgba(249,115,22,.4); background:rgba(249,115,22,.05); }
@@ -785,7 +803,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v1.2.0</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v1.3.0</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -1032,16 +1050,18 @@
     <!-- ══ PAGE CONFORMITÉ (Company) ══ -->
     <div class="page-section" id="Company-conformite">
       <div class="dash-welcome">📋 <em>Conformité</em> & Prévention</div>
-      <div class="dash-subtitle">DUER · Registre VGP · Bibliothèque FDS</div>
+      <div class="dash-subtitle">DUER · Registre VGP · FDS Chimiques · Plan de Prévention</div>
       <div class="conform-tabs" id="conformTabs-Company">
         <button class="conform-tab active" onclick="switchConformTab('Company','duer',this)">📄 DUER</button>
         <button class="conform-tab" onclick="switchConformTab('Company','vgp',this)">🔧 Registre VGP</button>
         <button class="conform-tab" onclick="switchConformTab('Company','fds',this)">⚗️ FDS Chimiques</button>
+        <button class="conform-tab" onclick="switchConformTab('Company','pdp',this)">📋 Plan de Prévention</button>
         <button class="conform-tab" onclick="switchConformTab('Company','historique',this)">📁 Historique</button>
       </div>
       <div id="Company-conform-duer" class="conform-section active"></div>
       <div id="Company-conform-vgp"  class="conform-section"></div>
       <div id="Company-conform-fds"  class="conform-section"></div>
+      <div id="Company-conform-pdp"  class="conform-section"></div>
       <div id="Company-conform-historique" class="conform-section"></div>
     </div>
     <div class="page-section" id="Company-received">
@@ -1190,16 +1210,18 @@
     <!-- ══ PAGE CONFORMITÉ (HSE) ══ -->
     <div class="page-section" id="HSE-conformite">
       <div class="dash-welcome">📋 <em>Conformité</em> & Prévention</div>
-      <div class="dash-subtitle">DUER · Registre VGP · Bibliothèque FDS</div>
+      <div class="dash-subtitle">DUER · Registre VGP · FDS Chimiques · Plan de Prévention</div>
       <div class="conform-tabs" id="conformTabs-HSE">
         <button class="conform-tab active" onclick="switchConformTab('HSE','duer',this)">📄 DUER</button>
         <button class="conform-tab" onclick="switchConformTab('HSE','vgp',this)">🔧 Registre VGP</button>
         <button class="conform-tab" onclick="switchConformTab('HSE','fds',this)">⚗️ FDS Chimiques</button>
+        <button class="conform-tab" onclick="switchConformTab('HSE','pdp',this)">📋 Plan de Prévention</button>
         <button class="conform-tab" onclick="switchConformTab('HSE','historique',this)">📁 Historique</button>
       </div>
       <div id="HSE-conform-duer" class="conform-section active"></div>
       <div id="HSE-conform-vgp"  class="conform-section"></div>
       <div id="HSE-conform-fds"  class="conform-section"></div>
+      <div id="HSE-conform-pdp"  class="conform-section"></div>
       <div id="HSE-conform-historique" class="conform-section"></div>
     </div>
     <div class="page-section" id="HSE-received">
@@ -2028,9 +2050,115 @@
     </div>
   </div>
 </div>
-</div><!-- /appContent -->
+<!-- ══ MODALE PDP — Plan de Prévention ══ -->
+<div class="modal-overlay" id="pdpModal">
+  <div class="modal" style="max-width:700px;max-height:90vh;overflow-y:auto">
+    <button class="modal-close" onclick="closePdpModal()">✕</button>
+    <div class="modal-title" id="pdpModalTitle">📋 Nouveau Plan de Prévention</div>
+    <div class="modal-subtitle">Art. R4512-6 à R4512-12 du Code du Travail — Obligation EU/ST coactivité ≥ 400h ou travaux dangereux</div>
+    <input type="hidden" id="pdpEntryId" value="">
 
-<!-- ══ MODALE CATALOGUE KPI ══ -->
+    <!-- Étapes de navigation -->
+    <div style="display:flex;gap:6px;margin:16px 0 20px;flex-wrap:wrap">
+      <button id="pdpStep1Btn" class="btn-sm btn-validate" style="flex:1;min-width:120px;font-size:11px" onclick="pdpShowStep(1)">1️⃣ Identification</button>
+      <button id="pdpStep2Btn" class="btn-sm btn-view"     style="flex:1;min-width:120px;font-size:11px" onclick="pdpShowStep(2)">2️⃣ Risques</button>
+      <button id="pdpStep3Btn" class="btn-sm btn-view"     style="flex:1;min-width:120px;font-size:11px" onclick="pdpShowStep(3)">3️⃣ Intervenants</button>
+      <button id="pdpStep4Btn" class="btn-sm btn-view"     style="flex:1;min-width:120px;font-size:11px" onclick="pdpShowStep(4)">4️⃣ Dates & Signatures</button>
+    </div>
+
+    <!-- Step 1 : Identification des parties -->
+    <div id="pdpStep1">
+      <div style="font-size:13px;font-weight:700;color:var(--orange);margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px">🏭 Entreprise Utilisatrice (EU)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <div class="form-group" style="margin:0"><label class="form-label">Raison sociale EU *</label><input type="text" id="pdpEuNom" class="form-input" placeholder="Ex: Industrie Nord SAS"></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Contact EU / Responsable travaux *</label><input type="text" id="pdpEuContact" class="form-input" placeholder="Ex: M. Dupont — Chef de site"></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Site / Adresse des travaux *</label><input type="text" id="pdpSite" class="form-input" placeholder="Ex: Usine Pontoise — Bâtiment A3"></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Nature des travaux *</label><input type="text" id="pdpNatureTravaux" class="form-input" placeholder="Ex: Maintenance équipements électriques"></div>
+      </div>
+
+      <div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px">🤝 Entreprise Extérieure (ST / Prestataire)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <div class="form-group" style="margin:0"><label class="form-label">Raison sociale ST *</label><input type="text" id="pdpStNom" class="form-input" placeholder="Ex: Électro Services SARL"></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Contact ST / Chef de chantier *</label><input type="text" id="pdpStContact" class="form-input" placeholder="Ex: Mme Martin — Chargée d'affaires"></div>
+      </div>
+
+      <div style="font-size:13px;font-weight:700;color:var(--teal);margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px">👷 Coordinateur SPS (si applicable)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group" style="margin:0"><label class="form-label">Nom du coordinateur</label><input type="text" id="pdpSpsNom" class="form-input" placeholder="Ex: Bureau SPS Île-de-France"></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Contact coordinateur</label><input type="text" id="pdpSpsContact" class="form-input" placeholder="Ex: contact@sps.fr · 01 23 45 67 89"></div>
+      </div>
+    </div>
+
+    <!-- Step 2 : Analyse risques coactivité -->
+    <div id="pdpStep2" style="display:none">
+      <div style="font-size:13px;font-weight:700;color:var(--orange);margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px">⚠️ Risques liés à la coactivité</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Identifiez les risques générés par l'interférence des activités EU et ST sur le même site.</div>
+      <div id="pdpRisquesList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+      <button class="btn-sm" style="background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3);color:var(--orange);width:100%" onclick="pdpAddRisque()">➕ Ajouter un risque</button>
+
+      <div style="font-size:13px;font-weight:700;color:var(--success);margin:20px 0 12px;border-bottom:1px solid var(--border);padding-bottom:8px">🛡️ Mesures de prévention communes</div>
+      <textarea id="pdpMesures" class="form-input" rows="4" placeholder="Ex: Balisage zone de travail, consignation électrique préalable, port EPI obligatoire (casque, gilet HV, gants isolants)..." style="resize:vertical;min-height:90px"></textarea>
+
+      <div style="font-size:13px;font-weight:700;color:var(--warn);margin:20px 0 12px;border-bottom:1px solid var(--border);padding-bottom:8px">🔥 Travaux dangereux (liste Art. R4534-120)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="pdpTD_elec" style="accent-color:var(--orange)"> Travaux électriques HT/BT</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="pdpTD_hauteur" style="accent-color:var(--orange)"> Travaux en hauteur (>3m)</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="pdpTD_feu" style="accent-color:var(--orange)"> Travaux par points chauds</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="pdpTD_espaceconfine" style="accent-color:var(--orange)"> Espaces confinés</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="pdpTD_chimique" style="accent-color:var(--orange)"> Risque chimique / CMR</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="pdpTD_levage" style="accent-color:var(--orange)"> Levage / manutention lourde</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="pdpTD_demolition" style="accent-color:var(--orange)"> Démolition / structure</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="pdpTD_amiante" style="accent-color:var(--orange)"> Risque amiante / plomb</label>
+      </div>
+    </div>
+
+    <!-- Step 3 : Intervenants -->
+    <div id="pdpStep3" style="display:none">
+      <div style="font-size:13px;font-weight:700;color:var(--orange);margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px">👷 Liste des intervenants ST sur le chantier</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Listez tous les travailleurs ST amenés à intervenir sur le site EU.</div>
+      <div id="pdpIntervenantsList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+      <button class="btn-sm" style="background:rgba(168,85,247,.12);border:1px solid rgba(168,85,247,.3);color:var(--purple);width:100%" onclick="pdpAddIntervenant()">➕ Ajouter un intervenant</button>
+
+      <div style="font-size:13px;font-weight:700;color:var(--teal);margin:20px 0 12px;border-bottom:1px solid var(--border);padding-bottom:8px">📋 EPI requis pour l'intervention</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="pdpEPI_casque" style="accent-color:var(--teal)"> Casque de protection</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="pdpEPI_gilet" style="accent-color:var(--teal)"> Gilet haute visibilité</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="pdpEPI_gants" style="accent-color:var(--teal)"> Gants de protection</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="pdpEPI_chaussures" style="accent-color:var(--teal)"> Chaussures de sécurité S3</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="pdpEPI_lunettes" style="accent-color:var(--teal)"> Lunettes de protection</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="pdpEPI_harnais" style="accent-color:var(--teal)"> Harnais antichute</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="pdpEPI_masque" style="accent-color:var(--teal)"> Masque respiratoire</label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="pdpEPI_antibruit" style="accent-color:var(--teal)"> Protection auditive</label>
+      </div>
+    </div>
+
+    <!-- Step 4 : Dates & Signatures -->
+    <div id="pdpStep4" style="display:none">
+      <div style="font-size:13px;font-weight:700;color:var(--orange);margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px">📅 Dates de l'intervention</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <div class="form-group" style="margin:0"><label class="form-label">Date de début *</label><input type="date" id="pdpDateDebut" class="form-input"></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Date de fin *</label><input type="date" id="pdpDateFin" class="form-input"></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Durée estimée (heures)</label><input type="number" id="pdpDureeH" class="form-input" min="1" placeholder="Ex: 80"></div>
+        <div class="form-group" style="margin:0"><label class="form-label">Nb de travailleurs ST</label><input type="number" id="pdpNbTravST" class="form-input" min="1" placeholder="Ex: 4"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Remarques / conditions particulières</label>
+        <textarea id="pdpRemarques" class="form-input" rows="3" placeholder="Ex: Intervention en horaires décalés, présence de tiers, contraintes particulières du site..."></textarea>
+      </div>
+      <div style="background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.2);border-radius:8px;padding:12px;margin-top:4px">
+        <div style="font-size:12px;font-weight:700;color:var(--orange);margin-bottom:6px">✍️ Ordre de signature (séquentiel par défaut)</div>
+        <div style="font-size:11px;color:var(--muted)">Le PdP sera soumis pour signature selon l'ordre : <strong style="color:var(--text)">EU → ST → Coordinateur SPS → Dirigeant</strong><br>Une fois enregistré, utilisez "📤 Envoyer pour signature" depuis l'onglet Historique.</div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button id="pdpSaveBtn" onclick="savePdp()" class="btn-sm btn-validate" style="flex:1;padding:11px;font-size:13px">✓ Enregistrer le PdP</button>
+      <button onclick="closePdpModal()" class="btn-sm btn-view" style="padding:11px 18px;font-size:13px">Annuler</button>
+    </div>
+  </div>
+</div>
+
+
 <div class="modal-overlay" id="kpiCatalogModal">
   <div class="modal" style="max-width:680px">
     <button class="modal-close" onclick="closeKpiCatalog()">✕</button>
@@ -6696,7 +6824,7 @@ async function loadConformite(role) {
 
 function switchConformTab(role, tab, btn) {
   _conformTab = tab;
-  ['duer','vgp','fds','historique'].forEach(function(t) {
+  ['duer','vgp','fds','pdp','historique'].forEach(function(t) {
     var s = document.getElementById(role + '-conform-' + t);
     if (s) s.classList.toggle('active', t === tab);
   });
@@ -6706,6 +6834,7 @@ function switchConformTab(role, tab, btn) {
   if (tab === 'duer')       renderDuerSection(role);
   if (tab === 'vgp')        renderVgpSection(role);
   if (tab === 'fds')        renderFdsSection(role);
+  if (tab === 'pdp')        renderPdpSection(role);
   if (tab === 'historique') renderHistoriqueSection(role);
 }
 
@@ -6947,7 +7076,7 @@ async function buildReportMeta(typeCode) {
   var orgSuffix  = (currentProfile.org_id || 'XXXX').slice(-4).toUpperCase();
   var reportNum  = typeCode + '-' + datePart + '-' + timePart + '-' + orgSuffix;
   // Version de l'application
-  var appVersion = document.querySelector('meta[name="app-version"]')?.content || '1.2.0';
+  var appVersion = document.querySelector('meta[name="app-version"]')?.content || '1.3.0';
 
   return {
     orgName    : (orgRow && orgRow.name)       || 'Entreprise non renseignée',
@@ -7565,6 +7694,482 @@ async function deleteFdsEntry(id) {
   renderFdsSection(_conformRole);
 }
 
+
+
+
+
+// ══════════════════════════════════════════════════
+// 12.4 — PLAN DE PRÉVENTION (PdP)
+// Art. R4512-6 à R4512-12 Code du Travail
+// ══════════════════════════════════════════════════
+
+var _pdpRisques      = [];  // [{ id, description, gravite, mesure }]
+var _pdpIntervenants = [];  // [{ id, nom, poste, habilitations }]
+var _pdpCurrentStep  = 1;
+
+async function renderPdpSection(role) {
+  var ctn = document.getElementById(role + '-conform-pdp');
+  if (!ctn) return;
+  ctn.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div></div>';
+
+  var result = await sb.from('pdp_entries').select('*').eq('org_id', currentProfile.org_id).order('created_at', { ascending: false });
+  var pdps = result.data;
+  if (result.error) {
+    ctn.innerHTML = '<div class="empty-state"><div class="empty-state-text">Erreur : ' + escapeHtml(result.error.message) + '</div></div>';
+    return;
+  }
+
+  var today = new Date();
+
+  function getPdpStatus(p) {
+    if (!p.date_debut || !p.date_fin) return { label:'📋 En préparation', badge:'vgp-badge-np' };
+    var debut = new Date(p.date_debut);
+    var fin   = new Date(p.date_fin);
+    if (today < debut)  return { label:'⏳ À venir',      badge:'vgp-badge-alerte' };
+    if (today <= fin)   return { label:'🟢 En cours',     badge:'vgp-badge-ok' };
+    return                      { label:'✅ Terminé',      badge:'vgp-badge-np' };
+  }
+
+  var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">'
+    + '<div><div class="section-title" style="margin:0">Plans de Prévention</div>'
+    + '<div style="font-size:12px;color:var(--muted);margin-top:4px">Obligation légale EU/ST — coactivité ≥ 400h/an ou travaux dangereux · Art. R4512-6 Code du Travail</div></div>'
+    + '<button class="btn-sm btn-upload" onclick="openPdpModal(null)">➕ Nouveau PdP</button>'
+    + '</div>';
+
+  // Stat cards
+  var total    = pdps ? pdps.length : 0;
+  var enCours  = pdps ? pdps.filter(function(p) { var s = getPdpStatus(p); return s.label.includes('cours'); }).length : 0;
+  var aVenir   = pdps ? pdps.filter(function(p) { var s = getPdpStatus(p); return s.label.includes('venir'); }).length : 0;
+  var termines = pdps ? pdps.filter(function(p) { var s = getPdpStatus(p); return s.label.includes('Terminé'); }).length : 0;
+
+  html += '<div class="stats-grid" style="margin-bottom:24px">'
+    + '<div class="stat-card"><div class="stat-icon">📋</div><div class="stat-value">' + total + '</div><div class="stat-label">Total PdP</div></div>'
+    + '<div class="stat-card"><div class="stat-icon" style="color:var(--success)">🟢</div><div class="stat-value" style="color:var(--success)">' + enCours + '</div><div class="stat-label">En cours</div></div>'
+    + '<div class="stat-card"><div class="stat-icon" style="color:var(--warn)">⏳</div><div class="stat-value" style="color:var(--warn)">' + aVenir + '</div><div class="stat-label">À venir</div></div>'
+    + '<div class="stat-card"><div class="stat-icon" style="color:var(--muted)">✅</div><div class="stat-value" style="color:var(--muted)">' + termines + '</div><div class="stat-label">Terminés</div></div>'
+    + '</div>';
+
+  if (pdps && pdps.length > 0) {
+    pdps.forEach(function(p) {
+      var st = getPdpStatus(p);
+      var dateRange = (p.date_debut ? new Date(p.date_debut).toLocaleDateString('fr-FR') : '?')
+                    + ' → ' + (p.date_fin ? new Date(p.date_fin).toLocaleDateString('fr-FR') : '?');
+      var risques = p.risques ? (typeof p.risques === 'string' ? JSON.parse(p.risques) : p.risques) : [];
+      var travDangereux = p.travaux_dangereux ? (typeof p.travaux_dangereux === 'string' ? JSON.parse(p.travaux_dangereux) : p.travaux_dangereux) : [];
+
+      var riskTags = risques.slice(0, 3).map(function(r) {
+        return '<span class="pdp-risque-tag">⚠️ ' + escapeHtml(r.description || r) + '</span>';
+      }).join('');
+      if (risques.length > 3) riskTags += '<span class="pdp-risque-tag" style="background:rgba(148,163,184,.08);color:var(--muted);border-color:rgba(148,163,184,.2)">+' + (risques.length - 3) + '</span>';
+
+      var tdTags = travDangereux.map(function(td) {
+        return '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:rgba(239,68,68,.08);color:#FCA5A5;border:1px solid rgba(239,68,68,.15);margin:2px">🔥 ' + escapeHtml(td) + '</span>';
+      }).join('');
+
+      html += '<div class="pdp-card">'
+        + '<div class="pdp-card-header">'
+        + '<div class="pdp-card-icon">📋</div>'
+        + '<div class="pdp-card-title">'
+        + '<div class="pdp-card-name">' + escapeHtml(p.nature_travaux || 'PdP sans titre') + '</div>'
+        + '<div class="pdp-card-meta">🏭 ' + escapeHtml(p.site || '') + ' · 📅 ' + dateRange + (p.duree_h ? ' · ⏱ ' + p.duree_h + 'h' : '') + '</div>'
+        + '</div>'
+        + '<span class="vgp-badge ' + st.badge + '">' + st.label + '</span>'
+        + '</div>'
+        + '<div class="pdp-card-parties">'
+        + '<div class="pdp-party"><span class="pdp-party-label">🏭 EU :</span><span class="pdp-party-val">' + escapeHtml(p.eu_nom || '—') + '</span></div>'
+        + '<div class="pdp-party"><span class="pdp-party-label">🤝 ST :</span><span class="pdp-party-val">' + escapeHtml(p.st_nom || '—') + '</span></div>'
+        + (p.sps_nom ? '<div class="pdp-party"><span class="pdp-party-label">👷 SPS :</span><span class="pdp-party-val">' + escapeHtml(p.sps_nom) + '</span></div>' : '')
+        + '</div>'
+        + (riskTags ? '<div style="margin-top:8px">' + riskTags + '</div>' : '')
+        + (tdTags ? '<div style="margin-top:6px">' + tdTags + '</div>' : '')
+        + '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'
+        + '<button class="btn-sm" style="background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.25);color:var(--orange)" onclick="generatePdpReport(\'' + p.id + '\')">📄 Rapport PDF</button>'
+        + '<button class="btn-sm btn-view" onclick="openPdpModal(\'' + p.id + '\')">✏️ Modifier</button>'
+        + '<button class="btn-sm btn-reject" onclick="deletePdp(\'' + p.id + '\')">🗑 Supprimer</button>'
+        + '</div>'
+        + '</div>';
+    });
+  } else {
+    html += '<div class="empty-state"><div class="empty-state-icon">📋</div>'
+      + '<div class="empty-state-text">Aucun Plan de Prévention enregistré.<br>Créez votre premier PdP pour une intervention extérieure.</div></div>';
+  }
+
+  ctn.innerHTML = html;
+}
+
+// ── Modale PDP ────────────────────────────────────────────────
+function pdpShowStep(n) {
+  _pdpCurrentStep = n;
+  [1, 2, 3, 4].forEach(function(i) {
+    var s = document.getElementById('pdpStep' + i);
+    var b = document.getElementById('pdpStep' + i + 'Btn');
+    if (s) s.style.display = (i === n) ? '' : 'none';
+    if (b) {
+      b.className = i === n
+        ? 'btn-sm btn-validate'
+        : 'btn-sm btn-view';
+      b.style.flex = '1';
+      b.style.minWidth = '120px';
+      b.style.fontSize = '11px';
+    }
+  });
+}
+
+function pdpAddRisque() {
+  var id = 'r' + Date.now();
+  _pdpRisques.push({ id: id, description: '', mesure: '' });
+  pdpRenderRisques();
+}
+
+function pdpRemoveRisque(id) {
+  _pdpRisques = _pdpRisques.filter(function(r) { return r.id !== id; });
+  pdpRenderRisques();
+}
+
+function pdpRenderRisques() {
+  var ctn = document.getElementById('pdpRisquesList');
+  if (!ctn) return;
+  if (_pdpRisques.length === 0) {
+    ctn.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Aucun risque identifié. Cliquez sur "Ajouter un risque".</div>';
+    return;
+  }
+  ctn.innerHTML = _pdpRisques.map(function(r) {
+    return '<div class="pdp-risque-row" id="risqueRow_' + r.id + '">'
+      + '<div style="flex:1;display:flex;flex-direction:column;gap:6px">'
+      + '<input type="text" class="form-input" style="margin:0;padding:6px 10px;font-size:12px" placeholder="Description du risque (ex: Chute d\'objet depuis l\'échafaudage)" value="' + escapeHtml(r.description) + '" oninput="pdpUpdateRisque(\'' + r.id + '\',\'description\',this.value)">'
+      + '<input type="text" class="form-input" style="margin:0;padding:6px 10px;font-size:12px" placeholder="Mesure de prévention associée (ex: Balisage zone, permis de travail)" value="' + escapeHtml(r.mesure) + '" oninput="pdpUpdateRisque(\'' + r.id + '\',\'mesure\',this.value)">'
+      + '</div>'
+      + '<button class="btn-sm btn-reject" style="padding:6px 10px;align-self:flex-start" onclick="pdpRemoveRisque(\'' + r.id + '\')">🗑</button>'
+      + '</div>';
+  }).join('');
+}
+
+function pdpUpdateRisque(id, field, val) {
+  var r = _pdpRisques.find(function(x) { return x.id === id; });
+  if (r) r[field] = val;
+}
+
+function pdpAddIntervenant() {
+  var id = 'i' + Date.now();
+  _pdpIntervenants.push({ id: id, nom: '', poste: '', habilitations: '' });
+  pdpRenderIntervenants();
+}
+
+function pdpRemoveIntervenant(id) {
+  _pdpIntervenants = _pdpIntervenants.filter(function(i) { return i.id !== id; });
+  pdpRenderIntervenants();
+}
+
+function pdpRenderIntervenants() {
+  var ctn = document.getElementById('pdpIntervenantsList');
+  if (!ctn) return;
+  if (_pdpIntervenants.length === 0) {
+    ctn.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Aucun intervenant ajouté.</div>';
+    return;
+  }
+  ctn.innerHTML = _pdpIntervenants.map(function(inv) {
+    return '<div class="pdp-intervenant-row">'
+      + '<div style="flex:1;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'
+      + '<input type="text" class="form-input" style="margin:0;padding:6px 10px;font-size:12px" placeholder="Nom Prénom" value="' + escapeHtml(inv.nom) + '" oninput="pdpUpdateIntervenant(\'' + inv.id + '\',\'nom\',this.value)">'
+      + '<input type="text" class="form-input" style="margin:0;padding:6px 10px;font-size:12px" placeholder="Poste / Qualification" value="' + escapeHtml(inv.poste) + '" oninput="pdpUpdateIntervenant(\'' + inv.id + '\',\'poste\',this.value)">'
+      + '<input type="text" class="form-input" style="margin:0;padding:6px 10px;font-size:12px" placeholder="Habilitations (ex: H0B0, CACES)" value="' + escapeHtml(inv.habilitations) + '" oninput="pdpUpdateIntervenant(\'' + inv.id + '\',\'habilitations\',this.value)">'
+      + '</div>'
+      + '<button class="btn-sm btn-reject" style="padding:6px 10px" onclick="pdpRemoveIntervenant(\'' + inv.id + '\')">🗑</button>'
+      + '</div>';
+  }).join('');
+}
+
+function pdpUpdateIntervenant(id, field, val) {
+  var inv = _pdpIntervenants.find(function(x) { return x.id === id; });
+  if (inv) inv[field] = val;
+}
+
+function pdpGetTravDangereux() {
+  var list = [];
+  var map = { pdpTD_elec:'Travaux électriques HT/BT', pdpTD_hauteur:'Travaux en hauteur', pdpTD_feu:'Travaux par points chauds', pdpTD_espaceconfine:'Espaces confinés', pdpTD_chimique:'Risque chimique / CMR', pdpTD_levage:'Levage / manutention lourde', pdpTD_demolition:'Démolition / structure', pdpTD_amiante:'Risque amiante / plomb' };
+  Object.keys(map).forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el && el.checked) list.push(map[id]);
+  });
+  return list;
+}
+
+function pdpSetTravDangereux(list) {
+  var map = { 'Travaux électriques HT/BT':'pdpTD_elec', 'Travaux en hauteur':'pdpTD_hauteur', 'Travaux par points chauds':'pdpTD_feu', 'Espaces confinés':'pdpTD_espaceconfine', 'Risque chimique / CMR':'pdpTD_chimique', 'Levage / manutention lourde':'pdpTD_levage', 'Démolition / structure':'pdpTD_demolition', 'Risque amiante / plomb':'pdpTD_amiante' };
+  Object.values(map).forEach(function(id) { var el = document.getElementById(id); if (el) el.checked = false; });
+  (list || []).forEach(function(td) { var id = map[td]; var el = id && document.getElementById(id); if (el) el.checked = true; });
+}
+
+function pdpGetEpi() {
+  var list = [];
+  var map = { pdpEPI_casque:'Casque de protection', pdpEPI_gilet:'Gilet haute visibilité', pdpEPI_gants:'Gants de protection', pdpEPI_chaussures:'Chaussures de sécurité S3', pdpEPI_lunettes:'Lunettes de protection', pdpEPI_harnais:'Harnais antichute', pdpEPI_masque:'Masque respiratoire', pdpEPI_antibruit:'Protection auditive' };
+  Object.keys(map).forEach(function(id) { var el = document.getElementById(id); if (el && el.checked) list.push(map[id]); });
+  return list;
+}
+
+function pdpSetEpi(list) {
+  var map = { 'Casque de protection':'pdpEPI_casque', 'Gilet haute visibilité':'pdpEPI_gilet', 'Gants de protection':'pdpEPI_gants', 'Chaussures de sécurité S3':'pdpEPI_chaussures', 'Lunettes de protection':'pdpEPI_lunettes', 'Harnais antichute':'pdpEPI_harnais', 'Masque respiratoire':'pdpEPI_masque', 'Protection auditive':'pdpEPI_antibruit' };
+  Object.values(map).forEach(function(id) { var el = document.getElementById(id); if (el) el.checked = false; });
+  (list || []).forEach(function(epi) { var id = map[epi]; var el = id && document.getElementById(id); if (el) el.checked = true; });
+}
+
+async function openPdpModal(pdpId) {
+  _pdpRisques      = [];
+  _pdpIntervenants = [];
+
+  // Reset fields
+  ['pdpEntryId','pdpEuNom','pdpEuContact','pdpSite','pdpNatureTravaux','pdpStNom','pdpStContact',
+   'pdpSpsNom','pdpSpsContact','pdpMesures','pdpDateDebut','pdpDateFin','pdpDureeH','pdpNbTravST','pdpRemarques'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  pdpSetTravDangereux([]);
+  pdpSetEpi([]);
+  pdpRenderRisques();
+  pdpRenderIntervenants();
+
+  document.getElementById('pdpEntryId').value = pdpId || '';
+  document.getElementById('pdpModalTitle').textContent = pdpId ? '✏️ Modifier le Plan de Prévention' : '📋 Nouveau Plan de Prévention';
+  pdpShowStep(1);
+
+  if (pdpId) {
+    var r = await sb.from('pdp_entries').select('*').eq('id', pdpId).single();
+    var p = r.data;
+    if (p) {
+      document.getElementById('pdpEuNom').value        = p.eu_nom || '';
+      document.getElementById('pdpEuContact').value    = p.eu_contact || '';
+      document.getElementById('pdpSite').value         = p.site || '';
+      document.getElementById('pdpNatureTravaux').value= p.nature_travaux || '';
+      document.getElementById('pdpStNom').value        = p.st_nom || '';
+      document.getElementById('pdpStContact').value    = p.st_contact || '';
+      document.getElementById('pdpSpsNom').value       = p.sps_nom || '';
+      document.getElementById('pdpSpsContact').value   = p.sps_contact || '';
+      document.getElementById('pdpMesures').value      = p.mesures || '';
+      document.getElementById('pdpDateDebut').value    = p.date_debut || '';
+      document.getElementById('pdpDateFin').value      = p.date_fin || '';
+      document.getElementById('pdpDureeH').value       = p.duree_h || '';
+      document.getElementById('pdpNbTravST').value     = p.nb_trav_st || '';
+      document.getElementById('pdpRemarques').value    = p.remarques || '';
+      var risques = p.risques ? (typeof p.risques === 'string' ? JSON.parse(p.risques) : p.risques) : [];
+      _pdpRisques = risques.map(function(r) { return { id: 'r' + Math.random(), description: r.description || '', mesure: r.mesure || '' }; });
+      var intervenants = p.intervenants ? (typeof p.intervenants === 'string' ? JSON.parse(p.intervenants) : p.intervenants) : [];
+      _pdpIntervenants = intervenants.map(function(inv) { return { id: 'i' + Math.random(), nom: inv.nom || '', poste: inv.poste || '', habilitations: inv.habilitations || '' }; });
+      pdpSetTravDangereux(p.travaux_dangereux || []);
+      pdpSetEpi(p.epi || []);
+      pdpRenderRisques();
+      pdpRenderIntervenants();
+    }
+  }
+  document.getElementById('pdpModal').classList.add('open');
+}
+
+function closePdpModal() { document.getElementById('pdpModal').classList.remove('open'); }
+
+async function savePdp() {
+  var euNom         = document.getElementById('pdpEuNom').value.trim();
+  var natureTravaux = document.getElementById('pdpNatureTravaux').value.trim();
+  var stNom         = document.getElementById('pdpStNom').value.trim();
+  if (!euNom || !natureTravaux || !stNom) {
+    showToast('Renseignez EU, ST et la nature des travaux (étape 1)', 'error'); return;
+  }
+  var btn = document.getElementById('pdpSaveBtn');
+  btn.disabled = true; btn.textContent = '⏳';
+
+  var payload = {
+    org_id:           currentProfile.org_id,
+    created_by:       currentProfile.id,
+    eu_nom:           euNom,
+    eu_contact:       document.getElementById('pdpEuContact').value.trim() || null,
+    site:             document.getElementById('pdpSite').value.trim() || null,
+    nature_travaux:   natureTravaux,
+    st_nom:           stNom,
+    st_contact:       document.getElementById('pdpStContact').value.trim() || null,
+    sps_nom:          document.getElementById('pdpSpsNom').value.trim() || null,
+    sps_contact:      document.getElementById('pdpSpsContact').value.trim() || null,
+    mesures:          document.getElementById('pdpMesures').value.trim() || null,
+    date_debut:       document.getElementById('pdpDateDebut').value || null,
+    date_fin:         document.getElementById('pdpDateFin').value || null,
+    duree_h:          parseInt(document.getElementById('pdpDureeH').value) || null,
+    nb_trav_st:       parseInt(document.getElementById('pdpNbTravST').value) || null,
+    remarques:        document.getElementById('pdpRemarques').value.trim() || null,
+    risques:          JSON.stringify(_pdpRisques.filter(function(r) { return r.description; })),
+    intervenants:     JSON.stringify(_pdpIntervenants.filter(function(i) { return i.nom; })),
+    travaux_dangereux:JSON.stringify(pdpGetTravDangereux()),
+    epi:              JSON.stringify(pdpGetEpi()),
+    updated_at:       new Date().toISOString()
+  };
+
+  var pdpId  = document.getElementById('pdpEntryId').value;
+  var result = pdpId
+    ? await sb.from('pdp_entries').update(payload).eq('id', pdpId)
+    : await sb.from('pdp_entries').insert(payload);
+
+  btn.disabled = false; btn.textContent = '✓ Enregistrer le PdP';
+  if (result.error) { showToast('Erreur : ' + result.error.message, 'error'); return; }
+  showToast(pdpId ? 'PdP mis à jour' : 'Plan de Prévention créé', 'success');
+  closePdpModal();
+  renderPdpSection(_conformRole);
+}
+
+async function deletePdp(id) {
+  if (!confirm('Supprimer ce Plan de Prévention ? Cette action est irréversible.')) return;
+  var result = await sb.from('pdp_entries').delete().eq('id', id);
+  if (result.error) { showToast('Erreur : ' + result.error.message, 'error'); return; }
+  showToast('PdP supprimé', 'success');
+  renderPdpSection(_conformRole);
+}
+
+// ── Générateur rapport PDF PdP ──────────────────────────────
+async function generatePdpReport(pdpId) {
+  var r = await sb.from('pdp_entries').select('*').eq('id', pdpId).single();
+  if (r.error || !r.data) { showToast('PdP introuvable', 'error'); return; }
+  var p = r.data;
+  var html = buildPdpHTML(p, '');
+  openReportWindow(html, 'PDP', { euNom: p.eu_nom, site: p.site });
+}
+
+function buildPdpHTML(p, stampHtml) {
+  var risques      = p.risques      ? (typeof p.risques === 'string'       ? JSON.parse(p.risques)       : p.risques)      : [];
+  var intervenants = p.intervenants ? (typeof p.intervenants === 'string'  ? JSON.parse(p.intervenants)  : p.intervenants) : [];
+  var travDang     = p.travaux_dangereux ? (typeof p.travaux_dangereux === 'string' ? JSON.parse(p.travaux_dangereux) : p.travaux_dangereux) : [];
+  var epi          = p.epi          ? (typeof p.epi === 'string'           ? JSON.parse(p.epi)           : p.epi)          : [];
+
+  var now = new Date();
+  var fmt = function(d) { return d ? new Date(d).toLocaleDateString('fr-FR') : '—'; };
+
+  var risqueRows = risques.map(function(r, i) {
+    return '<tr><td>' + (i + 1) + '</td><td>' + (r.description || '') + '</td><td>' + (r.mesure || '—') + '</td></tr>';
+  }).join('');
+
+  var intervenantRows = intervenants.map(function(inv, i) {
+    return '<tr><td>' + (i + 1) + '</td><td>' + (inv.nom || '') + '</td><td>' + (inv.poste || '—') + '</td><td>' + (inv.habilitations || '—') + '</td></tr>';
+  }).join('');
+
+  var tdList = travDang.length ? travDang.map(function(td) { return '<li>' + td + '</li>'; }).join('') : '<li><em>Aucun travail dangereux identifié</em></li>';
+  var epiList = epi.length    ? epi.map(function(e) { return '<li>' + e + '</li>'; }).join('') : '<li><em>Non renseigné</em></li>';
+
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"/>
+<title>Plan de Prévention — ${p.nature_travaux || ''}</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 12px; color: #1a1a1a; margin: 0; padding: 30px; background: #fff; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #F97316; padding-bottom: 18px; margin-bottom: 24px; }
+  .brand { font-family: Arial Black, sans-serif; font-size: 22px; font-weight: 900; color: #0D1B2A; }
+  .brand span { color: #F97316; }
+  .doc-meta { text-align: right; font-size: 11px; color: #64748B; }
+  .doc-num { font-size: 16px; font-weight: 700; color: #0D1B2A; margin-bottom: 4px; }
+  h1 { font-size: 20px; text-align: center; color: #0D1B2A; margin: 0 0 6px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; }
+  .subtitle { text-align: center; font-size: 11px; color: #64748B; margin-bottom: 28px; }
+  h2 { font-size: 13px; font-weight: 700; background: #0D1B2A; color: #fff; padding: 6px 12px; border-radius: 4px; margin: 22px 0 10px; text-transform: uppercase; letter-spacing: .5px; }
+  .parties-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .partie-box { border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 14px; }
+  .partie-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #F97316; margin-bottom: 8px; }
+  .partie-row { display: flex; gap: 8px; margin-bottom: 4px; }
+  .partie-label { font-size: 11px; color: #64748B; min-width: 70px; }
+  .partie-val { font-size: 11px; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 11px; }
+  th { background: #1B3A5C; color: #fff; padding: 7px 10px; text-align: left; font-size: 11px; }
+  td { padding: 6px 10px; border-bottom: 1px solid #E2E8F0; }
+  tr:nth-child(even) td { background: #F8FAFC; }
+  .empty-row td { text-align: center; color: #94A3B8; font-style: italic; padding: 14px; }
+  .td-list { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .td-item { background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 4px; padding: 4px 8px; font-size: 11px; font-weight: 600; color: #DC2626; }
+  .epi-item { background: #F0FDF4; border: 1px solid #86EFAC; border-radius: 4px; padding: 4px 8px; font-size: 11px; font-weight: 600; color: #15803D; }
+  ul.td-list-ul { padding-left: 18px; margin: 4px 0; }
+  .mesures-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 12px; font-size: 11px; white-space: pre-wrap; line-height: 1.6; }
+  .sig-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 8px; }
+  .sig-box { border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px; text-align: center; min-height: 90px; }
+  .sig-role { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748B; margin-bottom: 6px; }
+  .sig-name { font-size: 11px; font-weight: 600; margin-bottom: 4px; }
+  .sig-date { font-size: 10px; color: #94A3B8; }
+  .sig-line { border-bottom: 1px dashed #CBD5E0; margin: 10px 0; }
+  .footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #E2E8F0; display: flex; justify-content: space-between; font-size: 10px; color: #94A3B8; }
+  @media print { body { padding: 15px; } }
+</style></head><body>
+<div class="header">
+  <div>
+    <div class="brand">Safety<span>Sphere</span></div>
+    <div style="font-size:10px;color:#64748B;margin-top:4px">Plateforme de conformité HSE</div>
+  </div>
+  <div class="doc-meta">
+    <div class="doc-num">PLAN DE PRÉVENTION</div>
+    <div>Généré le ${now.toLocaleDateString('fr-FR')}</div>
+    <div>Art. R4512-6 à R4512-12 du Code du Travail</div>
+  </div>
+</div>
+
+<h1>📋 Plan de Prévention</h1>
+<div class="subtitle">${p.nature_travaux || ''} — ${p.site || ''}</div>
+
+<h2>1. Identification des parties</h2>
+<div class="parties-grid">
+  <div class="partie-box">
+    <div class="partie-title">🏭 Entreprise Utilisatrice (EU)</div>
+    <div class="partie-row"><span class="partie-label">Raison sociale :</span><span class="partie-val">${p.eu_nom || '—'}</span></div>
+    <div class="partie-row"><span class="partie-label">Responsable :</span><span class="partie-val">${p.eu_contact || '—'}</span></div>
+    <div class="partie-row"><span class="partie-label">Site :</span><span class="partie-val">${p.site || '—'}</span></div>
+  </div>
+  <div class="partie-box">
+    <div class="partie-title">🤝 Entreprise Extérieure (ST)</div>
+    <div class="partie-row"><span class="partie-label">Raison sociale :</span><span class="partie-val">${p.st_nom || '—'}</span></div>
+    <div class="partie-row"><span class="partie-label">Responsable :</span><span class="partie-val">${p.st_contact || '—'}</span></div>
+    ${p.sps_nom ? '<div class="partie-row" style="margin-top:8px;padding-top:8px;border-top:1px solid #E2E8F0"><span class="partie-label">👷 SPS :</span><span class="partie-val">' + p.sps_nom + (p.sps_contact ? ' · ' + p.sps_contact : '') + '</span></div>' : ''}
+  </div>
+</div>
+
+<h2>2. Dates & informations intervention</h2>
+<table>
+  <tr><th>Début</th><th>Fin</th><th>Durée estimée</th><th>Nb travailleurs ST</th></tr>
+  <tr><td>${fmt(p.date_debut)}</td><td>${fmt(p.date_fin)}</td><td>${p.duree_h ? p.duree_h + 'h' : '—'}</td><td>${p.nb_trav_st || '—'}</td></tr>
+</table>
+
+<h2>3. Travaux dangereux (Art. R4534-120)</h2>
+${travDang.length ? '<div class="td-list">' + travDang.map(function(td) { return '<div class="td-item">🔥 ' + td + '</div>'; }).join('') + '</div>' : '<p style="color:#64748B;font-style:italic;font-size:11px">Aucun travail dangereux identifié pour cette intervention.</p>'}
+
+<h2>4. Risques liés à la coactivité</h2>
+${risques.length ? '<table><thead><tr><th>#</th><th>Risque identifié</th><th>Mesure de prévention associée</th></tr></thead><tbody>' + risqueRows + '</tbody></table>' : '<p style="color:#64748B;font-style:italic;font-size:11px">Aucun risque spécifique identifié.</p>'}
+
+<h2>5. Mesures de prévention communes</h2>
+<div class="mesures-box">${p.mesures || 'Non renseignées.'}</div>
+
+<h2>6. Équipements de Protection Individuelle requis</h2>
+${epi.length ? '<div class="td-list">' + epi.map(function(e) { return '<div class="epi-item">🦺 ' + e + '</div>'; }).join('') + '</div>' : '<p style="color:#64748B;font-style:italic;font-size:11px">Non renseignés.</p>'}
+
+<h2>7. Liste des intervenants ST</h2>
+${intervenants.length
+  ? '<table><thead><tr><th>#</th><th>Nom Prénom</th><th>Poste / Qualification</th><th>Habilitations</th></tr></thead><tbody>' + intervenantRows + '</tbody></table>'
+  : '<p style="color:#64748B;font-style:italic;font-size:11px">Aucun intervenant renseigné.</p>'}
+
+${p.remarques ? '<h2>8. Remarques / Conditions particulières</h2><div class="mesures-box">' + p.remarques + '</div>' : ''}
+
+<h2>${p.remarques ? '9' : '8'}. Signatures</h2>
+${stampHtml || '<div class="sig-grid"><div class="sig-box"><div class="sig-role">🏭 Représentant EU</div><div class="sig-name">' + (p.eu_contact || '&nbsp;') + '</div><div class="sig-line"></div><div class="sig-date">Date : ___/___/______</div></div><div class="sig-box"><div class="sig-role">🤝 Représentant ST</div><div class="sig-name">' + (p.st_contact || '&nbsp;') + '</div><div class="sig-line"></div><div class="sig-date">Date : ___/___/______</div></div><div class="sig-box"><div class="sig-role">👷 Coordinateur SPS</div><div class="sig-name">' + (p.sps_nom || '&nbsp;') + '</div><div class="sig-line"></div><div class="sig-date">Date : ___/___/______</div></div><div class="sig-box"><div class="sig-role">🏢 Dirigeant</div><div class="sig-name">&nbsp;</div><div class="sig-line"></div><div class="sig-date">Date : ___/___/______</div></div></div>'}
+
+<div class="footer">
+  <span>SafetySphere — Plan de Prévention généré le ${now.toLocaleDateString('fr-FR')} à ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+  <span>Réf. Art. R4512-6 à R4512-12 du Code du Travail</span>
+</div>
+</body></html>`;
+}
+
+// ── Archiver automatiquement le PdP avec le système report_archive ──
+async function archivePdpReport(p) {
+  var html = buildPdpHTML(p, '');
+  var orgId = currentProfile.org_id;
+  var num = 'PDP-' + new Date().getFullYear() + '-' + (p.st_nom || 'ST').substring(0, 6).toUpperCase().replace(/\s/g, '');
+  var payload = {
+    org_id:      orgId,
+    created_by:  currentProfile.id,
+    report_type: 'PDP',
+    report_num:  num,
+    report_label: 'Plan de Prévention — ' + (p.nature_travaux || ''),
+    report_author: currentProfile.full_name || '',
+    report_date:  new Date().toISOString().split('T')[0],
+    report_html:  html,
+    source:       'safetysphere',
+    sig_status:   'none'
+  };
+  await sb.from('report_archive').insert(payload);
+}
 
 
 // ══════════════════════════════════════════════════════
