@@ -23,8 +23,9 @@
        v0.9.8 — Accessibilité : zoom police (80–130%), contraste texte (Normal/Élevé/Maximum), panneau ⚙️ topbar, sauvegarde profil
        v1.0.0 — Fix category_check : contrainte SQL LIKE 'custom_%', upsert onConflict+category ; Onglet "Habilitations" personnalisable (_defaultDocTypes)
        v1.1.0 — Phase 12 : DUER dynamique (templates sectoriels), Registre VGP légaux (J-30), Bibliothèque FDS (Company + HSE)
+       v1.2.0 — Workflow multi-signataires parallèle/séquentiel, page signature publique, document consolidé, config admin workflow
   -->
-  <meta name="app-version" content="1.1.0" />
+  <meta name="app-version" content="1.2.0" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -784,7 +785,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v1.1.0</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v1.2.0</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -958,6 +959,7 @@
     <div class="page-section" id="Worker-received">
       <div class="dash-welcome">Documents <em>Reçus</em></div>
       <div class="dash-subtitle">Documents partagés avec vous par d'autres intervenants</div>
+      <div id="Worker-receivedContainer-sigreq"></div>
       <div id="Worker-receivedContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
   </div>
@@ -1066,6 +1068,7 @@
     <button class="nav-tab" onclick="switchPage('Subcontractor','workers',this)">👷 Mes Intervenants</button>
     <button class="nav-tab" onclick="switchPage('Subcontractor','eu',this);loadSTEU()">🏭 Mes EU</button>
     <button class="nav-tab" onclick="switchPage('Subcontractor','docs',this)">📄 Mes Documents</button>
+    <button class="nav-tab" onclick="switchPage('Subcontractor','received',this)">📂 Documents reçus</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="Subcontractor-overview">
@@ -1110,6 +1113,12 @@
       <div class="dash-welcome">Mes <em>Documents</em></div>
       <div class="dash-subtitle">KBIS, RC Pro, URSSAF, Accord de sous-traitance</div>
       <div id="stDocsContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
+    </div>
+    <div class="page-section" id="Subcontractor-received">
+      <div class="dash-welcome">Documents <em>Reçus</em></div>
+      <div class="dash-subtitle">Documents partagés avec vous et demandes de signature</div>
+      <div id="Subcontractor-receivedContainer-sigreq"></div>
+      <div id="Subcontractor-receivedContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
   </div>
 </div>
@@ -1259,6 +1268,7 @@
     <div class="page-section" id="Trainer-received">
       <div class="dash-welcome">Documents <em>Reçus</em></div>
       <div class="dash-subtitle">Documents partagés avec vous par des intervenants</div>
+      <div id="Trainer-receivedContainer-sigreq"></div>
       <div id="Trainer-receivedContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
     </div>
   </div>
@@ -2600,6 +2610,7 @@ function switchPage(dash, page, el) {
   if (dash === 'Subcontractor' && page === 'workers')  loadSTWorkers();
   if (dash === 'Subcontractor' && page === 'eu')       loadSTEU();
   if (dash === 'Subcontractor' && page === 'docs')     loadSTDocs();
+  if (dash === 'Subcontractor' && page === 'received') loadReceivedDocs('Subcontractor-receivedContainer');
   if (dash === 'Trainer' && page === 'requests')   loadTrainerRequests();
   if (dash === 'Trainer' && page === 'validated')  loadTrainerHistory();
   if (dash === 'Trainer' && page === 'received')   loadReceivedDocs('Trainer-receivedContainer');
@@ -5526,6 +5537,28 @@ async function loadNotifications(role) {
       items.push({ icon:'📋', title:`${pending.length} demande(s) de validation en attente`, sub:`Des intervenants attendent votre traitement`, type:'info', action:'Voir les demandes', onClick:() => switchPage('Trainer','requests', null) });
   }
 
+  // ── NOTIFICATIONS DEMANDES DE SIGNATURE (tous rôles) ──
+  // Chercher les items en attente pour l'email courant
+  const { data: sigItems } = await sb.from('signature_request_items')
+    .select('id, signer_role, token, seq, signature_requests(report_num, report_type, workflow_mode, total_signers, signed_count, created_at)')
+    .eq('signer_email', currentProfile.email)
+    .eq('status', 'pending');
+
+  (sigItems || []).forEach(item => {
+    const req = item.signature_requests || {};
+    const modeLabel = req.workflow_mode === 'sequential' ? 'Séquentiel' : 'Parallèle';
+    const progress  = (req.signed_count || 0) + '/' + (req.total_signers || '?');
+    const sigUrl    = window.location.pathname + '?sign=' + item.token;
+    items.push({
+      icon   : '✍️',
+      title  : `Signature requise — ${req.report_type || 'Document'} ${req.report_num || ''}`.trim(),
+      sub    : `Workflow ${modeLabel} · Progression : ${progress} · Votre rôle : ${item.signer_role || 'Signataire'}`,
+      type   : 'warning',
+      action : 'Signer maintenant →',
+      onClick: () => { window.location.href = sigUrl; }
+    });
+  });
+
   // ── RENDU ──
   container.innerHTML = '';
   if (!items.length) return;
@@ -5545,7 +5578,7 @@ async function loadNotifications(role) {
   const bellId = bellMap[role];
   if (bellId) {
     const bell = document.getElementById(bellId);
-    if (bell) bell.classList.add('has-notif');
+    if (bell) bell.classList.toggle('has-notif', items.length > 0);
   }
 }
 
@@ -6852,6 +6885,51 @@ async function deleteDuerEntry(id, role) {
   renderDuerSection(role || _conformRole);
 }
 
+function openDuerTemplateModal(role) {
+  _conformRole = role || _conformRole;
+  var sectors = Object.entries(DUER_TEMPLATES);
+  var html = '<div class="modal-overlay open" id="duerTemplateModal" style="z-index:1100">'
+    + '<div class="modal" style="max-width:660px">'
+    + '<button class="modal-close" onclick="document.getElementById(\'duerTemplateModal\').remove()">✕</button>'
+    + '<div class="modal-title">📋 Modèles sectoriels</div>'
+    + '<div class="modal-subtitle">Sélectionnez votre secteur pour pré-remplir le DUER avec les risques types</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-top:16px">'
+    + sectors.map(function(e) {
+        var key = e[0], s = e[1];
+        return '<div onclick="importDuerTemplate(\'' + key + '\')" style="background:var(--inset-bg);border:1px solid var(--inset-border);border-radius:12px;padding:16px 12px;text-align:center;cursor:pointer;transition:all .15s" onmouseover="this.style.borderColor=\'rgba(249,115,22,.4)\'" onmouseout="this.style.borderColor=\'var(--inset-border)\'">'
+          + '<div style="font-size:28px;margin-bottom:8px">' + s.icon + '</div>'
+          + '<div style="font-size:12px;font-weight:700;color:var(--text)">' + escapeHtml(s.label.split('—')[0].trim()) + '</div>'
+          + '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + (s.unites ? s.unites.length : 0) + ' unités</div>'
+          + '</div>';
+      }).join('')
+    + '</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+async function importDuerTemplate(sectorKey) {
+  var tmpl = DUER_TEMPLATES[sectorKey];
+  if (!tmpl) return;
+  if (!confirm('Importer ' + tmpl.unites.length + ' unités de travail du secteur "' + tmpl.label + '" ?\nLes unités existantes sont conservées.')) return;
+  document.getElementById('duerTemplateModal') && document.getElementById('duerTemplateModal').remove();
+  showToast('Importation en cours...', 'success');
+  var inserts = tmpl.unites.map(function(u) {
+    return {
+      org_id: currentProfile.org_id,
+      unite_travail: u.unite,
+      gravite: u.gravite,
+      probabilite: u.probabilite,
+      risques: u.risques,
+      mesures: u.mesures,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+  });
+  var result = await sb.from('duer_entries').insert(inserts);
+  if (result.error) { showToast('Erreur import : ' + result.error.message, 'error'); return; }
+  showToast(inserts.length + ' unités importées avec succès !', 'success');
+  renderDuerSection(_conformRole);
+}
+
 // ── Métadonnées partagées pour tous les rapports ──────
 async function buildReportMeta(typeCode) {
   // Charger les infos org depuis Supabase
@@ -6869,7 +6947,7 @@ async function buildReportMeta(typeCode) {
   var orgSuffix  = (currentProfile.org_id || 'XXXX').slice(-4).toUpperCase();
   var reportNum  = typeCode + '-' + datePart + '-' + timePart + '-' + orgSuffix;
   // Version de l'application
-  var appVersion = document.querySelector('meta[name="app-version"]')?.content || '1.1.0';
+  var appVersion = document.querySelector('meta[name="app-version"]')?.content || '1.2.0';
 
   return {
     orgName    : (orgRow && orgRow.name)       || 'Entreprise non renseignée',
@@ -8763,30 +8841,55 @@ async function sendSignatureRequest() {
 
   // 3. Notifier par email : en parallèle → tous, en séquentiel → seulement le 1er
   var toNotify = mode === 'sequential'
-    ? [_sigReqSigners[0]]
-    : _sigReqSigners;
+    ? [{ signer: _sigReqSigners[0], item: itemsRes.data.find(function(it) { return it.signer_email === _sigReqSigners[0].email; }), pos: 1 }]
+    : _sigReqSigners.map(function(s, i) { return { signer: s, item: itemsRes.data.find(function(it) { return it.signer_email === s.email; }), pos: i+1 }; });
 
-  for (var i = 0; i < toNotify.length; i++) {
-    var s = toNotify[i];
-    var item = itemsRes.data.find(function(it) { return it.signer_email === s.email; });
-    var sigUrl = window.location.origin + window.location.pathname + '?sign=' + (item ? item.token : '');
+  var emailsSent = 0;
+  for (var ni = 0; ni < toNotify.length; ni++) {
+    var entry    = toNotify[ni];
+    var s        = entry.signer;
+    var item     = entry.item;
+    if (!item) continue;
+    var sigUrl   = window.location.origin + window.location.pathname + '?sign=' + item.token;
+    var emitter  = currentProfile.full_name || currentProfile.email;
+    var posLabel = (mode === 'sequential') ? ' (étape ' + entry.pos + '/' + _sigReqSigners.length + ')' : '';
 
-    await sb.auth.signInWithOtp({
-      email  : s.email,
-      options: {
-        shouldCreateUser: false,
-        emailRedirectTo : sigUrl,
-        data: {
-          sig_request_id : requestId,
-          sig_token      : item ? item.token : '',
-          report_num     : _sigReqContext.reportNum,
-          signer_name    : s.name,
-          emitter_name   : currentProfile.full_name || currentProfile.email,
-          workflow_mode  : mode,
-          position       : (mode === 'sequential') ? (i+1) + '/' + _sigReqSigners.length : null,
+    // Tentative via Edge Function (si déployée)
+    var edgeSent = false;
+    try {
+      var edgeRes = await sb.functions.invoke('send-signature-email', {
+        body: {
+          to           : s.email,
+          signer_name  : s.name,
+          signer_role  : s.role,
+          emitter_name : emitter,
+          report_num   : _sigReqContext.reportNum,
+          report_type  : _sigReqContext.reportType,
+          workflow_mode: mode,
+          position     : posLabel,
+          sig_url      : sigUrl,
         }
-      }
-    });
+      });
+      if (!edgeRes.error) edgeSent = true;
+    } catch(e) { /* Edge Function non déployée — fallback */ }
+
+    // Fallback : Magic Link Supabase (fonctionne si le destinataire a un compte)
+    if (!edgeSent) {
+      await sb.auth.signInWithOtp({
+        email  : s.email,
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo : sigUrl,
+          data: {
+            sig_token    : item.token,
+            report_num   : _sigReqContext.reportNum,
+            signer_name  : s.name,
+            emitter_name : emitter,
+          }
+        }
+      }).catch(function(){});
+    }
+    emailsSent++;
   }
 
   // 4. Mettre à jour l'archive
@@ -8803,7 +8906,7 @@ async function sendSignatureRequest() {
   closeSendForSignatureModal();
 
   var modeLabel = mode === 'sequential' ? 'séquentiel' : 'parallèle';
-  showToast('✓ Workflow ' + modeLabel + ' lancé · ' + toNotify.length + ' email(s) envoyé(s)', 'success');
+  showToast('✓ Workflow ' + modeLabel + ' lancé · ' + emailsSent + ' email(s) envoyé(s)', 'success');
   if (typeof renderHistoriqueSection === 'function') renderHistoriqueSection(_conformRole);
 }
 
@@ -9227,41 +9330,85 @@ async function renderIncomingSignatureRequests(containerId, email) {
   var ctn = document.getElementById(containerId);
   if (!ctn) return;
 
-  // Chercher les items en attente pour cet email
+  // Chercher les items en attente ET les items waiting (séquentiel pas encore activé)
   var res = await sb.from('signature_request_items')
-    .select('*, signature_requests(report_num, report_type, workflow_mode, total_signers, signed_count, org_id, created_by, created_at)')
+    .select('*, signature_requests(id, report_num, report_type, workflow_mode, total_signers, signed_count, org_id, created_by, created_at, archive_id, report_html)')
     .eq('signer_email', email)
-    .eq('status', 'pending')
+    .in('status', ['pending', 'waiting'])
     .order('id', { ascending: false });
 
   var items = res.data || [];
+  // Séparer pending (action requise) de waiting (pas encore son tour)
+  var pending = items.filter(function(i) { return i.status === 'pending'; });
+  var waiting = items.filter(function(i) { return i.status === 'waiting'; });
+
   if (!items.length) { ctn.innerHTML = ''; return; }
 
   var html = '<div style="margin-bottom:24px">'
     + '<div style="font-size:11px;font-weight:900;color:#F97316;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;display:flex;align-items:center;gap:8px">'
-    + '<span style="background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.3);border-radius:6px;padding:2px 8px">✍️ Demandes de signature en attente (' + items.length + ')</span></div>';
+    + '<span style="background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.3);border-radius:6px;padding:2px 8px">✍️ Demandes de signature'
+    + (pending.length ? ' — ' + pending.length + ' action(s) requise(s)' : '')
+    + '</span></div>';
 
-  items.forEach(function(item) {
-    var req = item.signature_requests || {};
-    var genDate = req.created_at ? new Date(req.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' }) : '—';
-    var modeLabel = req.workflow_mode === 'sequential' ? '🔗 Séquentiel' : '⚡ Parallèle';
-    var progress = req.signed_count + '/' + req.total_signers;
-    var sigUrl = window.location.pathname + '?sign=' + item.token;
+  // ── Cartes PENDING (action immédiate requise) ──
+  pending.forEach(function(item) {
+    var req      = item.signature_requests || {};
+    var genDate  = req.created_at ? new Date(req.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+    var modeLabel= req.workflow_mode === 'sequential' ? '🔗 Séquentiel' : '⚡ Parallèle';
+    var progress = (req.signed_count || 0) + '/' + (req.total_signers || '?');
+    var sigUrl   = window.location.pathname + '?sign=' + item.token;
+    var typeIcon = req.report_type === 'DUER' ? '📋' : req.report_type === 'VGP' ? '🔧' : req.report_type === 'FDS' ? '⚗️' : '📄';
 
-    html += '<div class="archive-card" style="margin-bottom:10px;border-color:rgba(249,115,22,.3)">'
-      + '<div style="font-size:28px;flex-shrink:0">' + (req.report_type === 'DUER' ? '📋' : req.report_type === 'VGP' ? '🔧' : '📄') + '</div>'
-      + '<div class="archive-meta">'
+    // Bouton consulter le document si archive_id disponible
+    var docBtn = '';
+    if (req.archive_id) {
+      docBtn = '<button onclick="openArchivedDocForSig(\'' + escapeHtml(req.archive_id) + '\')" '
+        + 'style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#A5B4FC;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">'
+        + '👁 Consulter le document</button>';
+    } else if (req.report_html) {
+      docBtn = '<button onclick="previewSigReqDoc(\'' + escapeHtml(item.token) + '\')" '
+        + 'style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#A5B4FC;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">'
+        + '👁 Consulter le document</button>';
+    }
+
+    html += '<div class="archive-card" style="margin-bottom:10px;border-color:rgba(249,115,22,.4);background:rgba(249,115,22,.04)">'
+      + '<div style="font-size:28px;flex-shrink:0">' + typeIcon + '</div>'
+      + '<div class="archive-meta" style="flex:1">'
       + '<div class="archive-ref">' + escapeHtml(req.report_num || '—') + '</div>'
-      + '<div class="archive-title">Votre signature est requise · ' + escapeHtml(req.report_type || '—') + '</div>'
-      + '<div class="archive-sub">Reçu le ' + genDate + ' · ' + modeLabel + ' · Progression : ' + progress + '</div>'
-      + '<div class="archive-sub">Votre rôle : <strong>' + escapeHtml(item.signer_role || '—') + '</strong></div>'
+      + '<div class="archive-title">✍️ Votre signature est requise</div>'
+      + '<div class="archive-sub" style="margin-top:4px">'
+      + escapeHtml(req.report_type || '—') + ' · Reçu le ' + genDate
+      + ' · ' + modeLabel + ' · ' + progress + ' signataires</div>'
+      + '<div class="archive-sub">Votre rôle : <strong style="color:var(--text)">' + escapeHtml(item.signer_role || 'Signataire') + '</strong></div>'
       + '</div>'
-      + '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">'
-      + '<a href="' + escapeHtml(sigUrl) + '" style="display:inline-flex;align-items:center;gap:6px;background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.3);color:#FDBA74;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;text-decoration:none;cursor:pointer">✍️ Signer maintenant</a>'
-      + '<button onclick="ignoreSigRequest(\'' + item.id + '\',\'' + escapeHtml(containerId) + '\',\'' + escapeHtml(email) + '\')" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;text-decoration:underline">Ignorer</button>'
+      + '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;align-items:stretch">'
+      + docBtn
+      + '<a href="' + escapeHtml(sigUrl) + '" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;background:rgba(249,115,22,.2);border:1px solid rgba(249,115,22,.4);color:#FDBA74;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap">✍️ Signer maintenant</a>'
+      + '<button onclick="ignoreSigRequest(\'' + item.id + '\',\'' + escapeHtml(containerId) + '\',\'' + escapeHtml(email) + '\')" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;text-decoration:underline;text-align:center">Ignorer</button>'
       + '</div>'
       + '</div>';
   });
+
+  // ── Cartes WAITING (en attente de son tour — séquentiel) ──
+  if (waiting.length) {
+    html += '<div style="margin-top:16px;margin-bottom:8px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px">⏳ En attente de votre tour</div>';
+    waiting.forEach(function(item) {
+      var req      = item.signature_requests || {};
+      var genDate  = req.created_at ? new Date(req.created_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+      var progress = (req.signed_count || 0) + '/' + (req.total_signers || '?');
+      var typeIcon = req.report_type === 'DUER' ? '📋' : req.report_type === 'VGP' ? '🔧' : req.report_type === 'FDS' ? '⚗️' : '📄';
+      var yourSeq  = (item.seq || 0) + 1;
+
+      html += '<div class="archive-card" style="margin-bottom:8px;opacity:.65;border-color:rgba(148,163,184,.2)">'
+        + '<div style="font-size:24px;flex-shrink:0">' + typeIcon + '</div>'
+        + '<div class="archive-meta" style="flex:1">'
+        + '<div class="archive-ref">' + escapeHtml(req.report_num || '—') + '</div>'
+        + '<div class="archive-title" style="color:var(--muted)">⏳ En attente — vous êtes le signataire n°' + yourSeq + '</div>'
+        + '<div class="archive-sub">Reçu le ' + genDate + ' · Progression : ' + progress + ' · ' + escapeHtml(item.signer_role || '') + '</div>'
+        + '</div>'
+        + '</div>';
+    });
+  }
 
   html += '</div>';
   ctn.innerHTML = html;
@@ -9269,13 +9416,32 @@ async function renderIncomingSignatureRequests(containerId, email) {
 
 async function ignoreSigRequest(itemId, containerId, email) {
   if (!confirm('Ignorer cette demande de signature ? Vous pourrez la retrouver via le lien dans votre email.')) return;
-  // On ne change pas le status, juste on masque localement
-  var ctn = document.getElementById(containerId);
-  if (ctn) {
-    var cards = ctn.querySelectorAll('.archive-card');
-    // Re-render sans cet item
-    await renderIncomingSignatureRequests(containerId, email);
+  await renderIncomingSignatureRequests(containerId, email);
+}
+
+// ── Consulter le document archivé avant signature ─────────────────────────
+async function openArchivedDocForSig(archiveId) {
+  var res = await sb.from('report_archive').select('file_url, report_num, label').eq('id', archiveId).single();
+  if (res.error || !res.data) { showToast('Document non disponible', 'error'); return; }
+  if (res.data.file_url) {
+    window.open(res.data.file_url, '_blank');
+  } else {
+    showToast('Aucun fichier attaché à ce rapport', 'error');
   }
+}
+
+// ── Prévisualiser le HTML du rapport depuis un token de signature ──────────
+async function previewSigReqDoc(token) {
+  var res = await sb.from('signature_request_items')
+    .select('signature_requests(report_html, report_num, report_type)')
+    .eq('token', token).single();
+  if (res.error || !res.data) { showToast('Document non disponible', 'error'); return; }
+  var req = (res.data.signature_requests) || {};
+  if (!req.report_html) { showToast('Aucun aperçu disponible pour ce document', 'error'); return; }
+  var blob = new Blob([req.report_html], { type: 'text/html' });
+  var url  = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+  setTimeout(function() { URL.revokeObjectURL(url); }, 30000);
 }
 
 
