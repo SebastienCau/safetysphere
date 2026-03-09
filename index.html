@@ -801,6 +801,56 @@
     .conform-kpi-check.active .conform-kpi-check-tick { color:#86EFAC; }
     body.theme-light .conform-perso-panel { background:#fff; border-color:#E2E8F0; }
     body.theme-light .conform-perso-block, body.theme-light .conform-kpi-check { background:#F8FAFC; border-color:#E2E8F0; }
+    /* ══ ADMIN ANALYTICS ══ */
+    .analytics-toolbar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:20px 0 24px; padding:14px 18px; background:var(--inset-bg); border:1px solid var(--inset-border); border-radius:14px; }
+    .analytics-range-pills { display:flex; gap:6px; flex-wrap:wrap; }
+    .a-pill { padding:6px 16px; border-radius:20px; border:1px solid rgba(255,255,255,.12); background:transparent; color:var(--muted); font-size:12px; font-weight:700; cursor:pointer; font-family:'Barlow',sans-serif; letter-spacing:.3px; transition:all .15s; }
+    .a-pill.active { background:rgba(249,115,22,.2); border-color:rgba(249,115,22,.5); color:var(--orange); }
+    .a-pill:hover:not(.active) { border-color:rgba(255,255,255,.25); color:var(--text); }
+    .analytics-custom-range { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .analytics-section-title { font-size:11px; font-weight:900; color:var(--orange); text-transform:uppercase; letter-spacing:1.2px; margin-bottom:14px; display:flex; align-items:center; gap:10px; }
+    .analytics-kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; margin-bottom:24px; }
+    .analytics-kpi-card { background:var(--inset-bg); border:1px solid var(--inset-border); border-radius:16px; padding:18px 20px; display:flex; flex-direction:column; gap:4px; transition:transform .15s,border-color .15s; }
+    .analytics-kpi-card:hover { transform:translateY(-2px); border-color:rgba(249,115,22,.35); }
+    .analytics-kpi-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+    .analytics-kpi-icon { font-size:22px; }
+    .analytics-kpi-label { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+    .analytics-kpi-value { font-family:'Barlow Condensed',sans-serif; font-size:38px; font-weight:900; line-height:1; }
+    .analytics-kpi-sub { font-size:11px; color:var(--muted); margin-top:4px; }
+    .analytics-kpi-trend { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; margin-top:4px; width:fit-content; }
+    .analytics-kpi-trend.up { background:rgba(34,197,94,.12); color:#4ADE80; }
+    .analytics-kpi-trend.down { background:rgba(239,68,68,.12); color:#FCA5A5; }
+    .analytics-kpi-trend.neutral { background:rgba(148,163,184,.1); color:var(--muted); }
+    .analytics-kpi-skeleton { background:var(--inset-bg); border:1px solid var(--inset-border); border-radius:16px; height:110px; animation:skeletonPulse 1.4s ease-in-out infinite; }
+    @keyframes skeletonPulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+    .analytics-charts-row { display:flex; gap:16px; flex-wrap:wrap; }
+    .analytics-chart-card { background:var(--inset-bg); border:1px solid var(--inset-border); border-radius:16px; padding:20px; min-width:0; flex:1; }
+    .analytics-chart-title { font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:14px; }
+    .analytics-chart-area { height:180px; position:relative; overflow:hidden; }
+    /* Table orgs/users */
+    .analytics-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .analytics-table th { font-size:10px; font-weight:900; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; padding:8px 12px; text-align:left; border-bottom:1px solid var(--inset-border); white-space:nowrap; cursor:pointer; user-select:none; }
+    .analytics-table th:hover { color:var(--text); }
+    .analytics-table th.sorted { color:var(--orange); }
+    .analytics-table td { padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.04); vertical-align:middle; }
+    .analytics-table tr:hover td { background:rgba(255,255,255,.025); }
+    .analytics-table tr.expanded td { background:rgba(249,115,22,.04); }
+    .a-org-name { font-weight:700; font-size:13px; }
+    .a-type-badge { font-size:10px; font-weight:700; padding:2px 7px; border-radius:8px; }
+    .a-bar { display:inline-block; height:6px; border-radius:3px; background:var(--orange); opacity:.7; vertical-align:middle; margin-right:4px; }
+    .a-score { font-family:'Barlow Condensed',sans-serif; font-size:18px; font-weight:900; }
+    .analytics-user-detail-panel { background:var(--inset-bg); border:1px solid rgba(249,115,22,.3); border-radius:16px; padding:24px; margin-top:4px; animation:fadeInDown .2s ease; }
+    .analytics-user-kpi-row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
+    .analytics-user-kpi { background:rgba(255,255,255,.04); border:1px solid var(--inset-border); border-radius:12px; padding:14px 16px; flex:1; min-width:120px; text-align:center; }
+    .analytics-user-kpi-val { font-family:'Barlow Condensed',sans-serif; font-size:28px; font-weight:900; }
+    .analytics-user-kpi-lbl { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin-top:4px; }
+    body.theme-light .analytics-kpi-card, body.theme-light .analytics-chart-card { background:#fff; border-color:#E2E8F0; }
+    body.theme-light .analytics-table th { color:#64748B; border-color:#E2E8F0; }
+    body.theme-light .analytics-table td { border-color:#F1F5F9; }
+    body.theme-light .a-pill { border-color:#E2E8F0; color:#64748B; }
+    body.theme-light .analytics-toolbar { background:#F8FAFC; border-color:#E2E8F0; }
+    body.theme-light .analytics-user-kpi { background:#F8FAFC; border-color:#E2E8F0; }
+    body.theme-light .analytics-user-detail-panel { background:#fff; }
   </style>
 </head>
 <body>
@@ -1357,6 +1407,7 @@
     <button class="nav-tab" onclick="switchPage('Admin','compliance',this)">🎯 Conformité</button>
     <button class="nav-tab" onclick="switchPage('Admin','qr',this);loadAdminQRConfig()">📱 QR Code</button>
     <button class="nav-tab" onclick="switchPage('Admin','signatures',this);loadAdminSignatures()">✍️ Signatures</button>
+    <button class="nav-tab" onclick="switchPage('Admin','analytics',this);loadAdminAnalytics()">📈 Analytics</button>
     <button class="nav-tab" onclick="switchPage('Admin','simulator',this);loadAdminSimulator()" style="color:var(--orange);border-bottom:2px solid transparent">🎭 Simulateur</button>
   </div>
   <div class="dash-body">
@@ -1601,10 +1652,78 @@
       </div>
     </div>
 
+    <!-- ── ANALYTICS ── -->
+    <div class="page-section" id="Admin-analytics">
+      <div class="dash-welcome">Analytics <em>SafetySphere</em></div>
+      <div class="dash-subtitle">Consommation, activité et données plateforme en temps réel</div>
+
+      <!-- Sélecteur de plage -->
+      <div class="analytics-toolbar" id="analyticsToolbar">
+        <div class="analytics-range-pills">
+          <button class="a-pill active" data-range="month" onclick="setAnalyticsRange('month',this)">Ce mois</button>
+          <button class="a-pill" data-range="quarter" onclick="setAnalyticsRange('quarter',this)">Trimestre</button>
+          <button class="a-pill" data-range="year" onclick="setAnalyticsRange('year',this)">Année</button>
+          <button class="a-pill" data-range="custom" onclick="setAnalyticsRange('custom',this)">Plage libre</button>
+        </div>
+        <div class="analytics-custom-range" id="analyticsCustomRange" style="display:none">
+          <input type="date" class="form-input" id="analyticsDateFrom" style="width:160px;font-size:12px;padding:7px 10px">
+          <span style="color:var(--muted);font-size:13px">→</span>
+          <input type="date" class="form-input" id="analyticsDateTo" style="width:160px;font-size:12px;padding:7px 10px">
+          <button class="btn-sm btn-validate" style="font-size:12px;padding:6px 14px" onclick="loadAdminAnalytics()">Appliquer</button>
+        </div>
+        <div id="analyticsRangeLabel" style="font-size:12px;color:var(--muted);margin-left:auto"></div>
+      </div>
+
+      <!-- Vue KPIs globaux -->
+      <div class="analytics-section-title">🌐 Plateforme globale</div>
+      <div class="analytics-kpi-grid" id="analyticsKpiGlobal">
+        <div class="analytics-kpi-skeleton"></div><div class="analytics-kpi-skeleton"></div>
+        <div class="analytics-kpi-skeleton"></div><div class="analytics-kpi-skeleton"></div>
+        <div class="analytics-kpi-skeleton"></div><div class="analytics-kpi-skeleton"></div>
+        <div class="analytics-kpi-skeleton"></div><div class="analytics-kpi-skeleton"></div>
+      </div>
+
+      <!-- Charts ligne : activité & data -->
+      <div class="analytics-charts-row">
+        <div class="analytics-chart-card" style="flex:2">
+          <div class="analytics-chart-title">📅 Activité (interactions / jour)</div>
+          <div id="analyticsChartActivity" class="analytics-chart-area">
+            <div class="empty-state" style="padding:20px"><div class="empty-state-icon">⏳</div></div>
+          </div>
+        </div>
+        <div class="analytics-chart-card" style="flex:1">
+          <div class="analytics-chart-title">🥧 Répartition par rôle</div>
+          <div id="analyticsChartRoles" class="analytics-chart-area" style="height:200px">
+            <div class="empty-state" style="padding:20px"><div class="empty-state-icon">⏳</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vue par société -->
+      <div class="analytics-section-title" style="margin-top:32px">
+        🏢 Par organisation
+        <input type="text" id="analyticsOrgSearch" class="form-input" placeholder="🔍 Filtrer..." oninput="filterAnalyticsOrgs()" style="width:220px;font-size:12px;padding:7px 12px;margin-left:auto;display:inline-block">
+      </div>
+      <div id="analyticsOrgTable" style="overflow-x:auto;margin-top:12px">
+        <div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div>
+      </div>
+
+      <!-- Vue par personne -->
+      <div class="analytics-section-title" style="margin-top:32px">
+        👤 Par utilisateur
+        <input type="text" id="analyticsUserSearch" class="form-input" placeholder="🔍 Nom ou email..." oninput="filterAnalyticsUsers()" style="width:220px;font-size:12px;padding:7px 12px;margin-left:auto;display:inline-block">
+      </div>
+      <div id="analyticsUserTable" style="overflow-x:auto;margin-top:12px">
+        <div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div>
+      </div>
+
+      <!-- Fiche détail utilisateur (inline expandable) -->
+      <div id="analyticsUserDetail" style="display:none;margin-top:16px"></div>
+
+    </div>
+
   </div>
 </div>
-
-<!-- ══ DASHBOARD GUEST (Client Final) ══ -->
 <div class="dashboard" id="dashGuest">
   <nav class="topbar">
     <div class="topbar-logo"><div class="topbar-logo-icon">🛡</div><div class="topbar-logo-text">Safety<span>Sphere</span></div></div>
@@ -5023,6 +5142,616 @@ async function saveOrgProfile(orgId, dash, isTrainer) {
   showToast('✓ Entreprise mise à jour', 'success');
   // Mettre à jour le nom dans la topbar si changé
   if (updates.name !== currentProfile.company_name) currentProfile.company_name = updates.name;
+}
+
+
+// ══════════════════════════════════════════════════════
+// ADMIN ANALYTICS — KPI globaux, par org, par user
+// ══════════════════════════════════════════════════════
+
+var _analyticsRange  = 'month';
+var _analyticsFrom   = null;
+var _analyticsTo     = null;
+var _analyticsOrgData  = [];
+var _analyticsUserData = [];
+var _analyticsOrgSort  = { col: 'interactions', dir: -1 };
+var _analyticsUserSort = { col: 'interactions', dir: -1 };
+
+function setAnalyticsRange(range, btn) {
+  _analyticsRange = range;
+  document.querySelectorAll('.a-pill').forEach(function(b) { b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  var custom = document.getElementById('analyticsCustomRange');
+  if (custom) custom.style.display = range === 'custom' ? 'flex' : 'none';
+  if (range !== 'custom') loadAdminAnalytics();
+}
+
+function _analyticsDateWindow() {
+  var to   = new Date();
+  var from = new Date();
+  if (_analyticsRange === 'month')   { from.setDate(1); from.setHours(0,0,0,0); }
+  else if (_analyticsRange === 'quarter') { from.setMonth(from.getMonth() - 3); from.setHours(0,0,0,0); }
+  else if (_analyticsRange === 'year')    { from.setFullYear(from.getFullYear() - 1); from.setHours(0,0,0,0); }
+  else if (_analyticsRange === 'custom') {
+    var f = document.getElementById('analyticsDateFrom');
+    var t = document.getElementById('analyticsDateTo');
+    if (f && f.value) from = new Date(f.value);
+    if (t && t.value) to   = new Date(t.value + 'T23:59:59');
+  }
+  return { from: from.toISOString(), to: to.toISOString() };
+}
+
+function _analyticsRangeLabel(from, to) {
+  var f = new Date(from), t = new Date(to);
+  var fmt = function(d) { return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}); };
+  var lbl = document.getElementById('analyticsRangeLabel');
+  if (lbl) lbl.textContent = fmt(f) + ' → ' + fmt(t);
+}
+
+async function loadAdminAnalytics() {
+  var win = _analyticsDateWindow();
+  _analyticsRangeLabel(win.from, win.to);
+
+  // Chargement parallèle de toutes les données
+  var [
+    rProfiles,
+    rOrgs,
+    rDocs,
+    rReports,
+    rDuer,
+    rVgp,
+    rFds,
+    rPdp,
+    rSigReq,
+    rSigItems,
+    rOrgRels,
+    rWorkerInvites
+  ] = await Promise.all([
+    sb.from('profiles').select('id, full_name, email, role, org_id, created_at'),
+    sb.from('organizations').select('id, name, type, created_at, status'),
+    sb.from('documents').select('id, owner_id, status, category, created_at, expires_at, doc_type'),
+    sb.from('report_archive').select('id, org_id, created_by, report_type, generated_at, source, label, sig_status'),
+    sb.from('duer_entries').select('id, org_id, created_at, updated_at'),
+    sb.from('registre_vgp').select('id, org_id, created_at'),
+    sb.from('fds_library').select('id, org_id, created_at'),
+    sb.from('pdp_entries').select('id, org_id, created_at, date_debut, date_fin'),
+    sb.from('signature_requests').select('id, org_id, created_at, status, total_signers, signed_count, report_type'),
+    sb.from('signature_request_items').select('id, signer_email, status, signed_at, created_at'),
+    sb.from('org_relationships').select('id, eu_org_id, st_org_id, created_at'),
+    sb.from('worker_invites').select('id, org_id, created_at')
+  ]);
+
+  var profiles    = rProfiles.data    || [];
+  var orgs        = rOrgs.data        || [];
+  var docs        = rDocs.data        || [];
+  var reports     = rReports.data     || [];
+  var duers       = rDuer.data        || [];
+  var vgps        = rVgp.data         || [];
+  var fdsList     = rFds.data         || [];
+  var pdps        = rPdp.data         || [];
+  var sigReqs     = rSigReq.data      || [];
+  var sigItems    = rSigItems.data    || [];
+  var orgRels     = rOrgRels.data     || [];
+  var wInvites    = rWorkerInvites.data || [];
+
+  // Filtre par fenêtre temporelle
+  function inWin(d) { if (!d) return false; return d >= win.from && d <= win.to; }
+
+  // Calcul des interactions : tout créé dans la fenêtre
+  var allEvents = [
+    ...docs.filter(function(d){ return inWin(d.created_at); }).map(function(){ return 'doc'; }),
+    ...reports.filter(function(r){ return inWin(r.generated_at); }).map(function(){ return 'report'; }),
+    ...duers.filter(function(d){ return inWin(d.created_at||d.updated_at); }).map(function(){ return 'duer'; }),
+    ...vgps.filter(function(v){ return inWin(v.created_at); }).map(function(){ return 'vgp'; }),
+    ...fdsList.filter(function(f){ return inWin(f.created_at); }).map(function(){ return 'fds'; }),
+    ...pdps.filter(function(p){ return inWin(p.created_at); }).map(function(){ return 'pdp'; }),
+    ...sigItems.filter(function(s){ return inWin(s.signed_at||s.created_at); }).map(function(){ return 'sig'; }),
+    ...orgRels.filter(function(r){ return inWin(r.created_at); }).map(function(){ return 'rel'; }),
+    ...wInvites.filter(function(i){ return inWin(i.created_at); }).map(function(){ return 'inv'; }),
+  ];
+
+  // KPI globaux
+  var totalUsers      = profiles.length;
+  var newUsers        = profiles.filter(function(p){ return inWin(p.created_at); }).length;
+  var totalOrgs       = orgs.filter(function(o){ return o.type !== 'training_center'; }).length;
+  var newOrgs         = orgs.filter(function(o){ return inWin(o.created_at) && o.type !== 'training_center'; }).length;
+  var totalDocs       = docs.length;
+  var newDocs         = docs.filter(function(d){ return inWin(d.created_at); }).length;
+  var totalReports    = reports.length;
+  var newReports      = reports.filter(function(r){ return inWin(r.generated_at); }).length;
+  var totalSig        = sigItems.filter(function(s){ return s.status === 'signed'; }).length;
+  var newSig          = sigItems.filter(function(s){ return s.status === 'signed' && inWin(s.signed_at); }).length;
+  var totalInteract   = allEvents.length;
+  var totalWorkers    = profiles.filter(function(p){ return p.role === 'worker'; }).length;
+  var totalCompanies  = profiles.filter(function(p){ return p.role === 'company'; }).length;
+  var totalHSE        = profiles.filter(function(p){ return p.role === 'hse'; }).length;
+  var activeOrgsInWin = new Set([
+    ...docs.filter(function(d){ return inWin(d.created_at); }).map(function(d){ return d.owner_id; }),
+    ...reports.filter(function(r){ return inWin(r.generated_at); }).map(function(r){ return r.org_id; }),
+  ]).size;
+
+  // Volume data estimé (nb docs * ~200Ko moyen + nb reports * ~80Ko)
+  var dataVolumeKo = totalDocs * 200 + totalReports * 80 + (duers.length + vgps.length + fdsList.length + pdps.length) * 5;
+  var dataVolumeLabel = dataVolumeKo > 1024*10 ? Math.round(dataVolumeKo/1024) + ' Mo' : Math.round(dataVolumeKo) + ' Ko';
+
+  // Rendu KPI globaux
+  var kpiDefs = [
+    { icon:'👥', label:'Utilisateurs',      value: totalUsers,      sub: '+' + newUsers + ' sur la période',    trend: newUsers, color:'#6366F1' },
+    { icon:'🏢', label:'Organisations',     value: totalOrgs,       sub: '+' + newOrgs + ' nouvelles',          trend: newOrgs,  color:'#A855F7' },
+    { icon:'📄', label:'Documents',         value: totalDocs,       sub: '+' + newDocs + ' déposés',            trend: newDocs,  color:'#3B82F6' },
+    { icon:'📊', label:'Rapports générés',  value: totalReports,    sub: '+' + newReports + ' sur la période',  trend: newReports, color:'#F59E0B' },
+    { icon:'✍️', label:'Signatures',        value: totalSig,        sub: '+' + newSig + ' validées',            trend: newSig,   color:'#22C55E' },
+    { icon:'⚡', label:'Interactions',      value: totalInteract,   sub: 'Docs + rapports + saisies',           trend: totalInteract, color:'#F97316' },
+    { icon:'💾', label:'Volume estimé',     value: dataVolumeLabel, sub: 'Documents + rapports archivés',       trend: 0,        color:'#06B6D4', noNum: true },
+    { icon:'🟢', label:'Orgs actives',      value: activeOrgsInWin, sub: 'Au moins 1 action dans la période',  trend: activeOrgsInWin, color:'#4ADE80' },
+  ];
+
+  var kpiHtml = kpiDefs.map(function(k) {
+    var trendHtml = '';
+    if (!k.noNum) {
+      var cls = k.trend > 0 ? 'up' : k.trend < 0 ? 'down' : 'neutral';
+      var arr = k.trend > 0 ? '▲' : k.trend < 0 ? '▼' : '—';
+      trendHtml = '<div class="analytics-kpi-trend ' + cls + '">' + arr + ' ' + k.sub + '</div>';
+    } else {
+      trendHtml = '<div class="analytics-kpi-sub">' + k.sub + '</div>';
+    }
+    return '<div class="analytics-kpi-card">'
+      + '<div class="analytics-kpi-header"><span class="analytics-kpi-icon">' + k.icon + '</span>'
+      + '<span class="analytics-kpi-label">' + k.label + '</span></div>'
+      + '<div class="analytics-kpi-value" style="color:' + k.color + '">' + (k.noNum ? k.value : k.value.toLocaleString('fr-FR')) + '</div>'
+      + trendHtml
+      + '</div>';
+  }).join('');
+  var kpiEl = document.getElementById('analyticsKpiGlobal');
+  if (kpiEl) kpiEl.innerHTML = kpiHtml;
+
+  // Chart activité par jour
+  _drawActivityChart(docs, reports, duers, vgps, fdsList, pdps, sigItems, win);
+
+  // Chart répartition rôles (donut SVG)
+  _drawRolesChart(profiles);
+
+  // Préparer données par organisation
+  var orgById = {};
+  orgs.forEach(function(o) { orgById[o.id] = o; });
+  var profilesByOrg = {};
+  profiles.forEach(function(p) {
+    if (!p.org_id) return;
+    if (!profilesByOrg[p.org_id]) profilesByOrg[p.org_id] = [];
+    profilesByOrg[p.org_id].push(p);
+  });
+
+  _analyticsOrgData = orgs.filter(function(o){ return o.type !== 'training_center'; }).map(function(org) {
+    var members    = (profilesByOrg[org.id] || []);
+    var orgDocs    = docs.filter(function(d){ return members.some(function(p){ return p.id === d.owner_id; }); });
+    var orgReports = reports.filter(function(r){ return r.org_id === org.id; });
+    var orgSigs    = sigReqs.filter(function(s){ return s.org_id === org.id; });
+    var orgDuers   = duers.filter(function(d){ return d.org_id === org.id; });
+    var orgVgps    = vgps.filter(function(v){ return v.org_id === org.id; });
+    var orgFds     = fdsList.filter(function(f){ return f.org_id === org.id; });
+    var orgPdps    = pdps.filter(function(p){ return p.org_id === org.id; });
+
+    var interactions = [
+      ...orgDocs.filter(function(d){ return inWin(d.created_at); }),
+      ...orgReports.filter(function(r){ return inWin(r.generated_at); }),
+      ...orgDuers.filter(function(d){ return inWin(d.created_at||d.updated_at); }),
+      ...orgVgps.filter(function(v){ return inWin(v.created_at); }),
+      ...orgFds.filter(function(f){ return inWin(f.created_at); }),
+      ...orgPdps.filter(function(p){ return inWin(p.created_at); }),
+    ].length;
+
+    var docsOk     = orgDocs.filter(function(d){ return d.status === 'validated'; }).length;
+    var docsTotal  = orgDocs.length;
+    var compScore  = docsTotal > 0 ? Math.round(docsOk / docsTotal * 100) : null;
+    var dataKo     = orgDocs.length * 200 + orgReports.length * 80;
+    var dataLbl    = dataKo > 1024*10 ? Math.round(dataKo/1024) + ' Mo' : Math.round(dataKo) + ' Ko';
+
+    return {
+      id: org.id, name: org.name || '—', type: org.type || '',
+      members: members.length, docs: orgDocs.length, reports: orgReports.length,
+      sigs: orgSigs.length, interactions: interactions,
+      compScore: compScore, dataLbl: dataLbl,
+      createdAt: org.created_at,
+      membersData: members
+    };
+  });
+
+  _renderAnalyticsOrgTable();
+
+  // Préparer données par utilisateur
+  var orgNameById = {};
+  orgs.forEach(function(o) { orgNameById[o.id] = o.name; });
+
+  _analyticsUserData = profiles.map(function(p) {
+    var uDocs     = docs.filter(function(d){ return d.owner_id === p.id; });
+    var uReports  = reports.filter(function(r){ return r.created_by === p.id; });
+    var uSigItems = sigItems.filter(function(s){ return s.signer_email && p.email && s.signer_email.toLowerCase() === p.email.toLowerCase(); });
+
+    var interactions = [
+      ...uDocs.filter(function(d){ return inWin(d.created_at); }),
+      ...uReports.filter(function(r){ return inWin(r.generated_at); }),
+      ...uSigItems.filter(function(s){ return inWin(s.signed_at||s.created_at); }),
+    ].length;
+
+    var lastAction = null;
+    var allTs = [
+      ...uDocs.map(function(d){ return d.created_at; }),
+      ...uReports.map(function(r){ return r.generated_at; }),
+      ...uSigItems.map(function(s){ return s.signed_at||s.created_at; }),
+    ].filter(Boolean).sort();
+    if (allTs.length) lastAction = allTs[allTs.length - 1];
+
+    var docsOk  = uDocs.filter(function(d){ return d.status === 'validated'; }).length;
+    var dataKo  = uDocs.length * 200 + uReports.length * 80;
+    var dataLbl = dataKo > 1024 ? Math.round(dataKo/1024) + ' Mo' : dataKo + ' Ko';
+
+    return {
+      id: p.id, name: p.full_name || '—', email: p.email || '—', role: p.role || '—',
+      orgId: p.org_id, orgName: orgNameById[p.org_id] || '—',
+      createdAt: p.created_at,
+      docs: uDocs.length, docsOk: docsOk, reports: uReports.length,
+      sigs: uSigItems.filter(function(s){ return s.status==='signed'; }).length,
+      interactions: interactions, dataLbl: dataLbl, lastAction: lastAction,
+      docsData: uDocs, reportsData: uReports
+    };
+  });
+
+  _renderAnalyticsUserTable();
+}
+
+// ── Render org table ──
+function _renderAnalyticsOrgTable() {
+  var search  = (document.getElementById('analyticsOrgSearch')?.value || '').toLowerCase();
+  var col     = _analyticsOrgSort.col;
+  var dir     = _analyticsOrgSort.dir;
+  var data    = _analyticsOrgData.filter(function(o) {
+    return !search || o.name.toLowerCase().includes(search) || o.type.toLowerCase().includes(search);
+  }).sort(function(a, b) {
+    var av = a[col], bv = b[col];
+    if (typeof av === 'string') return dir * av.localeCompare(bv||'');
+    return dir * ((av||0) - (bv||0));
+  });
+
+  var typeColor = { company:'rgba(59,130,246,.2)', subcontractor:'rgba(168,85,247,.2)', hse:'rgba(34,197,94,.2)' };
+  var typeLabel = { company:'EU', subcontractor:'ST', hse:'HSE' };
+
+  function th(label, colKey) {
+    var arrow = col === colKey ? (dir > 0 ? ' ▲' : ' ▼') : '';
+    var cls   = col === colKey ? 'sorted' : '';
+    return '<th class="' + cls + '" onclick="_sortAnalyticsOrgs(\'' + colKey + '\')">' + label + arrow + '</th>';
+  }
+
+  var html = '<table class="analytics-table"><thead><tr>'
+    + th('Organisation','name') + th('Type','type') + th('Membres','members')
+    + th('Documents','docs') + th('Rapports','reports') + th('Signatures','sigs')
+    + th('Interactions','interactions') + th('Conformité','compScore') + th('Volume','dataLbl')
+    + '<th></th></tr></thead><tbody>';
+
+  if (!data.length) {
+    html += '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--muted)">Aucune organisation trouvée</td></tr>';
+  }
+
+  data.forEach(function(o) {
+    var tc    = typeColor[o.type] || 'rgba(148,163,184,.12)';
+    var tl    = typeLabel[o.type] || o.type;
+    var score = o.compScore !== null ? o.compScore + '%' : '—';
+    var scoreColor = o.compScore === null ? 'var(--muted)' : o.compScore >= 80 ? '#4ADE80' : o.compScore >= 50 ? '#FCD34D' : '#FCA5A5';
+    var barW  = Math.min(100, o.interactions) * 0.8;
+    html += '<tr>'
+      + '<td><span class="a-org-name">' + escapeHtml(o.name) + '</span></td>'
+      + '<td><span class="a-type-badge" style="background:' + tc + '">' + tl + '</span></td>'
+      + '<td>' + o.members + '</td>'
+      + '<td>' + o.docs + '</td>'
+      + '<td>' + o.reports + '</td>'
+      + '<td>' + o.sigs + '</td>'
+      + '<td><span class="a-bar" style="width:' + barW + 'px"></span>' + o.interactions + '</td>'
+      + '<td><span class="a-score" style="color:' + scoreColor + '">' + score + '</span></td>'
+      + '<td style="color:var(--muted);font-size:11px">' + o.dataLbl + '</td>'
+      + '<td><button class="btn-sm" style="font-size:11px;padding:4px 10px" onclick="expandAnalyticsOrg(\'' + o.id + '\',this)">▶ Détail</button></td>'
+      + '</tr>'
+      + '<tr id="aorg-detail-' + o.id + '" style="display:none"><td colspan="10" style="padding:0"></td></tr>';
+  });
+
+  html += '</tbody></table>';
+  var el = document.getElementById('analyticsOrgTable');
+  if (el) el.innerHTML = html;
+}
+
+function _sortAnalyticsOrgs(col) {
+  if (_analyticsOrgSort.col === col) _analyticsOrgSort.dir *= -1;
+  else { _analyticsOrgSort.col = col; _analyticsOrgSort.dir = -1; }
+  _renderAnalyticsOrgTable();
+}
+
+function filterAnalyticsOrgs() { _renderAnalyticsOrgTable(); }
+
+function expandAnalyticsOrg(orgId, btn) {
+  var row = document.getElementById('aorg-detail-' + orgId);
+  if (!row) return;
+  var isOpen = row.style.display !== 'none';
+  // Fermer tous
+  document.querySelectorAll('[id^="aorg-detail-"]').forEach(function(r){ r.style.display = 'none'; });
+  document.querySelectorAll('#analyticsOrgTable .btn-sm').forEach(function(b){ b.textContent = '▶ Détail'; });
+  if (isOpen) return;
+  btn.textContent = '▼ Fermer';
+  row.style.display = 'table-row';
+
+  var org = _analyticsOrgData.find(function(o){ return o.id === orgId; });
+  if (!org) return;
+  var members = org.membersData || [];
+  var roleCount = {};
+  members.forEach(function(m){ roleCount[m.role] = (roleCount[m.role]||0)+1; });
+  var roleHtml = Object.entries(roleCount).map(function(e){
+    return '<span style="font-size:11px;padding:2px 8px;border-radius:8px;background:rgba(255,255,255,.06);margin-right:4px">' + e[0] + ' ×' + e[1] + '</span>';
+  }).join('');
+
+  var created = org.createdAt ? new Date(org.createdAt).toLocaleDateString('fr-FR') : '—';
+  row.firstChild.innerHTML = '<div style="padding:16px 20px;background:rgba(249,115,22,.04);border-top:1px solid rgba(249,115,22,.15)">'
+    + '<div style="display:flex;gap:24px;flex-wrap:wrap;font-size:12px">'
+    + '<span>📅 Inscrite le <strong>' + created + '</strong></span>'
+    + '<span>👥 ' + members.length + ' membre(s) : ' + (roleHtml || '—') + '</span>'
+    + '<span>📄 ' + org.docs + ' documents déposés</span>'
+    + '<span>📊 ' + org.reports + ' rapports</span>'
+    + '<span>✍️ ' + org.sigs + ' demandes de signature</span>'
+    + '</div>'
+    + '</div>';
+}
+
+// ── Render user table ──
+function _renderAnalyticsUserTable() {
+  var search  = (document.getElementById('analyticsUserSearch')?.value || '').toLowerCase();
+  var col     = _analyticsUserSort.col;
+  var dir     = _analyticsUserSort.dir;
+  var data    = _analyticsUserData.filter(function(u) {
+    return !search || u.name.toLowerCase().includes(search) || u.email.toLowerCase().includes(search) || u.orgName.toLowerCase().includes(search);
+  }).sort(function(a, b) {
+    var av = a[col], bv = b[col];
+    if (typeof av === 'string') return dir * av.localeCompare(bv||'');
+    return dir * ((av||0) - (bv||0));
+  });
+
+  var roleIcon = { worker:'👷', company:'🏭', hse:'🦺', subcontractor:'🔧', trainer:'🎓', admin:'⚙️', guest:'👁' };
+
+  function th(label, colKey) {
+    var arrow = col === colKey ? (dir > 0 ? ' ▲' : ' ▼') : '';
+    var cls   = col === colKey ? 'sorted' : '';
+    return '<th class="' + cls + '" onclick="_sortAnalyticsUsers(\'' + colKey + '\')">' + label + arrow + '</th>';
+  }
+
+  var html = '<table class="analytics-table"><thead><tr>'
+    + th('Utilisateur','name') + th('Rôle','role') + th('Organisation','orgName')
+    + th('Docs','docs') + th('Rapports','reports') + th('Signatures','sigs')
+    + th('Interactions','interactions') + th('Données','dataLbl')
+    + th('Dernière action','lastAction') + '<th></th></tr></thead><tbody>';
+
+  if (!data.length) {
+    html += '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--muted)">Aucun utilisateur trouvé</td></tr>';
+  }
+
+  data.forEach(function(u) {
+    var icon  = roleIcon[u.role] || '👤';
+    var last  = u.lastAction ? new Date(u.lastAction).toLocaleDateString('fr-FR') : '—';
+    var barW  = Math.min(100, u.interactions) * 0.8;
+    html += '<tr>'
+      + '<td><div style="font-weight:700;font-size:13px">' + escapeHtml(u.name) + '</div><div style="font-size:11px;color:var(--muted)">' + escapeHtml(u.email) + '</div></td>'
+      + '<td><span style="font-size:14px">' + icon + '</span> <span style="font-size:11px;color:var(--muted)">' + u.role + '</span></td>'
+      + '<td style="font-size:12px">' + escapeHtml(u.orgName) + '</td>'
+      + '<td>' + u.docs + ' <span style="font-size:10px;color:var(--muted)">(' + u.docsOk + ' ✓)</span></td>'
+      + '<td>' + u.reports + '</td>'
+      + '<td>' + u.sigs + '</td>'
+      + '<td><span class="a-bar" style="width:' + barW + 'px"></span>' + u.interactions + '</td>'
+      + '<td style="color:var(--muted);font-size:11px">' + u.dataLbl + '</td>'
+      + '<td style="font-size:11px;color:var(--muted)">' + last + '</td>'
+      + '<td><button class="btn-sm" style="font-size:11px;padding:4px 10px" onclick="expandAnalyticsUser(\'' + u.id + '\',this)">▶ Fiche</button></td>'
+      + '</tr>'
+      + '<tr id="auser-detail-' + u.id + '" style="display:none"><td colspan="10" style="padding:0"></td></tr>';
+  });
+
+  html += '</tbody></table>';
+  var el = document.getElementById('analyticsUserTable');
+  if (el) el.innerHTML = html;
+}
+
+function _sortAnalyticsUsers(col) {
+  if (_analyticsUserSort.col === col) _analyticsUserSort.dir *= -1;
+  else { _analyticsUserSort.col = col; _analyticsUserSort.dir = -1; }
+  _renderAnalyticsUserTable();
+}
+
+function filterAnalyticsUsers() { _renderAnalyticsUserTable(); }
+
+function expandAnalyticsUser(userId, btn) {
+  var row = document.getElementById('auser-detail-' + userId);
+  if (!row) return;
+  var isOpen = row.style.display !== 'none';
+  document.querySelectorAll('[id^="auser-detail-"]').forEach(function(r){ r.style.display = 'none'; });
+  document.querySelectorAll('#analyticsUserTable .btn-sm').forEach(function(b){ b.textContent = '▶ Fiche'; });
+  if (isOpen) return;
+  btn.textContent = '▼ Fermer';
+  row.style.display = 'table-row';
+
+  var u = _analyticsUserData.find(function(x){ return x.id === userId; });
+  if (!u) return;
+
+  var joined   = u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR') : '—';
+  var last     = u.lastAction ? new Date(u.lastAction).toLocaleDateString('fr-FR') : 'Aucune';
+  var docsByType = {};
+  (u.docsData || []).forEach(function(d){ docsByType[d.doc_type||'autre'] = (docsByType[d.doc_type||'autre']||0)+1; });
+  var docTypesHtml = Object.entries(docsByType).slice(0,6).map(function(e){
+    return '<div style="display:flex;justify-content:space-between;padding:6px 10px;background:rgba(255,255,255,.04);border-radius:8px;font-size:12px">'
+      + '<span>' + escapeHtml(e[0]) + '</span><span style="font-weight:700">' + e[1] + '</span></div>';
+  }).join('');
+  var repTypesHtml = '';
+  var repByType = {};
+  (u.reportsData || []).forEach(function(r){ repByType[r.report_type||'autre'] = (repByType[r.report_type||'autre']||0)+1; });
+  repTypesHtml = Object.entries(repByType).map(function(e){
+    return '<span style="font-size:11px;padding:2px 8px;border-radius:8px;background:rgba(59,130,246,.12);color:#93C5FD;margin-right:4px">' + e[0] + ' ×' + e[1] + '</span>';
+  }).join('');
+
+  row.firstChild.innerHTML = '<div class="analytics-user-detail-panel">'
+    + '<div style="font-size:14px;font-weight:900;margin-bottom:16px">' + escapeHtml(u.name) + ' <span style="font-size:12px;color:var(--muted);font-weight:400">— ' + u.role + ' · ' + escapeHtml(u.orgName) + '</span></div>'
+    + '<div class="analytics-user-kpi-row">'
+    + _userKpi('📄', u.docs, 'Documents') + _userKpi('✅', u.docsOk, 'Validés') + _userKpi('📊', u.reports, 'Rapports')
+    + _userKpi('✍️', u.sigs, 'Signatures') + _userKpi('⚡', u.interactions, 'Interactions') + _userKpi('💾', u.dataLbl, 'Données', true)
+    + '</div>'
+    + '<div style="display:flex;gap:20px;flex-wrap:wrap;font-size:12px;margin-bottom:16px">'
+    + '<span>📅 Inscrit le <strong>' + joined + '</strong></span>'
+    + '<span>🕐 Dernière action : <strong>' + last + '</strong></span>'
+    + '<span>📧 ' + escapeHtml(u.email) + '</span>'
+    + '</div>'
+    + (docTypesHtml ? '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Types de documents</div><div style="display:flex;flex-direction:column;gap:4px;margin-bottom:16px">' + docTypesHtml + '</div>' : '')
+    + (repTypesHtml ? '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Rapports générés</div><div style="margin-bottom:8px">' + repTypesHtml + '</div>' : '')
+    + '</div>';
+}
+
+function _userKpi(icon, val, lbl, isStr) {
+  return '<div class="analytics-user-kpi">'
+    + '<div class="analytics-user-kpi-val">' + icon + ' ' + (isStr ? val : (typeof val === 'number' ? val.toLocaleString('fr-FR') : val)) + '</div>'
+    + '<div class="analytics-user-kpi-lbl">' + lbl + '</div>'
+    + '</div>';
+}
+
+// ── Chart activité (mini sparkline SVG) ──
+function _drawActivityChart(docs, reports, duers, vgps, fdsList, pdps, sigItems, win) {
+  var el = document.getElementById('analyticsChartActivity');
+  if (!el) return;
+
+  var from   = new Date(win.from);
+  var to     = new Date(win.to);
+  var diffMs = to - from;
+  var diffD  = Math.ceil(diffMs / 86400000);
+  // Si > 90 jours → aggréger par semaine, sinon par jour
+  var byWeek = diffD > 90;
+  var buckets = {};
+
+  function bucketKey(ts) {
+    var d = new Date(ts);
+    if (byWeek) {
+      var day = new Date(d); day.setHours(0,0,0,0);
+      var wd  = day.getDay(); day.setDate(day.getDate() - wd);
+      return day.toISOString().slice(0,10);
+    }
+    return d.toISOString().slice(0,10);
+  }
+
+  // Pré-remplir buckets
+  var cur = new Date(from); cur.setHours(0,0,0,0);
+  var step = byWeek ? 7 : 1;
+  while (cur <= to) {
+    buckets[cur.toISOString().slice(0,10)] = 0;
+    cur.setDate(cur.getDate() + step);
+  }
+
+  function addEvents(items, tsField) {
+    (items || []).forEach(function(x) {
+      var ts = x[tsField]; if (!ts || ts < win.from || ts > win.to) return;
+      var k = bucketKey(ts); if (buckets[k] !== undefined) buckets[k]++;
+    });
+  }
+
+  addEvents(docs, 'created_at');
+  addEvents(reports, 'generated_at');
+  addEvents(duers, 'created_at');
+  addEvents(vgps, 'created_at');
+  addEvents(fdsList, 'created_at');
+  addEvents(pdps, 'created_at');
+  addEvents(sigItems.filter(function(s){ return s.status==='signed'; }), 'signed_at');
+
+  var keys   = Object.keys(buckets).sort();
+  var vals   = keys.map(function(k){ return buckets[k]; });
+  var maxVal = Math.max(1, Math.max.apply(null, vals));
+  var W = el.offsetWidth || 600, H = 160, padL = 36, padB = 24, padT = 12, padR = 12;
+  var plotW = W - padL - padR;
+  var plotH = H - padB - padT;
+  var n     = keys.length;
+  var barW  = Math.max(2, Math.floor(plotW / n) - 2);
+
+  var bars = vals.map(function(v, i) {
+    var bh   = Math.round((v / maxVal) * plotH);
+    var x    = padL + Math.round(i * plotW / n);
+    var y    = padT + plotH - bh;
+    var col  = v === 0 ? 'rgba(148,163,184,.15)' : 'rgba(249,115,22,.75)';
+    return '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + bh + '" rx="3" fill="' + col + '"/>';
+  }).join('');
+
+  // Axe Y
+  var yLabels = [0, Math.round(maxVal/2), maxVal].map(function(v, i) {
+    var y = padT + plotH - Math.round((v/maxVal)*plotH) + 4;
+    return '<text x="' + (padL-6) + '" y="' + y + '" fill="rgba(148,163,184,.6)" font-size="9" text-anchor="end">' + v + '</text>';
+  }).join('');
+
+  // Axe X (quelques labels)
+  var xLabels = '';
+  var step2   = Math.max(1, Math.floor(n / 6));
+  keys.forEach(function(k, i) {
+    if (i % step2 !== 0 && i !== n-1) return;
+    var x = padL + Math.round(i * plotW / n) + barW/2;
+    var d = new Date(k);
+    var lbl = d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'});
+    xLabels += '<text x="' + x + '" y="' + (H-6) + '" fill="rgba(148,163,184,.5)" font-size="9" text-anchor="middle">' + lbl + '</text>';
+  });
+
+  el.innerHTML = '<svg width="100%" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">'
+    + '<line x1="' + padL + '" y1="' + padT + '" x2="' + padL + '" y2="' + (padT+plotH) + '" stroke="rgba(148,163,184,.15)" stroke-width="1"/>'
+    + '<line x1="' + padL + '" y1="' + (padT+plotH) + '" x2="' + (padL+plotW) + '" y2="' + (padT+plotH) + '" stroke="rgba(148,163,184,.15)" stroke-width="1"/>'
+    + yLabels + xLabels + bars
+    + '</svg>'
+    + '<div style="text-align:center;font-size:10px;color:rgba(148,163,184,.5);margin-top:4px">'
+    + (byWeek ? 'Agrégation par semaine' : 'Activité journalière') + ' · ' + vals.reduce(function(a,b){return a+b;},0) + ' actions total</div>';
+}
+
+// ── Donut SVG répartition rôles ──
+function _drawRolesChart(profiles) {
+  var el = document.getElementById('analyticsChartRoles');
+  if (!el) return;
+  var roleDefs = [
+    { key:'worker',        label:'Workers',    color:'#6366F1' },
+    { key:'company',       label:'Entreprises',color:'#F97316' },
+    { key:'hse',           label:'HSE',        color:'#22C55E' },
+    { key:'subcontractor', label:'ST',         color:'#A855F7' },
+    { key:'trainer',       label:'Formation',  color:'#3B82F6' },
+    { key:'guest',         label:'Clients',    color:'#F59E0B' },
+    { key:'admin',         label:'Admins',     color:'#EF4444' },
+  ];
+  var counts = {};
+  profiles.forEach(function(p){ counts[p.role] = (counts[p.role]||0)+1; });
+  var total = profiles.length || 1;
+
+  var cx = 80, cy = 90, r = 65, ri = 40;
+  var angle = -Math.PI/2;
+  var slices = '';
+  var legend = '';
+  roleDefs.forEach(function(d) {
+    var cnt = counts[d.key] || 0;
+    if (!cnt) return;
+    var frac  = cnt / total;
+    var sweep = frac * 2 * Math.PI;
+    var x1 = cx + r * Math.cos(angle), y1 = cy + r * Math.sin(angle);
+    var x2 = cx + r * Math.cos(angle+sweep), y2 = cy + r * Math.sin(angle+sweep);
+    var xi1 = cx + ri * Math.cos(angle), yi1 = cy + ri * Math.sin(angle);
+    var xi2 = cx + ri * Math.cos(angle+sweep), yi2 = cy + ri * Math.sin(angle+sweep);
+    var lg = sweep > Math.PI ? 1 : 0;
+    slices += '<path d="M'+x1+','+y1+' A'+r+','+r+' 0 '+lg+',1 '+x2+','+y2
+      +' L'+xi2+','+yi2+' A'+ri+','+ri+' 0 '+lg+',0 '+xi1+','+yi1+' Z"'
+      +' fill="'+d.color+'" opacity=".85"/>';
+    angle += sweep;
+    var pct = Math.round(frac*100);
+    legend += '<div style="display:flex;align-items:center;gap:6px;font-size:11px;margin-bottom:4px">'
+      +'<span style="width:10px;height:10px;border-radius:3px;background:'+d.color+';flex-shrink:0"></span>'
+      +'<span style="flex:1">'+d.label+'</span>'
+      +'<span style="font-weight:700;color:var(--text)">'+cnt+'</span>'
+      +'<span style="color:var(--muted)">'+pct+'%</span>'
+      +'</div>';
+  });
+
+  el.innerHTML = '<div style="display:flex;align-items:center;gap:16px;height:100%">'
+    + '<svg width="160" height="160" style="flex-shrink:0">'
+    + slices
+    + '<text x="'+cx+'" y="'+(cy+5)+'" fill="var(--text)" font-family=\'Barlow Condensed\' font-size="22" font-weight="900" text-anchor="middle">'+total+'</text>'
+    + '<text x="'+cx+'" y="'+(cy+18)+'" fill="rgba(148,163,184,.6)" font-size="9" text-anchor="middle">users</text>'
+    + '</svg>'
+    + '<div style="flex:1;min-width:0">'+legend+'</div>'
+    + '</div>';
 }
 
 async function loadAdminCompliance() {
