@@ -7029,7 +7029,7 @@ async function renderVgpSection(role) {
   var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">'
     + '<div><div class="section-title" style="margin:0">Registre de Sécurité &amp; Vérifications Périodiques</div>'
     + '<div style="font-size:12px;color:var(--muted);margin-top:4px">Contrôles réglementaires obligatoires avec alertes J-30</div></div>'
-    + (hasSomeRecord ? '<button class="btn-sm" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#A5B4FC" onclick="generateVgpPDFSigned()">📥 Télécharger le rapport</button>' : '')
+    + '<button class="btn-sm" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#A5B4FC" onclick="generateVgpPDFSigned()">📥 Télécharger le rapport</button>'
     + '</div>'
     + '<div class="stats-grid" style="margin-bottom:24px">'
     + '<div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value">' + okCount + '</div><div class="stat-label">À jour</div></div>'
