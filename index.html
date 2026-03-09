@@ -11229,10 +11229,10 @@ async function renderConformLastReport(reportType, containerId) {
 
   var consultUrl = a.signed_file_url || a.file_url;
   var consultBtn = consultUrl
-    ? '<button class="btn-sm btn-view" style="font-size:11px;padding:5px 12px" onclick="openReportViewer('' + consultUrl + '','' + escapeHtml(a.report_num||reportType) + '','ext','' + a.id + '')">📄 Consulter</button>'
+    ? '<button class="btn-sm btn-view" style="font-size:11px;padding:5px 12px" onclick="openReportViewer(\'' + consultUrl.replace(/'/g,"\\'") + '\',\'' + escapeHtml(a.report_num||reportType) + '\',\'ext\',\'' + a.id + '\')">📄 Consulter</button>'
     : '';
   var sendBtn = (!sigSt || sigSt === 'none')
-    ? '<button class="btn-sm" style="font-size:11px;padding:5px 12px;background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.25);color:#FCD34D" onclick="openSendForSignatureModal('' + a.id + '','' + escapeHtml(a.report_num||'') + '','' + reportType + '',null,null)">✉️ Envoyer</button>'
+    ? '<button class="btn-sm" style="font-size:11px;padding:5px 12px;background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.25);color:#FCD34D" onclick="openSendForSignatureModal(\'' + a.id + '\',\'' + escapeHtml(a.report_num||'') + '\',\'' + reportType + '\',null,null)">✉️ Envoyer</button>'
     : '';
 
   ctn.innerHTML = '<div class="conform-last-report">'
@@ -11268,6 +11268,7 @@ function toggleConformPerso(tab, role) {
   panel.className = 'conform-perso-panel';
   panel.id = panelId;
 
+
   // ── Section ordre des blocs ──
   var blocksHtml = '<div class="conform-perso-section-label">Ordre des sections</div>'
     + '<div class="conform-perso-blocks" id="conform-blocks-' + tab + '-' + role + '">';
@@ -11275,7 +11276,7 @@ function toggleConformPerso(tab, role) {
     var isOn = b === 'kpi' ? prefs.showKpi : b === 'lastReport' ? prefs.showLastReport : true;
     var isTogglable = b !== 'content';
     var toggleHtml = isTogglable
-      ? '<button class="conform-perso-block-toggle ' + (isOn ? 'on' : '') + '" onclick="conformToggleBlock('' + tab + '','' + role + '','' + b + '',this)">' + (isOn ? '✓ Visible' : '✕ Masqué') + '</button>'
+      ? '<button class="conform-perso-block-toggle ' + (isOn ? 'on' : '') + '" data-tab="' + tab + '" data-role="' + role + '" data-block="' + b + '" onclick="conformToggleBlockEl(this)">' + (isOn ? '✓ Visible' : '✕ Masqué') + '</button>'
       : '<span style="font-size:11px;color:var(--muted);padding:3px 8px">Toujours visible</span>';
     blocksHtml += '<div class="conform-perso-block" draggable="true" data-block="' + b + '">'
       + '<span class="conform-perso-block-handle">⠿</span>'
@@ -11292,7 +11293,7 @@ function toggleConformPerso(tab, role) {
       + '<div class="conform-kpi-checkgrid">';
     catalog.forEach(function(k) {
       var active = prefs.kpiVisible.indexOf(k.id) >= 0;
-      kpiHtml += '<div class="conform-kpi-check ' + (active ? 'active' : '') + '" onclick="conformToggleKpi('' + tab + '','' + role + '','' + k.id + '',this)">'
+      kpiHtml += '<div class="conform-kpi-check ' + (active ? 'active' : '') + '" data-tab="' + tab + '" data-role="' + role + '" data-kpi="' + k.id + '" onclick="conformToggleKpiEl(this)">'
         + '<span class="conform-kpi-check-icon">' + k.icon + '</span>'
         + '<span class="conform-kpi-check-lbl"><div class="conform-kpi-check-name">' + escapeHtml(k.name) + '</div>'
         + '<div class="conform-kpi-check-desc">' + escapeHtml(k.desc) + '</div></span>'
@@ -11302,20 +11303,41 @@ function toggleConformPerso(tab, role) {
     kpiHtml += '</div>';
   }
 
-  panel.innerHTML = '<div class="conform-perso-title">✏️ Personnaliser cet onglet<button onclick="document.getElementById('' + panelId + '').remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:16px;color:var(--muted)">✕</button></div>'
+  var closeBtnId = 'cperso-close-' + tab + '-' + role;
+  var applyBtnId = 'cperso-apply-' + tab + '-' + role;
+  var resetBtnId = 'cperso-reset-' + tab + '-' + role;
+  panel.innerHTML = '<div class="conform-perso-title">✏️ Personnaliser cet onglet'
+    + '<button id="' + closeBtnId + '" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:16px;color:var(--muted)">✕</button>'
+    + '</div>'
     + blocksHtml + kpiHtml
     + '<div style="display:flex;gap:8px;margin-top:16px">'
-    + '<button class="btn-sm btn-validate" style="flex:1" onclick="saveConformPersoAndRefresh('' + tab + '','' + role + '')">✓ Appliquer</button>'
-    + '<button class="btn-sm" onclick="resetConformPrefs('' + tab + '','' + role + '')" style="color:var(--muted)">↺ Réinitialiser</button>'
+    + '<button id="' + applyBtnId + '" class="btn-sm btn-validate" style="flex:1">✓ Appliquer</button>'
+    + '<button id="' + resetBtnId + '" class="btn-sm" style="color:var(--muted)">↺ Réinitialiser</button>'
     + '</div>';
 
   // Insérer avant le contenu principal
   var ctn = document.getElementById(role + '-conform-' + tab);
   if (ctn) ctn.insertBefore(panel, ctn.firstChild);
 
+  // Wire up buttons after DOM insertion
+  document.getElementById(closeBtnId).onclick = function() { panel.remove(); };
+  document.getElementById(applyBtnId).onclick = function() { saveConformPersoAndRefresh(tab, role); };
+  document.getElementById(resetBtnId).onclick = function() { resetConformPrefs(tab, role); };
+
   // Drag & drop ordre blocs
   initConformBlockDrag(tab, role);
 }
+
+function conformToggleBlockEl(btn) {
+  var tab = btn.dataset.tab, role = btn.dataset.role, blockName = btn.dataset.block;
+  conformToggleBlock(tab, role, blockName, btn);
+}
+
+function conformToggleKpiEl(card) {
+  var tab = card.dataset.tab, role = card.dataset.role, kpiId = card.dataset.kpi;
+  conformToggleKpi(tab, role, kpiId, card);
+}
+
 
 function conformToggleBlock(tab, role, blockName, btn) {
   var prefs = getConformPrefs(tab);
@@ -11391,7 +11413,7 @@ function buildConformSectionHeader(tab, role, reportType, actionBtnsHtml, title,
   var inlineHistId = tab + '-inline-history-' + role;
 
   // Bouton personnaliser
-  var persoBtn = '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(148,163,184,.1);border-color:rgba(148,163,184,.2);color:var(--muted)" onclick="toggleConformPerso('' + tab + '','' + role + '')">✏️ Personnaliser</button>';
+  var persoBtn = '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(148,163,184,.1);border-color:rgba(148,163,184,.2);color:var(--muted)" data-tab="' + tab + '" data-role="' + role + '" onclick="toggleConformPerso(this.dataset.tab,this.dataset.role)">✏️ Personnaliser</button>';
 
   // Header section (titre + boutons actions)
   var headerHtml = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">'
