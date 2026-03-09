@@ -202,6 +202,7 @@
     body.theme-light .btn-settings:hover { border-color:var(--orange); color:var(--orange); }
 
     /* ── Panneau réglages ── */
+    /* Le panneau réglages est hors de #appContent → non affecté par le zoom */
     .settings-panel {
       position: fixed; top: 72px; right: 16px; z-index: 999;
       background: var(--bg2); border: 1px solid rgba(255,255,255,.12);
@@ -229,9 +230,13 @@
     .settings-reset:hover { border-color: rgba(255,255,255,.25); color: var(--text); }
     body.theme-light .settings-reset { background: rgba(0,0,0,.04); border-color: rgba(0,0,0,.1); }
 
-    /* ── Application zoom & contraste ── */
-    /* Zoom : scale le font-size racine */
-    html { font-size: calc(16px * var(--ui-scale, 1)); }
+    /* ── Application zoom police ── */
+    /* zoom sur #appContent → n'affecte pas le panneau settings (hors du wrapper) */
+    #appContent { zoom: var(--ui-zoom, 1); }
+    /* Fallback Firefox */
+    @-moz-document url-prefix() {
+      #appContent { zoom: 1; transform: scale(var(--ui-zoom, 1)); transform-origin: top left; width: calc(100% / var(--ui-zoom, 1)); }
+    }
     /* Contraste boost : filtre CSS sur le body */
     body.contrast-high  { filter: contrast(1.25) brightness(1.05); }
     body.contrast-max   { filter: contrast(1.5)  brightness(1.08); }
@@ -452,45 +457,9 @@
   </style>
 </head>
 <body>
+<div id="appContent">
 <div class="bg-layer"><div class="bg-circle c1"></div><div class="bg-circle c2"></div><div class="bg-grid"></div></div>
 
-<!-- ══ PANNEAU RÉGLAGES ACCESSIBILITÉ ══ -->
-<div id="settingsPanel" class="settings-panel" role="dialog" aria-label="Réglages d'affichage">
-  <div class="settings-panel-title">⚙️ Affichage</div>
-
-  <div class="settings-row">
-    <div class="settings-label">
-      Taille du texte
-      <span id="fontSizeLabel">100%</span>
-    </div>
-    <input type="range" class="settings-slider" id="fontSizeSlider"
-           min="80" max="130" step="5" value="100"
-           oninput="applyFontSize(this.value)" aria-label="Taille du texte">
-    <div class="settings-presets">
-      <div class="settings-preset" onclick="applyFontSize(80)">A−</div>
-      <div class="settings-preset active" onclick="applyFontSize(100)">A</div>
-      <div class="settings-preset" onclick="applyFontSize(115)">A+</div>
-      <div class="settings-preset" onclick="applyFontSize(130)">A++</div>
-    </div>
-  </div>
-
-  <div class="settings-row">
-    <div class="settings-label">
-      Contraste du texte
-      <span id="contrastLabel">Normal</span>
-    </div>
-    <input type="range" class="settings-slider" id="contrastSlider"
-           min="0" max="2" step="1" value="0"
-           oninput="applyContrast(this.value)" aria-label="Contraste">
-    <div class="settings-presets">
-      <div class="settings-preset active" onclick="applyContrast(0)">Normal</div>
-      <div class="settings-preset" onclick="applyContrast(1)">Élevé</div>
-      <div class="settings-preset" onclick="applyContrast(2)">Maximum</div>
-    </div>
-  </div>
-
-  <button class="settings-reset" onclick="resetDisplaySettings()">↺ Réinitialiser l'affichage</button>
-</div>
 
 <!-- ══ PAGE PUBLIQUE SCAN QR ══ -->
 <div id="publicScanPage" style="display:none;position:relative;z-index:1;min-height:100vh;padding:24px 16px;max-width:480px;margin:0 auto">
@@ -1553,7 +1522,11 @@ const CONTRAST_CLASSES = ['', 'contrast-high', 'contrast-max'];
 
 function applyFontSize(pct) {
   const v = Math.min(130, Math.max(80, parseInt(pct)));
-  document.documentElement.style.setProperty('--ui-scale', (v / 100).toFixed(2));
+  const zoom = (v / 100).toFixed(2);
+  const appContent = document.getElementById('appContent');
+  if (appContent) appContent.style.zoom = zoom;
+  // Custom property pour fallback Firefox
+  document.documentElement.style.setProperty('--ui-zoom', zoom);
   document.getElementById('fontSizeSlider').value = v;
   document.getElementById('fontSizeLabel').textContent = v + '%';
   // Présets actifs
@@ -1607,11 +1580,13 @@ function toggleSettingsPanel(btn) {
 
 async function saveDisplayPrefs() {
   if (!currentUser || !currentProfile) return;
-  const scale    = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-scale')) || 1;
+  const appContent = document.getElementById('appContent');
+  const zoom     = parseFloat(appContent?.style.zoom) || 1;
+  const fontSize = Math.round(zoom * 100);
   const contrast = document.body.classList.contains('contrast-max') ? 2
                  : document.body.classList.contains('contrast-high') ? 1 : 0;
   const existing = currentProfile.dashboard_layout || {};
-  existing._prefs = { fontSize: Math.round(scale * 100), contrast };
+  existing._prefs = { fontSize, contrast };
   currentProfile.dashboard_layout = existing;
   await sb.from('profiles').update({ dashboard_layout: existing }).eq('id', currentUser.id);
 }
@@ -5395,5 +5370,45 @@ function copyAllWorkerInvites() {
   });
 })();
 </script>
+</div>
+
+<!-- ══ PANNEAU RÉGLAGES ACCESSIBILITÉ ══ -->
+<div id="settingsPanel" class="settings-panel" role="dialog" aria-label="Réglages d'affichage">
+  <div class="settings-panel-title">⚙️ Affichage</div>
+
+  <div class="settings-row">
+    <div class="settings-label">
+      Taille du texte
+      <span id="fontSizeLabel">100%</span>
+    </div>
+    <input type="range" class="settings-slider" id="fontSizeSlider"
+           min="80" max="130" step="5" value="100"
+           oninput="applyFontSize(this.value)" aria-label="Taille du texte">
+    <div class="settings-presets">
+      <div class="settings-preset" onclick="applyFontSize(80)">A−</div>
+      <div class="settings-preset active" onclick="applyFontSize(100)">A</div>
+      <div class="settings-preset" onclick="applyFontSize(115)">A+</div>
+      <div class="settings-preset" onclick="applyFontSize(130)">A++</div>
+    </div>
+  </div>
+
+  <div class="settings-row">
+    <div class="settings-label">
+      Contraste du texte
+      <span id="contrastLabel">Normal</span>
+    </div>
+    <input type="range" class="settings-slider" id="contrastSlider"
+           min="0" max="2" step="1" value="0"
+           oninput="applyContrast(this.value)" aria-label="Contraste">
+    <div class="settings-presets">
+      <div class="settings-preset active" onclick="applyContrast(0)">Normal</div>
+      <div class="settings-preset" onclick="applyContrast(1)">Élevé</div>
+      <div class="settings-preset" onclick="applyContrast(2)">Maximum</div>
+    </div>
+  </div>
+
+  <button class="settings-reset" onclick="resetDisplaySettings()">↺ Réinitialiser l'affichage</button>
+</div>
+
 </body>
 </html>
