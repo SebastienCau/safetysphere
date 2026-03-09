@@ -191,6 +191,8 @@
     .notif-bell-dot { position:absolute; top:4px; right:6px; width:8px; height:8px; background:#EF4444; border-radius:50%; border:2px solid var(--topbar-bg); display:none; }
     .notif-bell.has-notif .notif-bell-dot { display:block; }
     body.theme-light .notif-bell { border-color:rgba(0,0,0,.15); color:#64748B; }
+    [id^="notifs-"]:empty { display:none; }
+    [id^="notifs-"]:not(:empty) { margin-bottom:24px; }
     .notif-item { display:flex; align-items:flex-start; gap:12px; padding:12px 14px; border-radius:12px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); margin-bottom:8px; cursor:pointer; transition:all .15s; }
     .notif-item:hover { background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.15); }
     .notif-item.notif-warning { border-color:rgba(245,158,11,.3); background:rgba(245,158,11,.06); }
@@ -473,7 +475,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-worker">👷 Intervenant</span>
     <span class="topbar-user" id="workerUserName"></span>
-    <button class="notif-bell" id="notifBell" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="notif-bell" id="notifBell-Worker" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Worker','overview',this)">🏠 Accueil</button>
@@ -522,7 +524,7 @@
       <!-- Alertes expiration -->
       <div id="workerExpiryAlerts"></div>
       <!-- Notifications -->
-      <div id="notifs-Worker" style="margin-bottom:24px"></div>
+      <div id="notifs-Worker" ></div>
         <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value" id="wStat1">0</div><div class="stat-label">Documents validés</div></div>
         <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value" id="wStat2">0</div><div class="stat-label">En attente</div></div>
         <div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value" id="wStat3">0</div><div class="stat-label">Expirent bientôt</div></div>
@@ -569,7 +571,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-company">🏢 Société</span>
     <span class="topbar-user" id="companyUserName"></span>
-    <button class="notif-bell" id="notifBell" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="notif-bell" id="notifBell-Company" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Company','overview',this)">🏠 Accueil</button>
@@ -592,7 +594,7 @@
         <button onclick="copyTeamCode()" style="margin-left:auto;padding:7px 14px;background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.3);border-radius:8px;color:var(--orange);font-size:12px;font-weight:700;cursor:pointer">📋 Copier</button>
       </div>
       <!-- Notifications -->
-      <div id="notifs-Company" style="margin-bottom:24px"></div>
+      <div id="notifs-Company" ></div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon">👷</div><div class="stat-value" id="cStat1">0</div><div class="stat-label">Intervenants</div></div>
         <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value" id="cStat2">0</div><div class="stat-label">Validations en attente</div></div>
@@ -639,7 +641,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge" style="background:rgba(168,85,247,.15);color:#D8B4FE;border:1px solid rgba(168,85,247,.3)">🤝 Sous-Traitant</span>
     <span class="topbar-user" id="stUserName"></span>
-    <button class="notif-bell" id="notifBell" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="notif-bell" id="notifBell-Subcontractor" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Subcontractor','overview',this)">🏠 Accueil</button>
@@ -653,7 +655,7 @@
       <div class="dash-welcome">Bonjour, <em id="stFirstName">—</em> 👋</div>
       <div class="dash-subtitle">Tableau de bord Sous-Traitant</div>
       <!-- Notifications -->
-      <div id="notifs-Subcontractor" style="margin-bottom:24px"></div>
+      <div id="notifs-Subcontractor" ></div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon">🏭</div><div class="stat-value" id="stStat1">0</div><div class="stat-label">EU partenaires</div></div>
         <div class="stat-card"><div class="stat-icon">👷</div><div class="stat-value" id="stStat3">0</div><div class="stat-label">Intervenants</div></div>
@@ -702,7 +704,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-hse">🏭 HSE</span>
     <span class="topbar-user" id="hseUserName"></span>
-    <button class="notif-bell" id="notifBell" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="notif-bell" id="notifBell-HSE" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('HSE','overview',this)">🏠 Accueil</button>
@@ -715,7 +717,7 @@
       <div class="dash-welcome">Bonjour, <em id="hseFirstName">—</em> 👋</div>
       <div class="dash-subtitle">Tableau de bord Responsable HSE</div>
       <!-- Notifications -->
-      <div id="notifs-HSE" style="margin-bottom:24px"></div>
+      <div id="notifs-HSE" ></div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon">🏢</div><div class="stat-value" id="hseStat1">0</div><div class="stat-label">Sociétés ST</div></div>
         <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-value" id="hseStat2">0</div><div class="stat-label">Invitations en attente</div></div>
@@ -772,7 +774,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-trainer">🎓 Formation</span>
     <span class="topbar-user" id="trainerUserName"></span>
-    <button class="notif-bell" id="notifBell" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="notif-bell" id="notifBell-Trainer" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Trainer','overview',this)">🏠 Accueil</button>
@@ -793,7 +795,7 @@
         </div>
       </div>
       <!-- Notifications -->
-      <div id="notifs-Trainer" style="margin-bottom:24px"></div>
+      <div id="notifs-Trainer" ></div>
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon">📋</div><div class="stat-value" id="tStat1">0</div><div class="stat-label">Demandes en attente</div></div>
         <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value" id="tStat2">0</div><div class="stat-label">Validations ce mois</div></div>
@@ -834,7 +836,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-admin">⚙️ Admin</span>
     <span class="topbar-user" id="adminUserName"></span>
-    <button class="notif-bell" id="notifBell" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="notif-bell" id="notifBell-Guest" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Admin','overview',this)">📊 Vue globale</button>
@@ -984,7 +986,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge" style="background:rgba(20,184,166,.15);color:#5EEAD4;border:1px solid rgba(20,184,166,.3)">👁 Client</span>
     <span class="topbar-user" id="guestUserName"></span>
-    <button class="notif-bell" id="notifBell" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="notif-bell" id="notifBell-Admin" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Guest','shared',this)">📂 Documents reçus</button>
@@ -3574,11 +3576,11 @@ async function processQrUrl(url) {
 function scrollToNotifs() {
   const role = currentProfile?.role;
   const map = {
-    worker:        { dash:'Worker',        page:'overview' },
-    company:       { dash:'Company',       page:'overview' },
-    hse:           { dash:'HSE',           page:'overview' },
-    subcontractor: { dash:'Subcontractor', page:'overview' },
-    trainer:       { dash:'Trainer',       page:'overview' }
+    worker:        { dash:'Worker',        bellId:'notifBell-Worker' },
+    company:       { dash:'Company',       bellId:'notifBell-Company' },
+    hse:           { dash:'HSE',           bellId:'notifBell-HSE' },
+    subcontractor: { dash:'Subcontractor', bellId:'notifBell-Subcontractor' },
+    trainer:       { dash:'Trainer',       bellId:'notifBell-Trainer' }
   };
   const target = map[role];
   if (!target) return;
@@ -3734,8 +3736,13 @@ async function loadNotifications(role) {
     container.appendChild(renderNotifItem(item.icon, item.title, item.sub, item.type, item.action, item.onClick));
   });
 
-  // Activer la cloche
-  document.querySelectorAll('.notif-bell').forEach(b => b.classList.add('has-notif'));
+  // Activer la cloche du dashboard courant
+  const bellMap = { worker:'notifBell-Worker', company:'notifBell-Company', hse:'notifBell-HSE', subcontractor:'notifBell-Subcontractor', trainer:'notifBell-Trainer' };
+  const bellId = bellMap[role];
+  if (bellId) {
+    const bell = document.getElementById(bellId);
+    if (bell) bell.classList.add('has-notif');
+  }
 }
 
 
