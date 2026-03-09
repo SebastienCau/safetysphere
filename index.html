@@ -1388,7 +1388,7 @@
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding:16px 20px;background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.2);border-radius:12px">
           <div>
             <div style="font-size:14px;font-weight:700">Signature OTP par email</div>
-            <div style="font-size:12px;color:var(--muted);margin-top:3px">Envoie un code 6 chiffres à l'email de l'utilisateur pour valider la signature d'un rapport</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px">Envoie un code 8 chiffres à l'email de l'utilisateur pour valider la signature d'un rapport</div>
           </div>
           <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
             <span id="sigGlobalStatusLabel" style="font-size:12px;color:var(--muted)">Activé</span>
@@ -2100,14 +2100,16 @@
 
     <!-- Étape 2 : saisie code -->
     <div id="sigOtpStep2" style="display:none">
-      <div style="font-size:12px;color:var(--muted);margin:14px 0 20px">Saisissez le code à 6 chiffres reçu par email.<br>Valable <span id="sigOtpCountdown" style="font-weight:700;color:var(--orange)">60</span> secondes.</div>
+      <div style="font-size:12px;color:var(--muted);margin:14px 0 20px">Saisissez le code à 8 chiffres reçu par email.<br>Valable <span id="sigOtpCountdown" style="font-weight:700;color:var(--orange)">60</span> secondes.</div>
       <div style="display:flex;gap:8px;justify-content:center;margin-bottom:20px">
         <input type="text" id="sigOtpD1" maxlength="1" class="otp-digit" oninput="otpDigitInput(this,'sigOtpD2')" onkeydown="otpDigitBack(event,this,null)">
         <input type="text" id="sigOtpD2" maxlength="1" class="otp-digit" oninput="otpDigitInput(this,'sigOtpD3')" onkeydown="otpDigitBack(event,this,'sigOtpD1')">
         <input type="text" id="sigOtpD3" maxlength="1" class="otp-digit" oninput="otpDigitInput(this,'sigOtpD4')" onkeydown="otpDigitBack(event,this,'sigOtpD2')">
         <input type="text" id="sigOtpD4" maxlength="1" class="otp-digit" oninput="otpDigitInput(this,'sigOtpD5')" onkeydown="otpDigitBack(event,this,'sigOtpD3')">
         <input type="text" id="sigOtpD5" maxlength="1" class="otp-digit" oninput="otpDigitInput(this,'sigOtpD6')" onkeydown="otpDigitBack(event,this,'sigOtpD4')">
-        <input type="text" id="sigOtpD6" maxlength="1" class="otp-digit" oninput="otpDigitInput(this,null)"       onkeydown="otpDigitBack(event,this,'sigOtpD5')">
+        <input type="text" id="sigOtpD6" maxlength="1" class="otp-digit" oninput="otpDigitInput(this,'sigOtpD7')" onkeydown="otpDigitBack(event,this,'sigOtpD5')">
+        <input type="text" id="sigOtpD7" maxlength="1" class="otp-digit" oninput="otpDigitInput(this,'sigOtpD8')" onkeydown="otpDigitBack(event,this,'sigOtpD6')">
+        <input type="text" id="sigOtpD8" maxlength="1" class="otp-digit" oninput="otpDigitInput(this,null)"       onkeydown="otpDigitBack(event,this,'sigOtpD7')">
       </div>
       <button onclick="verifySignatureOtp()" class="btn-sm btn-validate" style="width:100%;padding:12px;font-size:13px" id="sigOtpVerifyBtn">✓ Confirmer la signature</button>
       <button onclick="resetOtpToStep1()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;margin-top:12px;text-decoration:underline">↩ Renvoyer un code</button>
@@ -8010,7 +8012,7 @@ async function openSignatureModal(reportNum, reportType, meta, onSuccess) {
   document.getElementById('sigOtpEmailDisplay').textContent = currentProfile.email || '—';
   document.getElementById('sigOtpRequestBtn').disabled = false;
   document.getElementById('sigOtpRequestBtn').textContent = '📧 Envoyer le code de vérification';
-  ['sigOtpD1','sigOtpD2','sigOtpD3','sigOtpD4','sigOtpD5','sigOtpD6'].forEach(function(id){ document.getElementById(id).value = ''; });
+  ['sigOtpD1','sigOtpD2','sigOtpD3','sigOtpD4','sigOtpD5','sigOtpD6','sigOtpD7','sigOtpD8'].forEach(function(id){ document.getElementById(id).value = ''; });
 
   document.getElementById('signatureOtpModal').classList.add('open');
 }
@@ -8086,9 +8088,9 @@ function otpDigitBack(e, el, prevId) {
 
 // ── Étape 2 : vérifier le code ───────────────────────────────
 async function verifySignatureOtp() {
-  var code = ['sigOtpD1','sigOtpD2','sigOtpD3','sigOtpD4','sigOtpD5','sigOtpD6']
+  var code = ['sigOtpD1','sigOtpD2','sigOtpD3','sigOtpD4','sigOtpD5','sigOtpD6','sigOtpD7','sigOtpD8']
     .map(function(id){ return document.getElementById(id).value; }).join('');
-  if (code.length !== 6) { showToast('Saisissez les 6 chiffres', 'error'); return; }
+  if (code.length !== 8) { showToast('Saisissez les 8 chiffres', 'error'); return; }
 
   var btn = document.getElementById('sigOtpVerifyBtn');
   btn.disabled = true; btn.textContent = '⏳ Vérification...';
