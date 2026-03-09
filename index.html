@@ -24,8 +24,9 @@
        v1.0.0 — Fix category_check : contrainte SQL LIKE 'custom_%', upsert onConflict+category ; Onglet "Habilitations" personnalisable (_defaultDocTypes)
        v1.1.0 — Phase 12 : DUER dynamique (templates sectoriels), Registre VGP légaux (J-30), Bibliothèque FDS (Company + HSE)
        v1.3.0 — Module PDP : Plan de Prévention multi-sections (parties, risques coactivité, intervenants, travaux dangereux, EPI, signatures), rapport PDF, workflow séquentiel EU→ST→SPS
+       v1.3.1 — Bugfix Historique : correction select PostgREST ('*' uniquement), archiveReport robuste (storage optionnel, erreur visible), meta complet pour PDP. Viewer : panneau signataires latéral avec statut/relance/contact, fetch+blob pour tous les fichiers Supabase Storage. Historique : docs consolidés imbriqués sous parent, corbeille enfants, historique personnel signataires avec corbeille localStorage.
   -->
-  <meta name="app-version" content="1.3.0" />
+  <meta name="app-version" content="1.3.1" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -803,7 +804,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v1.3.0</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v1.3.1</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -8095,8 +8096,12 @@ async function generatePdpReport(pdpId) {
   var r = await sb.from('pdp_entries').select('*').eq('id', pdpId).single();
   if (r.error || !r.data) { showToast('PdP introuvable', 'error'); return; }
   var p = r.data;
+  var meta = await buildReportMeta('PDP');
+  // Enrichir le meta avec les infos PDP
+  meta.euNom = p.eu_nom || ''; meta.site = p.site || '';
+  meta.label = 'PDP — ' + (p.nature_travaux || p.eu_nom || p.site || 'Plan de Prévention');
   var html = buildPdpHTML(p, '');
-  openReportWindow(html, 'PDP', { euNom: p.eu_nom, site: p.site });
+  openReportWindow(html, 'PDP', meta);
 }
 
 function buildPdpHTML(p, stampHtml) {
@@ -8505,34 +8510,53 @@ var _histShowTrash = false;
 
 // ── Archiver automatiquement à chaque génération SafetySphere ─
 async function archiveReport(meta, reportType, htmlContent) {
-  if (!currentProfile || !currentProfile.org_id) return;
+  if (!currentProfile || !currentProfile.org_id) {
+    console.warn('[Archive] Impossible d\'archiver : profil ou org_id manquant');
+    return null;
+  }
+  if (!meta || !meta.reportNum) {
+    console.warn('[Archive] Impossible d\'archiver : meta.reportNum manquant', meta);
+    return null;
+  }
 
   // Stocker le HTML dans Supabase Storage (bucket rapport-archives)
-  var filePath = currentProfile.org_id + '/' + meta.reportNum + '.html';
-  var htmlBlob = new Blob([htmlContent], { type:'text/html;charset=utf-8' });
-  var uploadRes = await sb.storage.from('rapport-archives').upload(filePath, htmlBlob, { upsert: true });
+  // L'échec du storage n'empêche pas l'archivage en base
   var fileUrl = null;
-  if (!uploadRes.error) {
-    var signed = await sb.storage.from('rapport-archives').createSignedUrl(filePath, 60 * 60 * 24 * 365);
-    if (!signed.error) fileUrl = signed.data.signedUrl;
+  try {
+    var filePath  = currentProfile.org_id + '/' + meta.reportNum + '.html';
+    var htmlBlob  = new Blob([htmlContent], { type:'text/html;charset=utf-8' });
+    var uploadRes = await sb.storage.from('rapport-archives').upload(filePath, htmlBlob, { upsert: true });
+    if (uploadRes.error) {
+      console.warn('[Archive] Storage upload échoué :', uploadRes.error.message, '— archivage sans fichier');
+    } else {
+      var signed = await sb.storage.from('rapport-archives').createSignedUrl(filePath, 60 * 60 * 24 * 365);
+      if (!signed.error) fileUrl = signed.data.signedUrl;
+    }
+  } catch(storageErr) {
+    console.warn('[Archive] Exception storage :', storageErr, '— archivage sans fichier');
   }
 
   var entry = {
     org_id        : currentProfile.org_id,
     created_by    : currentUser.id,
-    responsable   : meta.responsable,
-    email         : meta.email,
+    responsable   : meta.responsable || currentProfile.full_name || currentProfile.email || '',
+    email         : meta.email       || currentProfile.email || '',
     report_num    : meta.reportNum,
     report_type   : reportType,
-    label         : reportType + ' — ' + meta.orgName,
+    label         : reportType + ' — ' + (meta.orgName || meta.euNom || meta.site || 'Rapport'),
     source        : 'safetysphere',
-    app_version   : meta.appVersion,
-    generated_at  : meta.isoDate,
+    app_version   : meta.appVersion  || null,
+    generated_at  : meta.isoDate     || new Date().toISOString(),
     file_url      : fileUrl,
   };
 
   var res = await sb.from('report_archive').insert(entry).select().single();
-  if (res.error) { console.warn('Archive error:', res.error.message); return null; }
+  if (res.error) {
+    console.error('[Archive] Insert DB échoué :', res.error.message);
+    showToast('⚠️ Archivage échoué : ' + res.error.message, 'error');
+    return null;
+  }
+
   // Exposer l'ID au viewer pour le bouton 'Envoyer pour signature'
   _lastArchivedId = res.data ? res.data.id : null;
   var btn = document.getElementById('viewerSendSigBtn');
