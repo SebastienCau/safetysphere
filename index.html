@@ -679,6 +679,21 @@
     .risque-slider { flex:1; -webkit-appearance:none; appearance:none; height:4px; border-radius:4px; background:rgba(255,255,255,.12); outline:none; cursor:pointer; }
     .risque-slider::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:var(--orange); cursor:pointer; }
     .risque-val { font-size:13px; font-weight:900; color:var(--orange); width:20px; text-align:center; font-family:'Barlow Condensed',sans-serif; }
+    /* ══ SIGNATURE OTP ══ */
+    .otp-digit { width:44px; height:54px; text-align:center; font-size:22px; font-weight:900; border:2px solid rgba(255,255,255,.15); border-radius:10px; background:rgba(255,255,255,.06); color:var(--white); transition:border-color .15s; font-family:"Barlow Condensed",sans-serif; }
+    .otp-digit:focus { outline:none; border-color:var(--orange); background:rgba(249,115,22,.08); }
+    body.theme-light .otp-digit { background:#fff; border-color:#D1D5DB; color:#111827; }
+    body.theme-light .otp-digit:focus { border-color:var(--orange); }
+    .sig-stamp { margin-top:20px; border:2px solid #1E3A5F; border-radius:10px; padding:14px 18px; position:relative; }
+    .sig-stamp::before { content:"SIGNÉ"; position:absolute; top:-10px; left:16px; background:#fff; padding:0 8px; font-size:10px; font-weight:900; color:#1E3A5F; letter-spacing:2px; }
+    .sig-stamp-row { display:flex; gap:6px; align-items:baseline; margin-bottom:5px; }
+    .sig-stamp-lbl { font-size:9px; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:.5px; width:80px; flex-shrink:0; }
+    .sig-stamp-val { font-size:11px; font-weight:600; color:#111827; }
+    .sig-stamp-valid { display:inline-flex; align-items:center; gap:5px; margin-top:8px; background:#DCFCE7; border:1px solid #86EFAC; border-radius:6px; padding:3px 10px; font-size:10px; font-weight:700; color:#166534; }
+    /* Ligne admin signatures */
+    .sig-org-row { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--inset-bg); border:1px solid var(--inset-border); border-radius:10px; gap:12px; }
+    .sig-log-row { padding:10px 14px; background:var(--inset-bg); border:1px solid var(--inset-border); border-radius:8px; font-size:12px; }
+
     /* ══ HISTORIQUE RAPPORTS ══ */
     .archive-card { background:var(--inset-bg); border:1px solid var(--inset-border); border-radius:14px; padding:16px 18px; display:flex; align-items:center; gap:14px; transition:border-color .2s; }
     .archive-card:hover { border-color:rgba(249,115,22,.3); }
@@ -1256,6 +1271,7 @@
     <button class="nav-tab active" onclick="switchPage('Admin','overview',this)">📊 Vue globale</button>
     <button class="nav-tab" onclick="switchPage('Admin','compliance',this)">🎯 Conformité</button>
     <button class="nav-tab" onclick="switchPage('Admin','qr',this);loadAdminQRConfig()">📱 QR Code</button>
+    <button class="nav-tab" onclick="switchPage('Admin','signatures',this);loadAdminSignatures()">✍️ Signatures</button>
   </div>
   <div class="dash-body">
 
@@ -1355,6 +1371,63 @@
               <div style="font-size:12px;color:var(--muted);margin-top:4px">Jauge colorée</div>
             </div>
           </label>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ── SIGNATURES OTP ── -->
+    <div class="page-section" id="Admin-signatures">
+      <div class="dash-welcome">Gestion des <em>Signatures</em></div>
+      <div class="dash-subtitle">Configurez l'authentification OTP par email pour la signature des rapports</div>
+
+      <!-- Paramètre global -->
+      <div class="section-card" style="margin-top:28px">
+        <div class="section-title">🌐 Paramètre global</div>
+        <div class="section-subtitle">Active ou désactive la fonctionnalité de signature OTP pour l'ensemble de la plateforme</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding:16px 20px;background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.2);border-radius:12px">
+          <div>
+            <div style="font-size:14px;font-weight:700">Signature OTP par email</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:3px">Envoie un code 6 chiffres à l'email de l'utilisateur pour valider la signature d'un rapport</div>
+          </div>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+            <span id="sigGlobalStatusLabel" style="font-size:12px;color:var(--muted)">Activé</span>
+            <input type="checkbox" id="sigGlobalEnabled" class="compliance-checkbox" checked onchange="saveSignatureGlobal()">
+          </label>
+        </div>
+        <div id="sigGlobalSaveStatus" style="margin-top:12px;font-size:12px;color:var(--success);display:none">✓ Sauvegardé</div>
+      </div>
+
+      <!-- Par organisation -->
+      <div class="section-card" style="margin-top:24px">
+        <div class="section-title">🏢 Paramétrage par organisation</div>
+        <div class="section-subtitle">Désactivez la signature OTP pour certaines organisations spécifiques (ex: client en période d'essai, démo)</div>
+        <div style="margin-top:16px">
+          <input type="text" class="form-input" id="sigOrgSearch" placeholder="🔍 Rechercher une organisation..." oninput="filterSigOrgs()" style="margin-bottom:16px">
+          <div id="sigOrgList" style="display:flex;flex-direction:column;gap:10px">
+            <div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Par utilisateur -->
+      <div class="section-card" style="margin-top:24px">
+        <div class="section-title">👤 Paramétrage par utilisateur</div>
+        <div class="section-subtitle">Désactivez la signature OTP pour un utilisateur précis (ex: compte technique, intégration API)</div>
+        <div style="margin-top:16px">
+          <input type="text" class="form-input" id="sigUserSearch" placeholder="🔍 Rechercher par nom ou email..." oninput="filterSigUsers()" style="margin-bottom:16px">
+          <div id="sigUserList" style="display:flex;flex-direction:column;gap:10px">
+            <div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Journal des signatures -->
+      <div class="section-card" style="margin-top:24px">
+        <div class="section-title">📋 Journal des signatures récentes</div>
+        <div class="section-subtitle">Les 20 dernières signatures OTP effectuées sur la plateforme</div>
+        <div id="sigAuditLog" style="margin-top:16px">
+          <div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div>
         </div>
       </div>
     </div>
@@ -2003,6 +2076,50 @@
       <button onclick="closeReportViewer()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px">✕ Fermer</button>
     </div>
     <iframe id="reportViewerFrame" style="flex:1;width:100%;border:none;background:#fff"></iframe>
+  </div>
+</div>
+
+
+<!-- ══ MODALE SIGNATURE OTP ══ -->
+<div class="modal-overlay" id="signatureOtpModal">
+  <div class="modal" style="max-width:440px;text-align:center">
+    <button class="modal-close" onclick="closeSignatureOtp()">✕</button>
+    <div style="font-size:36px;margin-bottom:10px">✍️</div>
+    <div class="modal-title">Signature du document</div>
+    <div class="modal-subtitle" id="sigOtpSubtitle">Un code de vérification va être envoyé à votre adresse email</div>
+
+    <!-- Étape 1 : demande OTP -->
+    <div id="sigOtpStep1">
+      <div style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);border-radius:10px;padding:14px 16px;margin:18px 0;text-align:left">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px">Email de vérification</div>
+        <div style="font-size:14px;font-weight:700" id="sigOtpEmailDisplay">—</div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:20px">En signant, vous attestez avoir pris connaissance du document et en approuvez le contenu.</div>
+      <button onclick="requestSignatureOtp()" class="btn-sm btn-validate" style="width:100%;padding:12px;font-size:13px" id="sigOtpRequestBtn">📧 Envoyer le code de vérification</button>
+    </div>
+
+    <!-- Étape 2 : saisie code -->
+    <div id="sigOtpStep2" style="display:none">
+      <div style="font-size:12px;color:var(--muted);margin:14px 0 20px">Saisissez le code à 6 chiffres reçu par email.<br>Valable <span id="sigOtpCountdown" style="font-weight:700;color:var(--orange)">60</span> secondes.</div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-bottom:20px">
+        <input type="text" id="sigOtpD1" maxlength="1" class="otp-digit" oninput="otpDigitInput(this,'sigOtpD2')" onkeydown="otpDigitBack(event,this,null)">
+        <input type="text" id="sigOtpD2" maxlength="1" class="otp-digit" oninput="otpDigitInput(this,'sigOtpD3')" onkeydown="otpDigitBack(event,this,'sigOtpD1')">
+        <input type="text" id="sigOtpD3" maxlength="1" class="otp-digit" oninput="otpDigitInput(this,'sigOtpD4')" onkeydown="otpDigitBack(event,this,'sigOtpD2')">
+        <input type="text" id="sigOtpD4" maxlength="1" class="otp-digit" oninput="otpDigitInput(this,'sigOtpD5')" onkeydown="otpDigitBack(event,this,'sigOtpD3')">
+        <input type="text" id="sigOtpD5" maxlength="1" class="otp-digit" oninput="otpDigitInput(this,'sigOtpD6')" onkeydown="otpDigitBack(event,this,'sigOtpD4')">
+        <input type="text" id="sigOtpD6" maxlength="1" class="otp-digit" oninput="otpDigitInput(this,null)"       onkeydown="otpDigitBack(event,this,'sigOtpD5')">
+      </div>
+      <button onclick="verifySignatureOtp()" class="btn-sm btn-validate" style="width:100%;padding:12px;font-size:13px" id="sigOtpVerifyBtn">✓ Confirmer la signature</button>
+      <button onclick="resetOtpToStep1()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;margin-top:12px;text-decoration:underline">↩ Renvoyer un code</button>
+    </div>
+
+    <!-- Étape 3 : succès -->
+    <div id="sigOtpStep3" style="display:none">
+      <div style="font-size:48px;margin:20px 0">✅</div>
+      <div style="font-size:15px;font-weight:700;color:var(--success);margin-bottom:8px">Signature validée</div>
+      <div style="font-size:12px;color:var(--muted)" id="sigOtpSuccessDetail">—</div>
+      <button onclick="closeSignatureOtp()" class="btn-sm btn-validate" style="width:100%;padding:12px;font-size:13px;margin-top:20px">Fermer</button>
+    </div>
   </div>
 </div>
 
@@ -6431,7 +6548,7 @@ async function renderDuerSection(role) {
     + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
     + '<button class="btn-sm btn-view" onclick="openDuerTemplateModal(\'' + role + '\')">📋 Importer un modèle secteur</button>'
     + '<button class="btn-sm btn-upload" onclick="openDuerModal(null,\'' + role + '\')">➕ Ajouter une unité</button>'
-    + (hasDuer ? '<button class="btn-sm" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#A5B4FC" onclick="generateDuerPDF()">📥 Télécharger le rapport</button>' : '')
+    + (hasDuer ? '<button class="btn-sm" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#A5B4FC" onclick="generateDuerPDFSigned()">📥 Télécharger le rapport</button>' : '')
     + '</div></div>';
 
   if (hasDuer) {
@@ -6904,7 +7021,7 @@ async function renderVgpSection(role) {
   var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">'
     + '<div><div class="section-title" style="margin:0">Registre de Sécurité &amp; Vérifications Périodiques</div>'
     + '<div style="font-size:12px;color:var(--muted);margin-top:4px">Contrôles réglementaires obligatoires avec alertes J-30</div></div>'
-    + '<button class="btn-sm" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#A5B4FC" onclick="generateVgpPDF()">📥 Télécharger le rapport</button>'
+    + '<button class="btn-sm" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#A5B4FC" onclick="generateVgpPDFSigned()">📥 Télécharger le rapport</button>'
     + '</div>'
     + '<div class="stats-grid" style="margin-bottom:24px">'
     + '<div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value">' + okCount + '</div><div class="stat-label">À jour</div></div>'
@@ -6961,14 +7078,9 @@ async function renderVgpSection(role) {
 // ══════════════════════════════════════════════════════
 // RAPPORT VGP
 // ══════════════════════════════════════════════════════
-async function generateVgpPDF() {
-  var result  = await sb.from('registre_vgp').select('*').eq('org_id', currentProfile.org_id);
-  var records = result.data || [];
-
-  var meta     = await buildReportMeta('VGP');
+function buildVgpHTML(records, meta, stampHtml) {
   var today    = new Date();
   var soonDate = new Date(); soonDate.setDate(soonDate.getDate() + 30);
-
   function getVgpStatus(equip, record) {
     if (!record || !record.derniere_verification) return 'non_planifie';
     var d = new Date(record.derniere_verification);
@@ -6983,17 +7095,14 @@ async function generateVgpPDF() {
     if (s==='ok')       return{bg:'#DCFCE7',border:'#22C55E',text:'#166534',label:'✅ À jour'};
     return                    {bg:'#F3F4F6',border:'#D1D5DB',text:'#6B7280',label:'⏸️ Non planifié'};
   }
-
   var critCount=0,alertCount=0,okCount=0,npCount=0;
   VGP_EQUIPEMENTS.forEach(function(eq){
     var r=records.find(function(x){return x.equipement===eq.key;});
     var s=getVgpStatus(eq,r);
     if(s==='critique')critCount++;else if(s==='alerte')alertCount++;else if(s==='ok')okCount++;else npCount++;
   });
-
   var cats=[];
   VGP_EQUIPEMENTS.forEach(function(e){if(cats.indexOf(e.categorie)<0)cats.push(e.categorie);});
-
   var tableRows=''; var rowIdx=0;
   cats.forEach(function(cat){
     tableRows+='<tr><td colspan="6" style="background:#1E3A5F;color:#fff;font-weight:700;font-size:11px;padding:7px 12px;letter-spacing:.5px">'+cat.toUpperCase()+'</td></tr>';
@@ -7026,8 +7135,7 @@ async function generateVgpPDF() {
         +'</tr>';
     });
   });
-
-  var html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>VGP — '+escapeHtml(meta.reportNum)+'</title>'
+  return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>VGP — '+escapeHtml(meta.reportNum)+'</title>'
     + reportCSS(true)
     + '</head><body>'
     + reportHeaderHTML(meta, 'Registre de Sécurité — Vérifications Générales Périodiques', 'Décret 98-1084 · Art. R4323-22 Code du Travail · Alertes J-30')
@@ -7045,10 +7153,16 @@ async function generateVgpPDF() {
     + '<th style="width:15%;text-align:center">Prochaine vérif.</th>'
     + '<th style="width:12%;text-align:center">Statut / Rapport</th>'
     + '</tr></thead><tbody>'+tableRows+'</tbody></table>'
+    + (stampHtml || '')
     + reportFooterHTML(meta, 'Registre VGP')
     + '</body></html>';
+}
 
-  openReportWindow(html, 'VGP', meta);
+async function generateVgpPDF() {
+  var result  = await sb.from('registre_vgp').select('*').eq('org_id', currentProfile.org_id);
+  var records = result.data || [];
+  var meta    = await buildReportMeta('VGP');
+  openReportWindow(buildVgpHTML(records, meta, ''), 'VGP', meta);
 }
 
 function openVgpModal(equipKey, role) {
@@ -7845,6 +7959,346 @@ function printReportViewer() {
     frame.contentWindow.focus();
     frame.contentWindow.print();
   }
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// SYSTÈME DE SIGNATURE OTP
+// Tables : signature_settings (global/org/user), report_signatures
+// ══════════════════════════════════════════════════════════════
+
+var _sigContext   = null; // { reportNum, reportType, meta, onSuccess }
+var _otpCountdown = null;
+var _allSigOrgs   = [];
+var _allSigUsers  = [];
+
+// ── Vérifier si la signature OTP est activée pour l'utilisateur courant ──
+async function isSignatureEnabled() {
+  // 1. Paramètre global
+  var globalRes = await sb.from('signature_settings').select('enabled').eq('scope','global').eq('scope_id','global').single();
+  if (globalRes.data && globalRes.data.enabled === false) return false;
+
+  // 2. Désactivé pour l'organisation
+  if (currentProfile.org_id) {
+    var orgRes = await sb.from('signature_settings').select('enabled').eq('scope','org').eq('scope_id', currentProfile.org_id).single();
+    if (orgRes.data && orgRes.data.enabled === false) return false;
+  }
+
+  // 3. Désactivé pour l'utilisateur
+  var userRes = await sb.from('signature_settings').select('enabled').eq('scope','user').eq('scope_id', currentUser.id).single();
+  if (userRes.data && userRes.data.enabled === false) return false;
+
+  return true;
+}
+
+// ── Ouvrir la modale de signature ────────────────────────────
+async function openSignatureModal(reportNum, reportType, meta, onSuccess) {
+  var enabled = await isSignatureEnabled();
+  if (!enabled) {
+    // Signature désactivée : appel direct du callback sans OTP
+    if (typeof onSuccess === 'function') onSuccess({ bypassed: true });
+    return;
+  }
+
+  _sigContext = { reportNum: reportNum, reportType: reportType, meta: meta, onSuccess: onSuccess };
+
+  // Réinitialiser la modale
+  document.getElementById('sigOtpStep1').style.display = '';
+  document.getElementById('sigOtpStep2').style.display = 'none';
+  document.getElementById('sigOtpStep3').style.display = 'none';
+  document.getElementById('sigOtpSubtitle').textContent = 'Signature du rapport ' + reportType + ' · ' + reportNum;
+  document.getElementById('sigOtpEmailDisplay').textContent = currentProfile.email || '—';
+  document.getElementById('sigOtpRequestBtn').disabled = false;
+  document.getElementById('sigOtpRequestBtn').textContent = '📧 Envoyer le code de vérification';
+  ['sigOtpD1','sigOtpD2','sigOtpD3','sigOtpD4','sigOtpD5','sigOtpD6'].forEach(function(id){ document.getElementById(id).value = ''; });
+
+  document.getElementById('signatureOtpModal').classList.add('open');
+}
+
+function closeSignatureOtp() {
+  document.getElementById('signatureOtpModal').classList.remove('open');
+  if (_otpCountdown) { clearInterval(_otpCountdown); _otpCountdown = null; }
+  _sigContext = null;
+}
+
+// ── Étape 1 : demander l'OTP ─────────────────────────────────
+async function requestSignatureOtp() {
+  var btn = document.getElementById('sigOtpRequestBtn');
+  btn.disabled = true; btn.textContent = '⏳ Envoi en cours...';
+
+  var email = currentProfile.email;
+  if (!email) { showToast('Email introuvable', 'error'); btn.disabled = false; return; }
+
+  var res = await sb.auth.signInWithOtp({ email: email, options: { shouldCreateUser: false } });
+  if (res.error) {
+    showToast('Erreur envoi OTP : ' + res.error.message, 'error');
+    btn.disabled = false; btn.textContent = '📧 Envoyer le code de vérification';
+    return;
+  }
+
+  // Passer à l'étape 2
+  document.getElementById('sigOtpStep1').style.display = 'none';
+  document.getElementById('sigOtpStep2').style.display = '';
+  document.getElementById('sigOtpD1').focus();
+  startOtpCountdown();
+}
+
+function startOtpCountdown() {
+  var remaining = 60;
+  var el = document.getElementById('sigOtpCountdown');
+  if (el) el.textContent = remaining;
+  if (_otpCountdown) clearInterval(_otpCountdown);
+  _otpCountdown = setInterval(function() {
+    remaining--;
+    if (el) el.textContent = remaining;
+    if (remaining <= 0) {
+      clearInterval(_otpCountdown); _otpCountdown = null;
+      if (el) el.textContent = '0';
+    }
+  }, 1000);
+}
+
+function resetOtpToStep1() {
+  if (_otpCountdown) { clearInterval(_otpCountdown); _otpCountdown = null; }
+  document.getElementById('sigOtpStep1').style.display = '';
+  document.getElementById('sigOtpStep2').style.display = 'none';
+  document.getElementById('sigOtpRequestBtn').disabled = false;
+  document.getElementById('sigOtpRequestBtn').textContent = '📧 Envoyer le code de vérification';
+}
+
+// Navigation entre champs OTP
+function otpDigitInput(el, nextId) {
+  el.value = el.value.replace(/\D/g,'');
+  if (el.value && nextId) document.getElementById(nextId).focus();
+}
+function otpDigitBack(e, el, prevId) {
+  if (e.key === 'Backspace' && !el.value && prevId) document.getElementById(prevId).focus();
+}
+
+// ── Étape 2 : vérifier le code ───────────────────────────────
+async function verifySignatureOtp() {
+  var code = ['sigOtpD1','sigOtpD2','sigOtpD3','sigOtpD4','sigOtpD5','sigOtpD6']
+    .map(function(id){ return document.getElementById(id).value; }).join('');
+  if (code.length !== 6) { showToast('Saisissez les 6 chiffres', 'error'); return; }
+
+  var btn = document.getElementById('sigOtpVerifyBtn');
+  btn.disabled = true; btn.textContent = '⏳ Vérification...';
+
+  var res = await sb.auth.verifyOtp({ email: currentProfile.email, token: code, type: 'email' });
+  if (res.error) {
+    showToast('Code invalide ou expiré', 'error');
+    btn.disabled = false; btn.textContent = '✓ Confirmer la signature';
+    return;
+  }
+
+  // Code valide : enregistrer la signature
+  if (_otpCountdown) { clearInterval(_otpCountdown); _otpCountdown = null; }
+  await recordSignature();
+}
+
+// ── Enregistrer la signature en base ─────────────────────────
+async function recordSignature() {
+  if (!_sigContext) return;
+  var now     = new Date();
+  var pad     = function(n){ return String(n).padStart(2,'0'); };
+  var sigDate = now.toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+  var sigTime = pad(now.getHours()) + 'h' + pad(now.getMinutes());
+  var sigId   = 'SIG-' + now.getFullYear() + pad(now.getMonth()+1) + pad(now.getDate()) + '-' + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+
+  var sigEntry = {
+    org_id      : currentProfile.org_id,
+    user_id     : currentUser.id,
+    responsable : currentProfile.full_name || currentProfile.email,
+    email       : currentProfile.email,
+    report_num  : _sigContext.reportNum,
+    report_type : _sigContext.reportType,
+    sig_id      : sigId,
+    method      : 'otp_email',
+    signed_at   : now.toISOString(),
+  };
+
+  await sb.from('report_signatures').insert(sigEntry);
+
+  // Afficher étape 3 succès
+  document.getElementById('sigOtpStep2').style.display = 'none';
+  document.getElementById('sigOtpStep3').style.display = '';
+  document.getElementById('sigOtpSuccessDetail').innerHTML =
+    'Réf. signature : <strong>' + sigId + '</strong><br>'
+    + sigDate + ' à ' + sigTime + '<br>'
+    + '<span style="color:var(--muted)">' + (currentProfile.full_name||currentProfile.email) + '</span>';
+
+  // Callback avec les données de signature
+  if (typeof _sigContext.onSuccess === 'function') {
+    _sigContext.onSuccess({
+      sigId       : sigId,
+      responsable : currentProfile.full_name || currentProfile.email,
+      email       : currentProfile.email,
+      sigDate     : sigDate,
+      sigTime     : sigTime,
+      method      : 'OTP Email vérifié',
+    });
+  }
+}
+
+// ── Bloc HTML "cachet de signature" à injecter dans le rapport ─
+function buildSignatureStampHTML(sig) {
+  if (!sig || sig.bypassed) return '';
+  return '<div class="sig-stamp" style="margin-top:20px;border:2px solid #1E3A5F;border-radius:10px;padding:14px 18px;position:relative;background:#F0F4FF">'
+    + '<div style="position:absolute;top:-10px;left:16px;background:#fff;padding:0 8px;font-size:10px;font-weight:900;color:#1E3A5F;letter-spacing:2px">SIGNÉ ÉLECTRONIQUEMENT</div>'
+    + '<div style="display:flex;gap:6px;align-items:baseline;margin-bottom:4px"><span style="font-size:9px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.5px;width:80px;flex-shrink:0">Signataire</span><span style="font-size:11px;font-weight:600;color:#111827">' + escapeHtml(sig.responsable) + '</span></div>'
+    + '<div style="display:flex;gap:6px;align-items:baseline;margin-bottom:4px"><span style="font-size:9px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.5px;width:80px;flex-shrink:0">Email</span><span style="font-size:11px;color:#374151">' + escapeHtml(sig.email) + '</span></div>'
+    + '<div style="display:flex;gap:6px;align-items:baseline;margin-bottom:4px"><span style="font-size:9px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.5px;width:80px;flex-shrink:0">Date</span><span style="font-size:11px;font-weight:600;color:#111827">' + escapeHtml(sig.sigDate) + ' à ' + escapeHtml(sig.sigTime) + '</span></div>'
+    + '<div style="display:flex;gap:6px;align-items:baseline;margin-bottom:4px"><span style="font-size:9px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.5px;width:80px;flex-shrink:0">Réf.</span><span style="font-family:monospace;font-size:10px;background:#1E3A5F;color:#fff;padding:2px 7px;border-radius:4px">' + escapeHtml(sig.sigId) + '</span></div>'
+    + '<div style="display:flex;gap:6px;align-items:baseline"><span style="font-size:9px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.5px;width:80px;flex-shrink:0">Méthode</span><span style="font-size:10px;background:#DCFCE7;border:1px solid #86EFAC;border-radius:6px;padding:2px 8px;color:#166534;font-weight:700">' + escapeHtml(sig.method) + ' · eIDAS Niveau 1</span></div>'
+    + '</div>';
+}
+
+// ── Wrappers PDF avec signature ───────────────────────────────
+async function generateDuerPDFSigned() {
+  // 1. Générer le HTML du rapport sans l'ouvrir encore
+  var result = await sb.from('duer_entries').select('*').eq('org_id', currentProfile.org_id).order('created_at');
+  var entries = result.data;
+  if (!entries || entries.length === 0) { showToast('Aucune unité à exporter', 'error'); return; }
+  var meta = await buildReportMeta('DUER');
+
+  // 2. Ouvrir signature si activée
+  openSignatureModal(meta.reportNum, 'DUER', meta, async function(sig) {
+    var stampHtml = buildSignatureStampHTML(sig);
+    var html = buildDuerHTML(entries, meta, stampHtml);
+    openReportWindow(html, 'DUER', meta);
+    if (!sig.bypassed) closeSignatureOtp();
+  });
+}
+
+async function generateVgpPDFSigned() {
+  var result  = await sb.from('registre_vgp').select('*').eq('org_id', currentProfile.org_id);
+  var records = result.data || [];
+  var meta    = await buildReportMeta('VGP');
+
+  openSignatureModal(meta.reportNum, 'VGP', meta, async function(sig) {
+    var stampHtml = buildSignatureStampHTML(sig);
+    var html = buildVgpHTML(records, meta, stampHtml);
+    openReportWindow(html, 'VGP', meta);
+    if (!sig.bypassed) closeSignatureOtp();
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+// ADMIN — Gestion des paramètres de signature
+// ══════════════════════════════════════════════════════════════
+
+async function loadAdminSignatures() {
+  // Charger paramètre global
+  var globalRes = await sb.from('signature_settings').select('enabled').eq('scope','global').eq('scope_id','global').single();
+  var globalEnabled = !globalRes.data || globalRes.data.enabled !== false;
+  var chk = document.getElementById('sigGlobalEnabled');
+  var lbl = document.getElementById('sigGlobalStatusLabel');
+  if (chk) { chk.checked = globalEnabled; }
+  if (lbl) { lbl.textContent = globalEnabled ? 'Activé' : 'Désactivé'; lbl.style.color = globalEnabled ? 'var(--success)' : 'var(--danger)'; }
+
+  // Charger organisations
+  var orgsRes = await sb.from('organizations').select('id,name,type').order('name');
+  _allSigOrgs = orgsRes.data || [];
+  var orgSettings = await sb.from('signature_settings').select('scope_id,enabled').eq('scope','org');
+  var orgMap = {};
+  (orgSettings.data||[]).forEach(function(s){ orgMap[s.scope_id] = s.enabled; });
+  _allSigOrgs._settings = orgMap;
+  renderSigOrgList(orgMap);
+
+  // Charger utilisateurs (profiles avec rôles Company/HSE)
+  var usersRes = await sb.from('profiles').select('id,full_name,email,role,org_id').in('role',['company','hse']).order('full_name');
+  _allSigUsers = usersRes.data || [];
+  var userSettings = await sb.from('signature_settings').select('scope_id,enabled').eq('scope','user');
+  var userMap = {};
+  (userSettings.data||[]).forEach(function(s){ userMap[s.scope_id] = s.enabled; });
+  _allSigUsers._settings = userMap;
+  renderSigUserList(userMap);
+
+  // Journal
+  loadSigAuditLog();
+}
+
+function renderSigOrgList(orgMap) {
+  var container = document.getElementById('sigOrgList');
+  if (!container) return;
+  var filter = (document.getElementById('sigOrgSearch') && document.getElementById('sigOrgSearch').value.toLowerCase()) || '';
+  var filtered = _allSigOrgs.filter(function(o){ return !filter || o.name.toLowerCase().indexOf(filter) >= 0; });
+  if (!filtered.length) { container.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px">Aucune organisation trouvée</div>'; return; }
+  container.innerHTML = filtered.map(function(org) {
+    var enabled = orgMap[org.id] !== false;
+    return '<div class="sig-org-row">'
+      + '<div><div style="font-size:13px;font-weight:700">' + escapeHtml(org.name) + '</div>'
+      + '<div style="font-size:11px;color:var(--muted)">' + (org.type||'') + '</div></div>'
+      + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer">'
+      + '<span style="font-size:11px;color:' + (enabled ? 'var(--success)' : 'var(--muted)') + '">' + (enabled ? 'OTP activé' : 'Désactivé') + '</span>'
+      + '<input type="checkbox" class="compliance-checkbox" ' + (enabled ? 'checked' : '') + ' onchange="toggleSigOrg(\'' + org.id + '\',this.checked)">'
+      + '</label></div>';
+  }).join('');
+}
+
+function renderSigUserList(userMap) {
+  var container = document.getElementById('sigUserList');
+  if (!container) return;
+  var filter = (document.getElementById('sigUserSearch') && document.getElementById('sigUserSearch').value.toLowerCase()) || '';
+  var filtered = _allSigUsers.filter(function(u){ return !filter || (u.full_name||'').toLowerCase().indexOf(filter)>=0 || (u.email||'').toLowerCase().indexOf(filter)>=0; });
+  if (!filtered.length) { container.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px">Aucun utilisateur trouvé</div>'; return; }
+  container.innerHTML = filtered.map(function(u) {
+    var enabled = userMap[u.id] !== false;
+    var roleLabels = { hse:'🔵 HSE', company:'🏢 Company' };
+    return '<div class="sig-org-row">'
+      + '<div><div style="font-size:13px;font-weight:700">' + escapeHtml(u.full_name||u.email) + '</div>'
+      + '<div style="font-size:11px;color:var(--muted)">' + escapeHtml(u.email||'') + ' · ' + (roleLabels[u.role]||u.role) + '</div></div>'
+      + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer">'
+      + '<span style="font-size:11px;color:' + (enabled ? 'var(--success)' : 'var(--muted)') + '">' + (enabled ? 'OTP activé' : 'Désactivé') + '</span>'
+      + '<input type="checkbox" class="compliance-checkbox" ' + (enabled ? 'checked' : '') + ' onchange="toggleSigUser(\'' + u.id + '\',this.checked)">'
+      + '</label></div>';
+  }).join('');
+}
+
+function filterSigOrgs() {
+  renderSigOrgList(_allSigOrgs._settings || {});
+}
+function filterSigUsers() {
+  renderSigUserList(_allSigUsers._settings || {});
+}
+
+async function saveSignatureGlobal() {
+  var enabled = document.getElementById('sigGlobalEnabled').checked;
+  document.getElementById('sigGlobalStatusLabel').textContent = enabled ? 'Activé' : 'Désactivé';
+  document.getElementById('sigGlobalStatusLabel').style.color = enabled ? 'var(--success)' : 'var(--danger)';
+  await sb.from('signature_settings').upsert({ scope:'global', scope_id:'global', enabled: enabled }, { onConflict:'scope,scope_id' });
+  var el = document.getElementById('sigGlobalSaveStatus');
+  el.style.display = 'block'; setTimeout(function(){ el.style.display = 'none'; }, 2000);
+}
+
+async function toggleSigOrg(orgId, enabled) {
+  await sb.from('signature_settings').upsert({ scope:'org', scope_id: orgId, enabled: enabled }, { onConflict:'scope,scope_id' });
+  if (_allSigOrgs._settings) _allSigOrgs._settings[orgId] = enabled;
+  showToast(enabled ? 'OTP activé pour cette organisation' : 'OTP désactivé pour cette organisation', 'success');
+}
+
+async function toggleSigUser(userId, enabled) {
+  await sb.from('signature_settings').upsert({ scope:'user', scope_id: userId, enabled: enabled }, { onConflict:'scope,scope_id' });
+  if (_allSigUsers._settings) _allSigUsers._settings[userId] = enabled;
+  showToast(enabled ? 'OTP activé pour cet utilisateur' : 'OTP désactivé pour cet utilisateur', 'success');
+}
+
+async function loadSigAuditLog() {
+  var container = document.getElementById('sigAuditLog');
+  if (!container) return;
+  var res = await sb.from('report_signatures').select('*').order('signed_at', { ascending: false }).limit(20);
+  var sigs = res.data || [];
+  if (!sigs.length) { container.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px">Aucune signature enregistrée</div>'; return; }
+  container.innerHTML = sigs.map(function(s) {
+    var d = new Date(s.signed_at).toLocaleString('fr-FR');
+    return '<div class="sig-log-row" style="margin-bottom:8px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center">'
+      + '<span style="font-weight:700">' + escapeHtml(s.responsable||s.email||'—') + '</span>'
+      + '<span style="font-family:monospace;font-size:10px;background:rgba(30,58,95,.5);color:#93C5FD;padding:2px 6px;border-radius:4px">' + escapeHtml(s.sig_id||'—') + '</span>'
+      + '</div>'
+      + '<div style="color:var(--muted);margin-top:3px">' + escapeHtml(s.report_type||'') + ' · ' + escapeHtml(s.report_num||'') + ' · ' + d + '</div>'
+      + '</div>';
+  }).join('');
 }
 
 </script>
