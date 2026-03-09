@@ -143,19 +143,6 @@ async function uploadManualSignature() {
   showToast('✓ Document signé archivé', 'success');
 }
 
-// ── Patch openSignatureModal — stocker entries/records pour téléchargement ──
-var _origOpenSignatureModal = openSignatureModal;
-openSignatureModal = async function(reportNum, reportType, meta, onSuccess, extraData) {
-  // Stocker les données dans le contexte pour downloadUnsignedReport
-  await _origOpenSignatureModal(reportNum, reportType, meta, onSuccess);
-  if (_sigContext && extraData) {
-    _sigContext._entries = extraData.entries || null;
-    _sigContext._records = extraData.records || null;
-  }
-};
-
-
-
 
 // ── SYSTÈME DE SIGNATURE OTP + WORKFLOW ──────────────────────
 
@@ -195,7 +182,7 @@ async function isSignatureEnabled() {
 }
 
 // ── Ouvrir la modale de signature ────────────────────────────
-async function openSignatureModal(reportNum, reportType, meta, onSuccess) {
+async function openSignatureModal(reportNum, reportType, meta, onSuccess, extraData) {
   var enabled = await isSignatureEnabled();
   if (!enabled) {
     // Signature désactivée : appel direct du callback sans OTP
@@ -204,6 +191,11 @@ async function openSignatureModal(reportNum, reportType, meta, onSuccess) {
   }
 
   _sigContext = { reportNum: reportNum, reportType: reportType, meta: meta, onSuccess: onSuccess };
+  // Stocker les données extra (entries/records) pour downloadUnsignedReport
+  if (extraData) {
+    _sigContext._entries = extraData.entries || null;
+    _sigContext._records = extraData.records || null;
+  }
 
   // Réinitialiser sur l'écran de choix (step 0)
   [0,1,2,3,4,5].forEach(function(i) {
@@ -1042,19 +1034,6 @@ async function uploadManualSignature() {
   goToStep(5);
   showToast('✓ Document signé archivé', 'success');
 }
-
-// ── Patch openSignatureModal — stocker entries/records pour téléchargement ──
-var _origOpenSignatureModal = openSignatureModal;
-openSignatureModal = async function(reportNum, reportType, meta, onSuccess, extraData) {
-  // Stocker les données dans le contexte pour downloadUnsignedReport
-  await _origOpenSignatureModal(reportNum, reportType, meta, onSuccess);
-  if (_sigContext && extraData) {
-    _sigContext._entries = extraData.entries || null;
-    _sigContext._records = extraData.records || null;
-  }
-};
-
-
 
 
 
