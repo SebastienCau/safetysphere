@@ -6951,8 +6951,11 @@ async function renderDuerSection(role) {
       + '<div class="empty-state-text">Aucune unité de travail.<br>Importez un modèle sectoriel ou créez votre première unité.</div></div>';
   }
 
+  // Section rapports générés inline
+  html += '<div id="duer-inline-history-' + role + '" style="margin-top:32px"></div>';
+
   ctn.innerHTML = html;
-}
+  renderInlineReportHistory('DUER', role, 'duer-inline-history-' + role);
 
 function renderDuerCard(e, role) {
   var info = duerCotationInfo(e.gravite || 1, e.probabilite || 1);
@@ -7474,7 +7477,11 @@ async function renderVgpSection(role) {
     });
   });
 
+  // Section rapports générés inline
+  html += '<div id="vgp-inline-history-' + role + '" style="margin-top:32px"></div>';
+
   ctn.innerHTML = html;
+  renderInlineReportHistory('VGP', role, 'vgp-inline-history-' + role);
 }
 
 function buildVgpHTML(records, meta, stampHtml) {
@@ -9343,18 +9350,20 @@ function buildSignatureStampHTML(sig) {
 
 // ── Wrappers PDF avec signature ───────────────────────────────
 async function generateDuerPDFSigned() {
-  // 1. Générer le HTML du rapport sans l'ouvrir encore
   var result = await sb.from('duer_entries').select('*').eq('org_id', currentProfile.org_id).order('created_at');
   var entries = result.data;
   if (!entries || entries.length === 0) { showToast('Aucune unité à exporter', 'error'); return; }
   var meta = await buildReportMeta('DUER');
 
-  // 2. Ouvrir signature si activée
   openSignatureModal(meta.reportNum, 'DUER', meta, async function(sig) {
     var stampHtml = buildSignatureStampHTML(sig);
     var html = buildDuerHTML(entries, meta, stampHtml);
     openReportWindow(html, 'DUER', meta);
     if (!sig.bypassed) closeSignatureOtp();
+    // Rafraîchir l'historique inline après un court délai (temps d'archivage)
+    setTimeout(function() {
+      renderInlineReportHistory('DUER', _conformRole, 'duer-inline-history-' + _conformRole);
+    }, 2500);
   }, { entries: entries });
 }
 
@@ -9368,7 +9377,115 @@ async function generateVgpPDFSigned() {
     var html = buildVgpHTML(records, meta, stampHtml);
     openReportWindow(html, 'VGP', meta);
     if (!sig.bypassed) closeSignatureOtp();
+    setTimeout(function() {
+      renderInlineReportHistory('VGP', _conformRole, 'vgp-inline-history-' + _conformRole);
+    }, 2500);
   }, { records: records });
+}
+
+// ── Historique inline par type de rapport (DUER, VGP, etc.) ──────────────────
+async function renderInlineReportHistory(reportType, role, containerId) {
+  var ctn = document.getElementById(containerId);
+  if (!ctn || !currentProfile || !currentProfile.org_id) return;
+
+  // Charger les archives de ce type (parents uniquement, non supprimés)
+  var res = await sb.from('report_archive')
+    .select('*')
+    .eq('org_id', currentProfile.org_id)
+    .eq('report_type', reportType)
+    .is('parent_id', null)
+    .order('generated_at', { ascending: false })
+    .limit(10);
+
+  var archives = res.data || [];
+
+  if (!archives.length) {
+    ctn.innerHTML = '';
+    return;
+  }
+
+  var typeLabel = reportType === 'DUER' ? 'DUER' : reportType === 'VGP' ? 'Registre VGP' : reportType;
+  var typeIco   = reportType === 'DUER' ? '📄' : reportType === 'VGP' ? '🔧' : '📎';
+
+  var html = '<div style="border-top:1px solid var(--inset-border);padding-top:24px;margin-top:8px">'
+    + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">'
+    + '<div>'
+    + '<div style="font-size:13px;font-weight:700;color:var(--text)">' + typeIco + ' Rapports ' + typeLabel + ' générés</div>'
+    + '<div style="font-size:11px;color:var(--muted);margin-top:2px">Archivés automatiquement à chaque génération · ' + archives.length + ' rapport(s)</div>'
+    + '</div>'
+    + '</div>';
+
+  archives.forEach(function(a) {
+    var genDate  = new Date(a.generated_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' });
+    var genTime  = new Date(a.generated_at).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+    var sigSt    = a.sig_status || 'none';
+
+    // Badge statut signature compact
+    var sigBadge = '';
+    if (sigSt === 'signed_all')    sigBadge = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(34,197,94,.12);color:#4ADE80;border:1px solid rgba(34,197,94,.25)">✅ Tous signés</span>';
+    else if (sigSt === 'pending')  sigBadge = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(245,158,11,.12);color:#FCD34D;border:1px solid rgba(245,158,11,.25)">⏳ ' + (a.sig_signed || 0) + '/' + (a.sig_total || '?') + ' signé(s)</span>';
+    else if (sigSt === 'refused')  sigBadge = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(239,68,68,.12);color:#FCA5A5;border:1px solid rgba(239,68,68,.25)">❌ Refusé</span>';
+    else sigBadge = '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(148,163,184,.1);color:var(--muted);border:1px solid rgba(148,163,184,.2)">Non envoyé</span>';
+
+    // Bouton consulter — ouvre le fichier signé si dispo, sinon l'original
+    var consultUrl  = a.signed_file_url || a.file_url;
+    var consultType = a.signed_file_url ? 'ext' : 'ext';
+    var consultBtn  = consultUrl
+      ? '<button class="btn-sm btn-view" style="padding:5px 12px;font-size:11px" onclick="openReportViewer(\'' + consultUrl + '\',\'' + escapeHtml(a.report_num || typeLabel) + '\',\'ext\',\'' + a.id + '\')">📄 Consulter</button>'
+      : '<span style="font-size:11px;color:var(--muted)">Pas de fichier</span>';
+
+    // Bouton envoi signature — seulement si pas encore envoyé
+    var sendBtn = '';
+    if (!sigSt || sigSt === 'none') {
+      sendBtn = '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.25);color:#FCD34D" '
+        + 'onclick="openSendForSignatureModal(\'' + a.id + '\',\'' + escapeHtml(a.report_num || '') + '\',\'' + reportType + '\',null,null)">✉️ Envoyer pour signature</button>';
+    }
+
+    // Bouton panneau signataires si workflow en cours
+    var sigPanelBtn = '';
+    if (sigSt === 'pending' || sigSt === 'signed_all') {
+      sigPanelBtn = '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.25);color:#A5B4FC" '
+        + 'onclick="openReportViewer(\'' + (consultUrl || '') + '\',\'' + escapeHtml(a.report_num || typeLabel) + '\',\'ext\',\'' + a.id + '\')">👥 Signataires</button>';
+    }
+
+    html += '<div class="archive-card" style="margin-bottom:8px">'
+      + '<div style="font-size:22px;flex-shrink:0">' + typeIco + '</div>'
+      + '<div class="archive-meta" style="flex:1;min-width:0">'
+      + '<div class="archive-ref">' + escapeHtml(a.report_num || '—') + '</div>'
+      + '<div style="font-size:12px;color:var(--text2);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(a.label || typeLabel) + '</div>'
+      + '<div class="archive-sub">' + genDate + ' à ' + genTime + ' · Par : ' + escapeHtml(a.responsable || '—') + '</div>'
+      + '</div>'
+      + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">'
+      + sigBadge
+      + '</div>'
+      + '<div class="archive-actions" style="flex-wrap:wrap">'
+      + consultBtn
+      + sendBtn
+      + sigPanelBtn
+      + '<button class="btn-sm" style="padding:5px 10px;font-size:11px;background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.2);color:#FCA5A5" onclick="inlineArchiveToTrash(\'' + a.id + '\',\'' + reportType + '\',\'' + role + '\')">🗑️</button>'
+      + '</div>'
+      + '</div>';
+  });
+
+  html += '</div>';
+  ctn.innerHTML = html;
+}
+
+// Supprimer vers corbeille depuis l'historique inline
+async function inlineArchiveToTrash(archiveId, reportType, role) {
+  if (!confirm('Déplacer ce rapport vers la corbeille ? (30 jours avant suppression définitive)')) return;
+  var res = await sb.from('report_archive').select('*').eq('id', archiveId).single();
+  if (res.error || !res.data) { showToast('Erreur', 'error'); return; }
+  var entry = Object.assign({}, res.data);
+  delete entry.id;
+  entry.original_id = archiveId;
+  entry.deleted_at  = new Date().toISOString();
+  entry.deleted_by  = currentUser.id;
+  var ins = await sb.from('report_trash').insert(entry);
+  if (ins.error) { showToast('Erreur corbeille : ' + ins.error.message, 'error'); return; }
+  await sb.from('report_archive').delete().eq('id', archiveId);
+  showToast('Rapport déplacé en corbeille', 'success');
+  renderInlineReportHistory(reportType, role, reportType.toLowerCase() + '-inline-history-' + role);
 }
 
 // ══════════════════════════════════════════════════════════════
