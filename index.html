@@ -26,8 +26,9 @@
        v1.3.0 — Module PDP : Plan de Prévention multi-sections (parties, risques coactivité, intervenants, travaux dangereux, EPI, signatures), rapport PDF, workflow séquentiel EU→ST→SPS
        v1.3.1 — Bugfix Historique : correction select PostgREST ('*' uniquement), archiveReport robuste (storage optionnel, erreur visible), meta complet pour PDP. Viewer : panneau signataires latéral avec statut/relance/contact, fetch+blob pour tous les fichiers Supabase Storage. Historique : docs consolidés imbriqués sous parent, corbeille enfants, historique personnel signataires avec corbeille localStorage.
        v1.3.2 — UX Rapports : section "Rapports générés" inline dans les pages DUER et VGP (archivage auto au téléchargement, envoi signature direct, panneau signataires, corbeille). Bugfix renderDuerSection accolade manquante. Archivage robuste : meta.orgName fallback, storage optionnel.
+       v1.4.0 — Conformité & Prévention : chaque onglet (DUER, VGP, FDS, PDP) commence par KPI métier contextuels, puis dernier rapport généré (avec accès direct et envoi signature), puis contenu. Bouton ✏️ Personnaliser par onglet : choix des KPI visibles, réorganisation par drag & drop des 3 blocs (KPI / Dernier rapport / Contenu), masquage individuel. Préférences sauvegardées en localStorage par utilisateur et par onglet.
   -->
-  <meta name="app-version" content="1.3.2" />
+  <meta name="app-version" content="1.4.0" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -756,6 +757,50 @@
     .kpi-live-trend  { font-size:11px; margin-top:6px; }
     body.theme-light .kpi-live-card { background:linear-gradient(135deg,#fff,#F8FAFC); border-color:#E2E8F0; }
     body.theme-light .kpi-live-value { color:var(--orange); }
+
+    /* ══ CONFORM KPI STRIP ══ */
+    .conform-kpi-strip { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; margin-bottom:20px; }
+    .conform-kpi-card { background:var(--inset-bg); border:1px solid var(--inset-border); border-radius:14px; padding:16px 18px; display:flex; flex-direction:column; gap:4px; transition:border-color .2s,transform .15s; }
+    .conform-kpi-card:hover { border-color:rgba(249,115,22,.3); transform:translateY(-1px); }
+    .conform-kpi-top { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+    .conform-kpi-icon { font-size:20px; flex-shrink:0; }
+    .conform-kpi-name { font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
+    .conform-kpi-value { font-family:'Barlow Condensed',sans-serif; font-size:32px; font-weight:900; line-height:1; }
+    .conform-kpi-desc { font-size:11px; color:var(--muted); margin-top:2px; }
+    body.theme-light .conform-kpi-card { background:#fff; border-color:#E2E8F0; }
+    /* ══ CONFORM LAST REPORT STRIP ══ */
+    .conform-last-report { background:var(--inset-bg); border:1px solid var(--inset-border); border-left:3px solid var(--orange); border-radius:14px; padding:14px 18px; display:flex; align-items:center; gap:14px; margin-bottom:20px; flex-wrap:wrap; }
+    .conform-last-report-label { font-size:10px; font-weight:700; color:var(--orange); text-transform:uppercase; letter-spacing:.8px; flex-shrink:0; }
+    .conform-last-report-info { flex:1; min-width:0; }
+    .conform-last-report-ref { font-family:monospace; font-size:11px; font-weight:700; color:#93C5FD; }
+    .conform-last-report-sub { font-size:11px; color:var(--muted); margin-top:2px; }
+    .conform-last-report-actions { display:flex; gap:6px; flex-shrink:0; flex-wrap:wrap; }
+    body.theme-light .conform-last-report { background:#fff; border-color:#E2E8F0; border-left-color:var(--orange); }
+    body.theme-light .conform-last-report-ref { color:#1D4ED8; }
+    /* ══ CONFORM PERSONALIZE PANEL ══ */
+    .conform-perso-panel { background:var(--inset-bg); border:1px solid var(--inset-border); border-radius:16px; padding:20px; margin-bottom:24px; animation:fadeInDown .2s ease; }
+    @keyframes fadeInDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+    .conform-perso-title { font-size:13px; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+    .conform-perso-section-label { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.6px; margin-bottom:8px; }
+    .conform-perso-blocks { display:flex; flex-direction:column; gap:6px; margin-bottom:20px; }
+    .conform-perso-block { display:flex; align-items:center; gap:10px; padding:10px 14px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:10px; cursor:grab; user-select:none; transition:border-color .15s,background .15s; }
+    .conform-perso-block.drag-over-block { border-color:var(--orange); background:rgba(249,115,22,.08); }
+    .conform-perso-block-handle { font-size:16px; color:var(--muted); cursor:grab; }
+    .conform-perso-block-name { flex:1; font-size:13px; font-weight:600; }
+    .conform-perso-block-toggle { flex-shrink:0; cursor:pointer; font-size:13px; padding:3px 10px; border-radius:20px; border:1px solid rgba(255,255,255,.15); background:rgba(255,255,255,.06); color:var(--muted); transition:all .15s; }
+    .conform-perso-block-toggle.on { background:rgba(34,197,94,.12); border-color:rgba(34,197,94,.3); color:#86EFAC; }
+    .conform-kpi-checkgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px; }
+    .conform-kpi-check { display:flex; align-items:center; gap:10px; padding:10px 14px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:10px; cursor:pointer; transition:border-color .15s,background .15s; }
+    .conform-kpi-check:hover { border-color:rgba(249,115,22,.3); }
+    .conform-kpi-check.active { border-color:rgba(249,115,22,.5); background:rgba(249,115,22,.07); }
+    .conform-kpi-check-icon { font-size:18px; flex-shrink:0; }
+    .conform-kpi-check-lbl { flex:1; min-width:0; }
+    .conform-kpi-check-name { font-size:12px; font-weight:700; }
+    .conform-kpi-check-desc { font-size:10px; color:var(--muted); }
+    .conform-kpi-check-tick { font-size:14px; flex-shrink:0; color:var(--muted); }
+    .conform-kpi-check.active .conform-kpi-check-tick { color:#86EFAC; }
+    body.theme-light .conform-perso-panel { background:#fff; border-color:#E2E8F0; }
+    body.theme-light .conform-perso-block, body.theme-light .conform-kpi-check { background:#F8FAFC; border-color:#E2E8F0; }
   </style>
 </head>
 <body>
@@ -805,7 +850,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v1.3.2</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v1.4.0</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -6919,44 +6964,34 @@ async function renderDuerSection(role) {
   var result = await sb.from('duer_entries').select('*').eq('org_id', currentProfile.org_id).order('created_at');
   var entries = result.data;
   var err = result.error;
-
-  if (err) {
-    ctn.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Erreur : ' + escapeHtml(err.message) + '</div></div>';
-    return;
-  }
+  if (err) { ctn.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Erreur : ' + escapeHtml(err.message) + '</div></div>'; return; }
 
   var hasDuer = entries && entries.length > 0;
-  var totalEntries = hasDuer ? entries.length : 0;
-  var critiques = hasDuer ? entries.filter(function(e) { return e.gravite * e.probabilite >= 12; }).length : 0;
-  var eleves    = hasDuer ? entries.filter(function(e) { var c = e.gravite * e.probabilite; return c >= 6 && c < 12; }).length : 0;
-
-  var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">'
-    + '<div><div class="section-title" style="margin:0">Document Unique d\'Évaluation des Risques</div>'
-    + '<div style="font-size:12px;color:var(--muted);margin-top:4px">Obligation légale — Art. R4121-1 du Code du Travail</div></div>'
-    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-    + '<button class="btn-sm btn-view" onclick="openDuerTemplateModal(\'' + role + '\')">📋 Importer un modèle secteur</button>'
+  var actionBtns = '<button class="btn-sm btn-view" onclick="openDuerTemplateModal(\'' + role + '\')">📋 Importer un modèle</button>'
     + '<button class="btn-sm btn-upload" onclick="openDuerModal(null,\'' + role + '\')">➕ Ajouter une unité</button>'
-    + (hasDuer ? '<button class="btn-sm" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#A5B4FC" onclick="generateDuerPDFSigned()">📥 Télécharger le rapport</button>' : '')
-    + '</div></div>';
+    + (hasDuer ? '<button class="btn-sm" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#A5B4FC" onclick="generateDuerPDFSigned()">📥 Rapport</button>' : '');
 
-  if (hasDuer) {
-    html += '<div class="stats-grid" style="margin-bottom:24px">'
-      + '<div class="stat-card"><div class="stat-icon">📋</div><div class="stat-value">' + totalEntries + '</div><div class="stat-label">Unités de travail</div></div>'
-      + '<div class="stat-card"><div class="stat-icon">🔴</div><div class="stat-value">' + critiques + '</div><div class="stat-label">Risques critiques</div></div>'
-      + '<div class="stat-card"><div class="stat-icon">🟡</div><div class="stat-value">' + eleves + '</div><div class="stat-label">Risques élevés</div></div>'
-      + '<div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value">' + (totalEntries - critiques - eleves) + '</div><div class="stat-label">Risques maîtrisés</div></div>'
-      + '</div>';
-    entries.forEach(function(e) { html += renderDuerCard(e, role); });
-  } else {
-    html += '<div class="empty-state"><div class="empty-state-icon">📄</div>'
-      + '<div class="empty-state-text">Aucune unité de travail.<br>Importez un modèle sectoriel ou créez votre première unité.</div></div>';
+  var ids = buildConformSectionHeader('duer', role, 'DUER', actionBtns,
+    "Document Unique d\'Évaluation des Risques",
+    'Obligation légale — Art. R4121-1 du Code du Travail');
+  ctn.innerHTML = ids.html;
+
+  renderConformKpiStrip('duer', ids.kpiId);
+  renderConformLastReport('DUER', ids.lastRptId);
+
+  var cctn = document.getElementById(ids.contentId);
+  if (cctn) {
+    var html = '';
+    if (hasDuer) {
+      entries.forEach(function(e) { html += renderDuerCard(e, role); });
+    } else {
+      html = '<div class="empty-state"><div class="empty-state-icon">📄</div>'
+        + '<div class="empty-state-text">Aucune unité de travail.<br>Importez un modèle sectoriel ou créez votre première unité.</div></div>';
+    }
+    html += '<div id="duer-inline-history-' + role + '" style="margin-top:32px"></div>';
+    cctn.innerHTML = html;
+    renderInlineReportHistory('DUER', role, 'duer-inline-history-' + role);
   }
-
-  // Section rapports générés inline
-  html += '<div id="duer-inline-history-' + role + '" style="margin-top:32px"></div>';
-
-  ctn.innerHTML = html;
-  renderInlineReportHistory('DUER', role, 'duer-inline-history-' + role);
 }
 
 function renderDuerCard(e, role) {
@@ -7415,75 +7450,54 @@ async function renderVgpSection(role) {
     return 'ok';
   }
 
-  var critCount = 0, alertCount = 0, okCount = 0, npCount = 0;
-  VGP_EQUIPEMENTS.forEach(function(eq) {
-    var r = records.find(function(x) { return x.equipement === eq.key; });
-    var s = getVgpStatus(eq, r);
-    if (s === 'critique') critCount++;
-    else if (s === 'alerte') alertCount++;
-    else if (s === 'ok') okCount++;
-    else npCount++;
-  });
+  var actionBtns = '<button class="btn-sm" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#A5B4FC" onclick="generateVgpPDFSigned()">📥 Rapport</button>';
+  var ids = buildConformSectionHeader('vgp', role, 'VGP', actionBtns,
+    'Registre de Sécurité &amp; Vérifications Périodiques',
+    'Contrôles réglementaires obligatoires avec alertes J-30');
+  ctn.innerHTML = ids.html;
 
-  var hasSomeRecord = records.length > 0;
-  var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">'
-    + '<div><div class="section-title" style="margin:0">Registre de Sécurité &amp; Vérifications Périodiques</div>'
-    + '<div style="font-size:12px;color:var(--muted);margin-top:4px">Contrôles réglementaires obligatoires avec alertes J-30</div></div>'
-    + '<button class="btn-sm" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#A5B4FC" onclick="generateVgpPDFSigned()">📥 Télécharger le rapport</button>'
-    + '</div>'
-    + '<div class="stats-grid" style="margin-bottom:24px">'
-    + '<div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value">' + okCount + '</div><div class="stat-label">À jour</div></div>'
-    + '<div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value">' + alertCount + '</div><div class="stat-label">Échéance &lt; 30j</div></div>'
-    + '<div class="stat-card"><div class="stat-icon">🔴</div><div class="stat-value">' + critCount + '</div><div class="stat-label">En retard</div></div>'
-    + '<div class="stat-card"><div class="stat-icon">⏸️</div><div class="stat-value">' + npCount + '</div><div class="stat-label">Non planifiés</div></div>'
-    + '</div>';
+  renderConformKpiStrip('vgp', ids.kpiId);
+  renderConformLastReport('VGP', ids.lastRptId);
 
-  var cats = [];
-  VGP_EQUIPEMENTS.forEach(function(e) { if (cats.indexOf(e.categorie) < 0) cats.push(e.categorie); });
-
-  cats.forEach(function(cat) {
-    html += '<div class="section-title">' + escapeHtml(cat) + '</div>';
-    var eqs = VGP_EQUIPEMENTS.filter(function(e) { return e.categorie === cat; });
-    eqs.forEach(function(eq) {
-      var record   = records.find(function(r) { return r.equipement === eq.key; });
-      var status   = getVgpStatus(eq, record);
-      var iconCls  = 'vgp-icon-' + (status === 'non_planifie' ? 'np' : status);
-      var badgeCls = 'vgp-badge-' + (status === 'non_planifie' ? 'np' : status);
-      var badgeTxt = status === 'ok' ? '✅ À jour' : status === 'alerte' ? '⚠️ Échéance proche' : status === 'critique' ? '🔴 En retard' : '⏸️ Non planifié';
-
-      var dateInfo = 'Jamais vérifié';
-      var prochaineInfo = '';
-      if (record && record.derniere_verification) {
-        var d = new Date(record.derniere_verification);
-        var p = new Date(d); p.setMonth(p.getMonth() + eq.periodicite);
-        var daysLeft = Math.ceil((p - today) / 86400000);
-        dateInfo = 'Dernière : ' + d.toLocaleDateString('fr-FR');
-        prochaineInfo = ' — Prochaine : ' + p.toLocaleDateString('fr-FR') + (daysLeft > 0 ? ' (' + daysLeft + 'j)' : ' (DÉPASSÉ)');
-      }
-
-      var rapportBtn = (record && record.rapport_url)
-        ? '<button class="btn-sm btn-view" style="margin-top:8px" onclick="window.open(\'' + escapeHtml(record.rapport_url) + '\',\'_blank\')">📄 Voir le rapport</button>'
-        : '';
-
-      html += '<div class="vgp-card">'
-        + '<div class="vgp-icon ' + iconCls + '">' + eq.icon + '</div>'
-        + '<div class="vgp-info">'
-        + '<div class="vgp-name">' + escapeHtml(eq.label) + '</div>'
-        + '<div class="vgp-meta">' + escapeHtml(dateInfo + prochaineInfo) + ' · Périodicité : ' + eq.periodicite + ' mois · ' + eq.legalRef + '</div>'
-        + rapportBtn
-        + '</div>'
-        + '<div class="vgp-status">'
-        + '<span class="vgp-badge ' + badgeCls + '">' + badgeTxt + '</span>'
-        + '<button class="btn-sm btn-upload" onclick="openVgpModal(\'' + eq.key + '\',\'' + role + '\')">📅 Saisir vérif.</button>'
-        + '</div></div>';
+  var cctn = document.getElementById(ids.contentId);
+  if (cctn) {
+    var html = '';
+    var cats = [];
+    VGP_EQUIPEMENTS.forEach(function(e) { if (cats.indexOf(e.categorie) < 0) cats.push(e.categorie); });
+    cats.forEach(function(cat) {
+      html += '<div class="section-title">' + escapeHtml(cat) + '</div>';
+      VGP_EQUIPEMENTS.filter(function(e) { return e.categorie === cat; }).forEach(function(eq) {
+        var record   = records.find(function(r) { return r.equipement === eq.key; });
+        var status   = getVgpStatus(eq, record);
+        var iconCls  = 'vgp-icon-' + (status === 'non_planifie' ? 'np' : status);
+        var badgeCls = 'vgp-badge-' + (status === 'non_planifie' ? 'np' : status);
+        var badgeTxt = status === 'ok' ? '✅ À jour' : status === 'alerte' ? '⚠️ Échéance proche' : status === 'critique' ? '🔴 En retard' : '⏸️ Non planifié';
+        var dateInfo = 'Jamais vérifié';
+        var prochaineInfo = '';
+        if (record && record.derniere_verification) {
+          var d = new Date(record.derniere_verification);
+          var p = new Date(d); p.setMonth(p.getMonth() + eq.periodicite);
+          var daysLeft = Math.ceil((p - today) / 86400000);
+          dateInfo = 'Dernière : ' + d.toLocaleDateString('fr-FR');
+          prochaineInfo = ' — Prochaine : ' + p.toLocaleDateString('fr-FR') + (daysLeft > 0 ? ' (' + daysLeft + 'j)' : ' (DÉPASSÉ)');
+        }
+        var rapportBtn = (record && record.rapport_url)
+          ? '<button class="btn-sm btn-view" style="margin-top:8px" onclick="window.open(\'' + escapeHtml(record.rapport_url) + '\',\'_blank\')">📄 Voir le rapport</button>' : '';
+        html += '<div class="vgp-card">'
+          + '<div class="vgp-icon ' + iconCls + '">' + eq.icon + '</div>'
+          + '<div class="vgp-info">'
+          + '<div class="vgp-name">' + escapeHtml(eq.label) + '</div>'
+          + '<div class="vgp-meta">' + escapeHtml(dateInfo + prochaineInfo) + ' · Périodicité : ' + eq.periodicite + ' mois · ' + eq.legalRef + '</div>'
+          + rapportBtn + '</div>'
+          + '<div class="vgp-status"><span class="vgp-badge ' + badgeCls + '">' + badgeTxt + '</span>'
+          + '<button class="btn-sm btn-upload" onclick="openVgpModal(\'' + eq.key + '\',\'' + role + '\')">📅 Saisir vérif.</button>'
+          + '</div></div>';
+      });
     });
-  });
-
-  // Section rapports générés inline
-  html += '<div id="vgp-inline-history-' + role + '" style="margin-top:32px"></div>';
-
-  ctn.innerHTML = html;
-  renderInlineReportHistory('VGP', role, 'vgp-inline-history-' + role);
+    html += '<div id="vgp-inline-history-' + role + '" style="margin-top:32px"></div>';
+    cctn.innerHTML = html;
+    renderInlineReportHistory('VGP', role, 'vgp-inline-history-' + role);
+  }
 }
 
 function buildVgpHTML(records, meta, stampHtml) {
@@ -7651,54 +7665,54 @@ async function renderFdsSection(role) {
 
   var result = await sb.from('fds_library').select('*').eq('org_id', currentProfile.org_id).order('produit');
   var fiches = result.data;
-  if (result.error) {
-    ctn.innerHTML = '<div class="empty-state"><div class="empty-state-text">Erreur : ' + escapeHtml(result.error.message) + '</div></div>';
-    return;
-  }
+  if (result.error) { ctn.innerHTML = '<div class="empty-state"><div class="empty-state-text">Erreur : ' + escapeHtml(result.error.message) + '</div></div>'; return; }
 
   var today   = new Date();
   var limit3y = new Date(); limit3y.setFullYear(limit3y.getFullYear() - 3);
 
   function getFdsStatus(f) {
-    if (!f.fds_url)      return { label:'⚠️ FDS manquante',         badge:'vgp-badge-critique' };
-    if (!f.version_date) return { label:'📅 Date inconnue',          badge:'vgp-badge-alerte' };
+    if (!f.fds_url)      return { label:'⚠️ FDS manquante', badge:'vgp-badge-critique' };
+    if (!f.version_date) return { label:'📅 Date inconnue',  badge:'vgp-badge-alerte' };
     if (new Date(f.version_date) < limit3y) return { label:'♻️ À renouveler (> 3 ans)', badge:'vgp-badge-alerte' };
-    return                                  { label:'✅ À jour',                        badge:'vgp-badge-ok' };
+    return { label:'✅ À jour', badge:'vgp-badge-ok' };
   }
 
-  var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">'
-    + '<div><div class="section-title" style="margin:0">Bibliothèque des Fiches de Données de Sécurité</div>'
-    + '<div style="font-size:12px;color:var(--muted);margin-top:4px">Produits chimiques utilisés sur site — Règlement REACH · Directive 67/548/CE</div></div>'
-    + '<button class="btn-sm btn-upload" onclick="openFdsModal(null)">➕ Ajouter un produit</button>'
-    + '</div>';
+  var actionBtns = '<button class="btn-sm btn-upload" onclick="openFdsModal(null)">➕ Ajouter un produit</button>';
+  var ids = buildConformSectionHeader('fds', role, 'FDS', actionBtns,
+    'Bibliothèque des Fiches de Données de Sécurité',
+    'Produits chimiques utilisés sur site — Règlement REACH · Directive 67/548/CE');
+  ctn.innerHTML = ids.html;
 
-  if (fiches && fiches.length > 0) {
-    fiches.forEach(function(f) {
-      var st = getFdsStatus(f);
-      var vd = f.version_date ? new Date(f.version_date).toLocaleDateString('fr-FR') : 'Date inconnue';
-      var meta = (f.fournisseur ? escapeHtml(f.fournisseur) + ' · ' : '') + 'Version : ' + vd;
-      var fdsBtn = f.fds_url
-        ? '<button class="btn-sm btn-view" onclick="window.open(\'' + escapeHtml(f.fds_url) + '\',\'_blank\')">📄 FDS</button>'
-        : '';
-      html += '<div class="fds-card">'
-        + '<div class="fds-icon">⚗️</div>'
-        + '<div class="fds-info">'
-        + '<div class="fds-name">' + escapeHtml(f.produit) + '</div>'
-        + '<div class="fds-meta">' + meta + '</div>'
-        + '<div style="margin-top:6px"><span class="vgp-badge ' + st.badge + '" style="font-size:11px">' + st.label + '</span></div>'
-        + '</div>'
-        + '<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">'
-        + fdsBtn
-        + '<button class="btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);color:#A5B4FC" onclick="openFdsModal(\'' + f.id + '\')">✏️</button>'
-        + '<button class="btn-sm btn-reject" onclick="deleteFdsEntry(\'' + f.id + '\')">🗑</button>'
-        + '</div></div>';
-    });
-  } else {
-    html += '<div class="empty-state"><div class="empty-state-icon">⚗️</div>'
-      + '<div class="empty-state-text">Aucun produit chimique référencé.<br>Ajoutez vos premiers produits et uploadez leurs FDS.</div></div>';
+  renderConformKpiStrip('fds', ids.kpiId);
+
+  var cctn = document.getElementById(ids.contentId);
+  if (cctn) {
+    var html = '';
+    if (fiches && fiches.length > 0) {
+      fiches.forEach(function(f) {
+        var st  = getFdsStatus(f);
+        var vd  = f.version_date ? new Date(f.version_date).toLocaleDateString('fr-FR') : 'Date inconnue';
+        var meta = (f.fournisseur ? escapeHtml(f.fournisseur) + ' · ' : '') + 'Version : ' + vd;
+        var fdsBtn = f.fds_url ? '<button class="btn-sm btn-view" onclick="window.open(\'' + escapeHtml(f.fds_url) + '\',\'_blank\')">📄 FDS</button>' : '';
+        html += '<div class="fds-card">'
+          + '<div class="fds-icon">⚗️</div>'
+          + '<div class="fds-info">'
+          + '<div class="fds-name">' + escapeHtml(f.produit) + '</div>'
+          + '<div class="fds-meta">' + meta + '</div>'
+          + '<div style="margin-top:6px"><span class="vgp-badge ' + st.badge + '" style="font-size:11px">' + st.label + '</span></div>'
+          + '</div>'
+          + '<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">'
+          + fdsBtn
+          + '<button class="btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);color:#A5B4FC" onclick="openFdsModal(\'' + f.id + '\')">✏️</button>'
+          + '<button class="btn-sm btn-reject" onclick="deleteFdsEntry(\'' + f.id + '\')">🗑</button>'
+          + '</div></div>';
+      });
+    } else {
+      html = '<div class="empty-state"><div class="empty-state-icon">⚗️</div>'
+        + '<div class="empty-state-text">Aucun produit chimique référencé.<br>Ajoutez vos premiers produits et uploadez leurs FDS.</div></div>';
+    }
+    cctn.innerHTML = html;
   }
-
-  ctn.innerHTML = html;
 }
 
 async function openFdsModal(fdsId) {
@@ -7795,87 +7809,68 @@ async function renderPdpSection(role) {
 
   var result = await sb.from('pdp_entries').select('*').eq('org_id', currentProfile.org_id).order('created_at', { ascending: false });
   var pdps = result.data;
-  if (result.error) {
-    ctn.innerHTML = '<div class="empty-state"><div class="empty-state-text">Erreur : ' + escapeHtml(result.error.message) + '</div></div>';
-    return;
-  }
+  if (result.error) { ctn.innerHTML = '<div class="empty-state"><div class="empty-state-text">Erreur : ' + escapeHtml(result.error.message) + '</div></div>'; return; }
 
   var today = new Date();
-
   function getPdpStatus(p) {
     if (!p.date_debut || !p.date_fin) return { label:'📋 En préparation', badge:'vgp-badge-np' };
-    var debut = new Date(p.date_debut);
-    var fin   = new Date(p.date_fin);
-    if (today < debut)  return { label:'⏳ À venir',      badge:'vgp-badge-alerte' };
-    if (today <= fin)   return { label:'🟢 En cours',     badge:'vgp-badge-ok' };
-    return                      { label:'✅ Terminé',      badge:'vgp-badge-np' };
+    var debut = new Date(p.date_debut), fin = new Date(p.date_fin);
+    if (today < debut)  return { label:'⏳ À venir',   badge:'vgp-badge-alerte' };
+    if (today <= fin)   return { label:'🟢 En cours',  badge:'vgp-badge-ok' };
+    return                     { label:'✅ Terminé',   badge:'vgp-badge-np' };
   }
 
-  var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">'
-    + '<div><div class="section-title" style="margin:0">Plans de Prévention</div>'
-    + '<div style="font-size:12px;color:var(--muted);margin-top:4px">Obligation légale EU/ST — coactivité ≥ 400h/an ou travaux dangereux · Art. R4512-6 Code du Travail</div></div>'
-    + '<button class="btn-sm btn-upload" onclick="openPdpModal(null)">➕ Nouveau PdP</button>'
-    + '</div>';
+  var actionBtns = '<button class="btn-sm btn-upload" onclick="openPdpModal(null)">➕ Nouveau PdP</button>';
+  var ids = buildConformSectionHeader('pdp', role, 'PDP', actionBtns,
+    'Plans de Prévention',
+    'Obligation légale EU/ST — coactivité ≥ 400h/an ou travaux dangereux · Art. R4512-6 Code du Travail');
+  ctn.innerHTML = ids.html;
 
-  // Stat cards
-  var total    = pdps ? pdps.length : 0;
-  var enCours  = pdps ? pdps.filter(function(p) { var s = getPdpStatus(p); return s.label.includes('cours'); }).length : 0;
-  var aVenir   = pdps ? pdps.filter(function(p) { var s = getPdpStatus(p); return s.label.includes('venir'); }).length : 0;
-  var termines = pdps ? pdps.filter(function(p) { var s = getPdpStatus(p); return s.label.includes('Terminé'); }).length : 0;
+  renderConformKpiStrip('pdp', ids.kpiId);
+  renderConformLastReport('PDP', ids.lastRptId);
 
-  html += '<div class="stats-grid" style="margin-bottom:24px">'
-    + '<div class="stat-card"><div class="stat-icon">📋</div><div class="stat-value">' + total + '</div><div class="stat-label">Total PdP</div></div>'
-    + '<div class="stat-card"><div class="stat-icon" style="color:var(--success)">🟢</div><div class="stat-value" style="color:var(--success)">' + enCours + '</div><div class="stat-label">En cours</div></div>'
-    + '<div class="stat-card"><div class="stat-icon" style="color:var(--warn)">⏳</div><div class="stat-value" style="color:var(--warn)">' + aVenir + '</div><div class="stat-label">À venir</div></div>'
-    + '<div class="stat-card"><div class="stat-icon" style="color:var(--muted)">✅</div><div class="stat-value" style="color:var(--muted)">' + termines + '</div><div class="stat-label">Terminés</div></div>'
-    + '</div>';
-
-  if (pdps && pdps.length > 0) {
-    pdps.forEach(function(p) {
-      var st = getPdpStatus(p);
-      var dateRange = (p.date_debut ? new Date(p.date_debut).toLocaleDateString('fr-FR') : '?')
-                    + ' → ' + (p.date_fin ? new Date(p.date_fin).toLocaleDateString('fr-FR') : '?');
-      var risques = p.risques ? (typeof p.risques === 'string' ? JSON.parse(p.risques) : p.risques) : [];
-      var travDangereux = p.travaux_dangereux ? (typeof p.travaux_dangereux === 'string' ? JSON.parse(p.travaux_dangereux) : p.travaux_dangereux) : [];
-
-      var riskTags = risques.slice(0, 3).map(function(r) {
-        return '<span class="pdp-risque-tag">⚠️ ' + escapeHtml(r.description || r) + '</span>';
-      }).join('');
-      if (risques.length > 3) riskTags += '<span class="pdp-risque-tag" style="background:rgba(148,163,184,.08);color:var(--muted);border-color:rgba(148,163,184,.2)">+' + (risques.length - 3) + '</span>';
-
-      var tdTags = travDangereux.map(function(td) {
-        return '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:rgba(239,68,68,.08);color:#FCA5A5;border:1px solid rgba(239,68,68,.15);margin:2px">🔥 ' + escapeHtml(td) + '</span>';
-      }).join('');
-
-      html += '<div class="pdp-card">'
-        + '<div class="pdp-card-header">'
-        + '<div class="pdp-card-icon">📋</div>'
-        + '<div class="pdp-card-title">'
-        + '<div class="pdp-card-name">' + escapeHtml(p.nature_travaux || 'PdP sans titre') + '</div>'
-        + '<div class="pdp-card-meta">🏭 ' + escapeHtml(p.site || '') + ' · 📅 ' + dateRange + (p.duree_h ? ' · ⏱ ' + p.duree_h + 'h' : '') + '</div>'
-        + '</div>'
-        + '<span class="vgp-badge ' + st.badge + '">' + st.label + '</span>'
-        + '</div>'
-        + '<div class="pdp-card-parties">'
-        + '<div class="pdp-party"><span class="pdp-party-label">🏭 EU :</span><span class="pdp-party-val">' + escapeHtml(p.eu_nom || '—') + '</span></div>'
-        + '<div class="pdp-party"><span class="pdp-party-label">🤝 ST :</span><span class="pdp-party-val">' + escapeHtml(p.st_nom || '—') + '</span></div>'
-        + (p.sps_nom ? '<div class="pdp-party"><span class="pdp-party-label">👷 SPS :</span><span class="pdp-party-val">' + escapeHtml(p.sps_nom) + '</span></div>' : '')
-        + '</div>'
-        + (riskTags ? '<div style="margin-top:8px">' + riskTags + '</div>' : '')
-        + (tdTags ? '<div style="margin-top:6px">' + tdTags + '</div>' : '')
-        + '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'
-        + '<button class="btn-sm" style="background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.25);color:var(--orange)" onclick="generatePdpReport(\'' + p.id + '\')">📄 Rapport PDF</button>'
-        + '<button class="btn-sm btn-view" onclick="openPdpModal(\'' + p.id + '\')">✏️ Modifier</button>'
-        + '<button class="btn-sm btn-reject" onclick="deletePdp(\'' + p.id + '\')">🗑 Supprimer</button>'
-        + '</div>'
-        + '</div>';
-    });
-  } else {
-    html += '<div class="empty-state"><div class="empty-state-icon">📋</div>'
-      + '<div class="empty-state-text">Aucun Plan de Prévention enregistré.<br>Créez votre premier PdP pour une intervention extérieure.</div></div>';
+  var cctn = document.getElementById(ids.contentId);
+  if (cctn) {
+    var html = '';
+    if (pdps && pdps.length > 0) {
+      pdps.forEach(function(p) {
+        var st = getPdpStatus(p);
+        var dateRange = (p.date_debut ? new Date(p.date_debut).toLocaleDateString('fr-FR') : '?')
+                      + ' → ' + (p.date_fin ? new Date(p.date_fin).toLocaleDateString('fr-FR') : '?');
+        var risques = p.risques ? (typeof p.risques === 'string' ? JSON.parse(p.risques) : p.risques) : [];
+        var travDangereux = p.travaux_dangereux ? (typeof p.travaux_dangereux === 'string' ? JSON.parse(p.travaux_dangereux) : p.travaux_dangereux) : [];
+        var riskTags = risques.slice(0, 3).map(function(r) { return '<span class="pdp-risque-tag">⚠️ ' + escapeHtml(r.description || r) + '</span>'; }).join('');
+        if (risques.length > 3) riskTags += '<span class="pdp-risque-tag" style="background:rgba(148,163,184,.08);color:var(--muted);border-color:rgba(148,163,184,.2)">+' + (risques.length - 3) + '</span>';
+        var tdTags = travDangereux.map(function(td) { return '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:rgba(239,68,68,.08);color:#FCA5A5;border:1px solid rgba(239,68,68,.15);margin:2px">🔥 ' + escapeHtml(td) + '</span>'; }).join('');
+        html += '<div class="pdp-card">'
+          + '<div class="pdp-card-header">'
+          + '<div class="pdp-card-icon">📋</div>'
+          + '<div class="pdp-card-title">'
+          + '<div class="pdp-card-name">' + escapeHtml(p.nature_travaux || 'PdP sans titre') + '</div>'
+          + '<div class="pdp-card-meta">🏭 ' + escapeHtml(p.site || '') + ' · 📅 ' + dateRange + (p.duree_h ? ' · ⏱ ' + p.duree_h + 'h' : '') + '</div>'
+          + '</div>'
+          + '<span class="vgp-badge ' + st.badge + '">' + st.label + '</span>'
+          + '</div>'
+          + '<div class="pdp-card-parties">'
+          + '<div class="pdp-party"><span class="pdp-party-label">🏭 EU :</span><span class="pdp-party-val">' + escapeHtml(p.eu_nom || '—') + '</span></div>'
+          + '<div class="pdp-party"><span class="pdp-party-label">🤝 ST :</span><span class="pdp-party-val">' + escapeHtml(p.st_nom || '—') + '</span></div>'
+          + (p.sps_nom ? '<div class="pdp-party"><span class="pdp-party-label">👷 SPS :</span><span class="pdp-party-val">' + escapeHtml(p.sps_nom) + '</span></div>' : '')
+          + '</div>'
+          + (riskTags ? '<div style="margin-top:8px">' + riskTags + '</div>' : '')
+          + (tdTags ? '<div style="margin-top:6px">' + tdTags + '</div>' : '')
+          + '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'
+          + '<button class="btn-sm" style="background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.25);color:var(--orange)" onclick="generatePdpReport(\'' + p.id + '\')">📄 Rapport PDF</button>'
+          + '<button class="btn-sm btn-view" onclick="openPdpModal(\'' + p.id + '\')">✏️ Modifier</button>'
+          + '<button class="btn-sm btn-reject" onclick="deletePdp(\'' + p.id + '\')">🗑 Supprimer</button>'
+          + '</div>'
+          + '</div>';
+      });
+    } else {
+      html = '<div class="empty-state"><div class="empty-state-icon">📋</div>'
+        + '<div class="empty-state-text">Aucun Plan de Prévention enregistré.<br>Créez votre premier PdP pour une intervention extérieure.</div></div>';
+    }
+    cctn.innerHTML = html;
   }
-
-  ctn.innerHTML = html;
 }
 
 // ── Modale PDP ────────────────────────────────────────────────
@@ -11092,6 +11087,328 @@ async function submitUploadScan() {
   closeUploadScanModal();
   showToast('✓ Scan signé archivé et rattaché', 'success');
   if (typeof renderHistoriqueSection === 'function') renderHistoriqueSection(_conformRole);
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// CONFORM SECTIONS — KPI + LAST REPORT + LAYOUT PERSONALIZATION
+// ══════════════════════════════════════════════════════════════
+
+// ── Catalogue KPI par onglet conformité ──────────────────────
+const CONFORM_KPI = {
+  duer: [
+    { id:'cd-unites',    icon:'📋', color:'#6366F1', name:'Unités de travail',  desc:'Unités dans le DUER',
+      fetch: async function() { var r = await sb.from('duer_entries').select('id',{count:'exact'}).eq('org_id',currentProfile.org_id); return r.count||0; } },
+    { id:'cd-critiques', icon:'🔴', color:'#EF4444', name:'Risques critiques',  desc:'Criticité ≥ 12 (G×P)',
+      fetch: async function() { var r = await sb.from('duer_entries').select('gravite,probabilite').eq('org_id',currentProfile.org_id); return (r.data||[]).filter(function(e){return e.gravite*e.probabilite>=12;}).length; } },
+    { id:'cd-eleves',    icon:'🟡', color:'#F97316', name:'Risques élevés',     desc:'Criticité 6–11',
+      fetch: async function() { var r = await sb.from('duer_entries').select('gravite,probabilite').eq('org_id',currentProfile.org_id); return (r.data||[]).filter(function(e){var c=e.gravite*e.probabilite;return c>=6&&c<12;}).length; } },
+    { id:'cd-maitris',   icon:'✅', color:'#22C55E', name:'Risques maîtrisés',  desc:'Criticité < 6',
+      fetch: async function() { var r = await sb.from('duer_entries').select('gravite,probabilite').eq('org_id',currentProfile.org_id); return (r.data||[]).filter(function(e){return e.gravite*e.probabilite<6;}).length; } },
+    { id:'cd-rapports',  icon:'📁', color:'#A855F7', name:'Rapports archivés',  desc:'DUER générés et archivés',
+      fetch: async function() { var r = await sb.from('report_archive').select('id',{count:'exact'}).eq('org_id',currentProfile.org_id).eq('report_type','DUER'); return r.count||0; } },
+  ],
+  vgp: [
+    { id:'cv-ok',        icon:'✅', color:'#22C55E', name:'À jour',             desc:'Vérifications valides',
+      fetch: async function() { var records = await sb.from('registre_vgp').select('equipement,derniere_verification').eq('org_id',currentProfile.org_id); var today=new Date(),cnt=0; (records.data||[]).forEach(function(r){var eq=VGP_EQUIPEMENTS.find(function(e){return e.key===r.equipement;}); if(!eq||!r.derniere_verification)return; var p=new Date(r.derniere_verification); p.setMonth(p.getMonth()+eq.periodicite); if(p>=today)cnt++;}); return cnt; } },
+    { id:'cv-alerte',    icon:'⚠️', color:'#F59E0B', name:'Échéance < 30j',     desc:'À renouveler prochainement',
+      fetch: async function() { var records = await sb.from('registre_vgp').select('equipement,derniere_verification').eq('org_id',currentProfile.org_id); var today=new Date(),soon=new Date(); soon.setDate(soon.getDate()+30); var cnt=0; (records.data||[]).forEach(function(r){var eq=VGP_EQUIPEMENTS.find(function(e){return e.key===r.equipement;}); if(!eq||!r.derniere_verification)return; var p=new Date(r.derniere_verification); p.setMonth(p.getMonth()+eq.periodicite); if(p>=today&&p<soon)cnt++;}); return cnt; } },
+    { id:'cv-retard',    icon:'🔴', color:'#EF4444', name:'En retard',          desc:'Vérifications dépassées',
+      fetch: async function() { var records = await sb.from('registre_vgp').select('equipement,derniere_verification').eq('org_id',currentProfile.org_id); var today=new Date(),cnt=0; (records.data||[]).forEach(function(r){var eq=VGP_EQUIPEMENTS.find(function(e){return e.key===r.equipement;}); if(!eq||!r.derniere_verification)return; var p=new Date(r.derniere_verification); p.setMonth(p.getMonth()+eq.periodicite); if(p<today)cnt++;}); return cnt; } },
+    { id:'cv-np',        icon:'⏸️', color:'#94A3B8', name:'Non planifiés',      desc:'Jamais saisis',
+      fetch: async function() { var records = await sb.from('registre_vgp').select('equipement').eq('org_id',currentProfile.org_id); var saisis=new Set((records.data||[]).map(function(r){return r.equipement;})); return VGP_EQUIPEMENTS.filter(function(e){return !saisis.has(e.key);}).length; } },
+    { id:'cv-rapports',  icon:'📁', color:'#A855F7', name:'Rapports archivés',  desc:'VGP générés et archivés',
+      fetch: async function() { var r = await sb.from('report_archive').select('id',{count:'exact'}).eq('org_id',currentProfile.org_id).eq('report_type','VGP'); return r.count||0; } },
+  ],
+  fds: [
+    { id:'cf-total',     icon:'⚗️', color:'#6366F1', name:'Produits référencés',desc:'Fiches dans la bibliothèque',
+      fetch: async function() { var r = await sb.from('fds_library').select('id',{count:'exact'}).eq('org_id',currentProfile.org_id); return r.count||0; } },
+    { id:'cf-renouveler',icon:'♻️', color:'#F59E0B', name:'À renouveler',       desc:'FDS de plus de 3 ans',
+      fetch: async function() { var r = await sb.from('fds_library').select('version_date').eq('org_id',currentProfile.org_id); var lim=new Date(); lim.setFullYear(lim.getFullYear()-3); return (r.data||[]).filter(function(d){return d.version_date&&new Date(d.version_date)<lim;}).length; } },
+    { id:'cf-ok',        icon:'✅', color:'#22C55E', name:'À jour',             desc:'FDS valides (< 3 ans)',
+      fetch: async function() { var r = await sb.from('fds_library').select('version_date,fds_url').eq('org_id',currentProfile.org_id); var lim=new Date(); lim.setFullYear(lim.getFullYear()-3); return (r.data||[]).filter(function(d){return d.fds_url&&d.version_date&&new Date(d.version_date)>=lim;}).length; } },
+    { id:'cf-manquantes',icon:'⚠️', color:'#EF4444', name:'FDS manquantes',     desc:'Sans document joint',
+      fetch: async function() { var r = await sb.from('fds_library').select('fds_url').eq('org_id',currentProfile.org_id); return (r.data||[]).filter(function(d){return !d.fds_url;}).length; } },
+  ],
+  pdp: [
+    { id:'cp-total',     icon:'📋', color:'#6366F1', name:'Total PdP',          desc:'Plans de prévention créés',
+      fetch: async function() { var r = await sb.from('pdp_entries').select('id',{count:'exact'}).eq('org_id',currentProfile.org_id); return r.count||0; } },
+    { id:'cp-encours',   icon:'🟢', color:'#22C55E', name:'En cours',           desc:'Interventions actives',
+      fetch: async function() { var r = await sb.from('pdp_entries').select('date_debut,date_fin').eq('org_id',currentProfile.org_id); var t=new Date(); return (r.data||[]).filter(function(p){return p.date_debut&&p.date_fin&&new Date(p.date_debut)<=t&&new Date(p.date_fin)>=t;}).length; } },
+    { id:'cp-avenir',    icon:'⏳', color:'#F59E0B', name:'À venir',            desc:'Interventions planifiées',
+      fetch: async function() { var r = await sb.from('pdp_entries').select('date_debut').eq('org_id',currentProfile.org_id); var t=new Date(); return (r.data||[]).filter(function(p){return p.date_debut&&new Date(p.date_debut)>t;}).length; } },
+    { id:'cp-termines',  icon:'✅', color:'#94A3B8', name:'Terminés',           desc:'Interventions closes',
+      fetch: async function() { var r = await sb.from('pdp_entries').select('date_fin').eq('org_id',currentProfile.org_id); var t=new Date(); return (r.data||[]).filter(function(p){return p.date_fin&&new Date(p.date_fin)<t;}).length; } },
+    { id:'cp-dangereux', icon:'☢️', color:'#EF4444', name:'Travaux dangereux',  desc:'PdP avec travaux listés R4512',
+      fetch: async function() { var r = await sb.from('pdp_entries').select('travaux_dangereux').eq('org_id',currentProfile.org_id); return (r.data||[]).filter(function(p){return Array.isArray(p.travaux_dangereux)&&p.travaux_dangereux.length>0;}).length; } },
+  ],
+};
+
+// ── Clé localStorage préférences par user + onglet ───────────
+function _conformPrefKey(tab) {
+  var uid = currentUser && currentUser.id ? currentUser.id.slice(0,8) : 'anon';
+  return 'ss_conform_pref_' + uid + '_' + tab;
+}
+
+// Valeur par défaut : KPI activés = tous, order = [kpi, lastReport, content]
+function getConformPrefs(tab) {
+  var key = _conformPrefKey(tab);
+  try {
+    var raw = localStorage.getItem(key);
+    if (raw) return JSON.parse(raw);
+  } catch(e) {}
+  var catalog = CONFORM_KPI[tab] || [];
+  return {
+    order: ['kpi', 'lastReport', 'content'],
+    kpiVisible: catalog.map(function(k){ return k.id; }),
+    showKpi: true,
+    showLastReport: true,
+  };
+}
+
+function saveConformPrefs(tab, prefs) {
+  try { localStorage.setItem(_conformPrefKey(tab), JSON.stringify(prefs)); } catch(e) {}
+}
+
+// ── Rendre la bande KPI d'un onglet ──────────────────────────
+async function renderConformKpiStrip(tab, containerId) {
+  var ctn = document.getElementById(containerId);
+  if (!ctn) return;
+  var prefs   = getConformPrefs(tab);
+  var catalog = (CONFORM_KPI[tab] || []).filter(function(k){ return prefs.kpiVisible.indexOf(k.id) >= 0; });
+  if (!catalog.length) { ctn.innerHTML = ''; return; }
+
+  // Squelette instantané
+  ctn.innerHTML = '<div class="conform-kpi-strip">'
+    + catalog.map(function(k) {
+        return '<div class="conform-kpi-card" id="ckpi-' + k.id + '">'
+          + '<div class="conform-kpi-top"><span class="conform-kpi-icon">' + k.icon + '</span>'
+          + '<span class="conform-kpi-name">' + escapeHtml(k.name) + '</span></div>'
+          + '<div class="conform-kpi-value" style="color:' + k.color + '">…</div>'
+          + '<div class="conform-kpi-desc">' + escapeHtml(k.desc) + '</div>'
+          + '</div>';
+      }).join('')
+    + '</div>';
+
+  // Charger les valeurs en parallèle
+  catalog.forEach(function(k) {
+    k.fetch().then(function(val) {
+      var el = document.getElementById('ckpi-' + k.id);
+      if (el) el.querySelector('.conform-kpi-value').textContent = val !== undefined ? val : '—';
+    }).catch(function() {
+      var el = document.getElementById('ckpi-' + k.id);
+      if (el) el.querySelector('.conform-kpi-value').textContent = '—';
+    });
+  });
+}
+
+// ── Rendre la bande "Dernier rapport" ────────────────────────
+async function renderConformLastReport(reportType, containerId) {
+  var ctn = document.getElementById(containerId);
+  if (!ctn) return;
+  ctn.innerHTML = '';
+
+  var res = await sb.from('report_archive')
+    .select('*')
+    .eq('org_id', currentProfile.org_id)
+    .eq('report_type', reportType)
+    .is('parent_id', null)
+    .order('generated_at', { ascending: false })
+    .limit(1);
+
+  var a = res.data && res.data[0];
+  if (!a) return;
+
+  var genDate  = new Date(a.generated_at).toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric'});
+  var genTime  = new Date(a.generated_at).toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
+  var sigSt    = a.sig_status || 'none';
+  var sigBadge = sigSt === 'signed_all' ? '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(34,197,94,.12);color:#4ADE80;border:1px solid rgba(34,197,94,.25)">✅ Tous signés</span>'
+    : sigSt === 'pending'               ? '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(245,158,11,.12);color:#FCD34D;border:1px solid rgba(245,158,11,.25)">⏳ ' + (a.sig_signed||0) + '/' + (a.sig_total||'?') + '</span>'
+    : sigSt === 'refused'               ? '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(239,68,68,.12);color:#FCA5A5;border:1px solid rgba(239,68,68,.25)">❌ Refusé</span>'
+    : '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(148,163,184,.1);color:var(--muted);border:1px solid rgba(148,163,184,.2)">Non envoyé</span>';
+
+  var consultUrl = a.signed_file_url || a.file_url;
+  var consultBtn = consultUrl
+    ? '<button class="btn-sm btn-view" style="font-size:11px;padding:5px 12px" onclick="openReportViewer('' + consultUrl + '','' + escapeHtml(a.report_num||reportType) + '','ext','' + a.id + '')">📄 Consulter</button>'
+    : '';
+  var sendBtn = (!sigSt || sigSt === 'none')
+    ? '<button class="btn-sm" style="font-size:11px;padding:5px 12px;background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.25);color:#FCD34D" onclick="openSendForSignatureModal('' + a.id + '','' + escapeHtml(a.report_num||'') + '','' + reportType + '',null,null)">✉️ Envoyer</button>'
+    : '';
+
+  ctn.innerHTML = '<div class="conform-last-report">'
+    + '<span class="conform-last-report-label">Dernier rapport</span>'
+    + '<div class="conform-last-report-info">'
+    + '<div class="conform-last-report-ref">' + escapeHtml(a.report_num || '—') + '</div>'
+    + '<div class="conform-last-report-sub">' + genDate + ' à ' + genTime + ' · ' + escapeHtml(a.responsable || '—') + ' ' + sigBadge + '</div>'
+    + '</div>'
+    + '<div class="conform-last-report-actions">' + consultBtn + sendBtn + '</div>'
+    + '</div>';
+}
+
+// ── Panneau personnalisation (toggle inline) ──────────────────
+var _conformPersoOpen = {};
+
+function toggleConformPerso(tab, role) {
+  var panelId = 'conform-perso-panel-' + tab + '-' + role;
+  var existing = document.getElementById(panelId);
+  if (existing) {
+    existing.remove();
+    _conformPersoOpen[tab + role] = false;
+    return;
+  }
+  _conformPersoOpen[tab + role] = true;
+
+  var prefs   = getConformPrefs(tab);
+  var catalog = CONFORM_KPI[tab] || [];
+
+  // Noms lisibles pour les blocs
+  var BLOCK_LABELS = { kpi: '📊 Indicateurs (KPI)', lastReport: '📄 Dernier rapport généré', content: '📋 Contenu principal' };
+
+  var panel = document.createElement('div');
+  panel.className = 'conform-perso-panel';
+  panel.id = panelId;
+
+  // ── Section ordre des blocs ──
+  var blocksHtml = '<div class="conform-perso-section-label">Ordre des sections</div>'
+    + '<div class="conform-perso-blocks" id="conform-blocks-' + tab + '-' + role + '">';
+  prefs.order.forEach(function(b) {
+    var isOn = b === 'kpi' ? prefs.showKpi : b === 'lastReport' ? prefs.showLastReport : true;
+    var isTogglable = b !== 'content';
+    var toggleHtml = isTogglable
+      ? '<button class="conform-perso-block-toggle ' + (isOn ? 'on' : '') + '" onclick="conformToggleBlock('' + tab + '','' + role + '','' + b + '',this)">' + (isOn ? '✓ Visible' : '✕ Masqué') + '</button>'
+      : '<span style="font-size:11px;color:var(--muted);padding:3px 8px">Toujours visible</span>';
+    blocksHtml += '<div class="conform-perso-block" draggable="true" data-block="' + b + '">'
+      + '<span class="conform-perso-block-handle">⠿</span>'
+      + '<span class="conform-perso-block-name">' + BLOCK_LABELS[b] + '</span>'
+      + toggleHtml
+      + '</div>';
+  });
+  blocksHtml += '</div>';
+
+  // ── Section KPI à afficher ──
+  var kpiHtml = '';
+  if (catalog.length) {
+    kpiHtml = '<div class="conform-perso-section-label" style="margin-top:16px">Indicateurs à afficher</div>'
+      + '<div class="conform-kpi-checkgrid">';
+    catalog.forEach(function(k) {
+      var active = prefs.kpiVisible.indexOf(k.id) >= 0;
+      kpiHtml += '<div class="conform-kpi-check ' + (active ? 'active' : '') + '" onclick="conformToggleKpi('' + tab + '','' + role + '','' + k.id + '',this)">'
+        + '<span class="conform-kpi-check-icon">' + k.icon + '</span>'
+        + '<span class="conform-kpi-check-lbl"><div class="conform-kpi-check-name">' + escapeHtml(k.name) + '</div>'
+        + '<div class="conform-kpi-check-desc">' + escapeHtml(k.desc) + '</div></span>'
+        + '<span class="conform-kpi-check-tick">' + (active ? '✓' : '○') + '</span>'
+        + '</div>';
+    });
+    kpiHtml += '</div>';
+  }
+
+  panel.innerHTML = '<div class="conform-perso-title">✏️ Personnaliser cet onglet<button onclick="document.getElementById('' + panelId + '').remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:16px;color:var(--muted)">✕</button></div>'
+    + blocksHtml + kpiHtml
+    + '<div style="display:flex;gap:8px;margin-top:16px">'
+    + '<button class="btn-sm btn-validate" style="flex:1" onclick="saveConformPersoAndRefresh('' + tab + '','' + role + '')">✓ Appliquer</button>'
+    + '<button class="btn-sm" onclick="resetConformPrefs('' + tab + '','' + role + '')" style="color:var(--muted)">↺ Réinitialiser</button>'
+    + '</div>';
+
+  // Insérer avant le contenu principal
+  var ctn = document.getElementById(role + '-conform-' + tab);
+  if (ctn) ctn.insertBefore(panel, ctn.firstChild);
+
+  // Drag & drop ordre blocs
+  initConformBlockDrag(tab, role);
+}
+
+function conformToggleBlock(tab, role, blockName, btn) {
+  var prefs = getConformPrefs(tab);
+  if (blockName === 'kpi')        { prefs.showKpi = !prefs.showKpi; }
+  if (blockName === 'lastReport') { prefs.showLastReport = !prefs.showLastReport; }
+  var isOn = blockName === 'kpi' ? prefs.showKpi : prefs.showLastReport;
+  btn.textContent = isOn ? '✓ Visible' : '✕ Masqué';
+  btn.classList.toggle('on', isOn);
+  saveConformPrefs(tab, prefs);
+}
+
+function conformToggleKpi(tab, role, kpiId, card) {
+  var prefs = getConformPrefs(tab);
+  var idx   = prefs.kpiVisible.indexOf(kpiId);
+  if (idx >= 0) prefs.kpiVisible.splice(idx, 1);
+  else          prefs.kpiVisible.push(kpiId);
+  card.classList.toggle('active', idx < 0);
+  var tick = card.querySelector('.conform-kpi-check-tick');
+  if (tick) tick.textContent = idx < 0 ? '✓' : '○';
+  saveConformPrefs(tab, prefs);
+}
+
+function saveConformPersoAndRefresh(tab, role) {
+  // L'ordre est lu depuis le DOM (drag & drop peut l'avoir modifié)
+  var blocksEl = document.getElementById('conform-blocks-' + tab + '-' + role);
+  if (blocksEl) {
+    var prefs = getConformPrefs(tab);
+    var newOrder = [];
+    blocksEl.querySelectorAll('.conform-perso-block').forEach(function(b) { newOrder.push(b.dataset.block); });
+    prefs.order = newOrder;
+    saveConformPrefs(tab, prefs);
+  }
+  // Fermer le panel et re-render
+  var panelId = 'conform-perso-panel-' + tab + '-' + role;
+  var p = document.getElementById(panelId);
+  if (p) p.remove();
+  _conformPersoOpen[tab + role] = false;
+
+  if (tab === 'duer')       renderDuerSection(role);
+  else if (tab === 'vgp')   renderVgpSection(role);
+  else if (tab === 'fds')   renderFdsSection(role);
+  else if (tab === 'pdp')   renderPdpSection(role);
+}
+
+function resetConformPrefs(tab, role) {
+  try { localStorage.removeItem(_conformPrefKey(tab)); } catch(e) {}
+  saveConformPersoAndRefresh(tab, role);
+}
+
+// Drag & drop pour réordonner les blocs
+function initConformBlockDrag(tab, role) {
+  var container = document.getElementById('conform-blocks-' + tab + '-' + role);
+  if (!container) return;
+  var dragged = null;
+  container.querySelectorAll('.conform-perso-block').forEach(function(block) {
+    block.addEventListener('dragstart', function() { dragged = block; setTimeout(function(){ block.style.opacity='.4'; }, 0); });
+    block.addEventListener('dragend',   function() { block.style.opacity=''; dragged = null; container.querySelectorAll('.conform-perso-block').forEach(function(b){ b.classList.remove('drag-over-block'); }); });
+    block.addEventListener('dragover',  function(e) { e.preventDefault(); container.querySelectorAll('.conform-perso-block').forEach(function(b){ b.classList.remove('drag-over-block'); }); block.classList.add('drag-over-block'); });
+    block.addEventListener('drop',      function(e) { e.preventDefault(); if (dragged && dragged !== block) { var allBlocks = [...container.querySelectorAll('.conform-perso-block')]; var fromIdx = allBlocks.indexOf(dragged); var toIdx   = allBlocks.indexOf(block); if (fromIdx < toIdx) container.insertBefore(dragged, block.nextSibling); else container.insertBefore(dragged, block); } block.classList.remove('drag-over-block'); });
+  });
+}
+
+// ── Injecteur de blocs dans une section ──────────────────────
+// Appelé par chaque render*Section AVANT le rendu du contenu.
+// Retourne { kpiId, lastReportId, order } pour positionner les divs
+function buildConformSectionHeader(tab, role, reportType, actionBtnsHtml, title, subtitle) {
+  var prefs = getConformPrefs(tab);
+  var containerId = role + '-conform-' + tab;
+
+  // Construction des IDs
+  var kpiId        = 'conform-kpi-' + tab + '-' + role;
+  var lastRptId    = 'conform-lastrpt-' + tab + '-' + role;
+  var inlineHistId = tab + '-inline-history-' + role;
+
+  // Bouton personnaliser
+  var persoBtn = '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(148,163,184,.1);border-color:rgba(148,163,184,.2);color:var(--muted)" onclick="toggleConformPerso('' + tab + '','' + role + '')">✏️ Personnaliser</button>';
+
+  // Header section (titre + boutons actions)
+  var headerHtml = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">'
+    + '<div><div class="section-title" style="margin:0">' + title + '</div>'
+    + '<div style="font-size:12px;color:var(--muted);margin-top:4px">' + subtitle + '</div></div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">' + actionBtnsHtml + persoBtn + '</div>'
+    + '</div>';
+
+  // Blocs ordonnés selon préfs
+  var blocksHtml = '';
+  prefs.order.forEach(function(b) {
+    if (b === 'kpi' && prefs.showKpi)               blocksHtml += '<div id="' + kpiId + '"></div>';
+    if (b === 'lastReport' && prefs.showLastReport)  blocksHtml += '<div id="' + lastRptId + '"></div>';
+    if (b === 'content')                             blocksHtml += '<div id="conform-content-' + tab + '-' + role + '"></div>';
+  });
+
+  return { html: headerHtml + blocksHtml, kpiId, lastRptId, contentId: 'conform-content-' + tab + '-' + role, inlineHistId };
 }
 
 var _lastArchivedId = null;
