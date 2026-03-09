@@ -653,7 +653,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.9.8</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v1.0.0</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -3152,7 +3152,21 @@ async function uploadDocument() {
     reminder_days:      30
   };
 
-  const { error: dbErr } = await sb.from('documents').upsert(payload, { onConflict: 'owner_id,doc_type,category' });
+  // Pour les onglets custom : insert direct (pas d'index unique sur owner_id+doc_type+category en base)
+  // Pour worker/company : upsert sur owner_id+doc_type (index unique existant)
+  let dbErr;
+  if (currentUploadDoc.category.startsWith('custom_')) {
+    // Supprimer l'éventuel doc existant du même type dans ce tab avant d'insérer
+    await sb.from('documents').delete()
+      .eq('owner_id', currentUser.id)
+      .eq('doc_type', currentUploadDoc.key)
+      .eq('category', currentUploadDoc.category);
+    const { error } = await sb.from('documents').insert(payload);
+    dbErr = error;
+  } else {
+    const { error } = await sb.from('documents').upsert(payload, { onConflict: 'owner_id,doc_type' });
+    dbErr = error;
+  }
   setLoading('uploadBtn', false, 'Envoyer le document');
   if (dbErr) { showToast('Erreur : ' + dbErr.message, 'error'); return; }
 
