@@ -6873,16 +6873,17 @@ function reportHeaderHTML(meta, docTitle, legalRef) {
 }
 
 // ── Pied de page + bloc signature + bandeau marketing ─
-function reportFooterHTML(meta, docTitle) {
+function reportFooterHTML(meta, docTitle, hideSigBlock) {
   return '<div class="report-footer">'
     + '<span>SafetySphere v' + escapeHtml(meta.appVersion) + ' · ' + escapeHtml(meta.orgName) + ' · Réf. ' + escapeHtml(meta.reportNum) + '</span>'
     + '<span>Généré le ' + escapeHtml(meta.dateStr) + ' · Document confidentiel</span>'
     + '</div>'
-    + '<div class="signature-block">'
-    + '<div class="signature-box"><div class="signature-box-title">Établi par</div><div class="signature-box-line">' + escapeHtml(meta.responsable) + ' — ' + escapeHtml(meta.dateStr) + '</div></div>'
-    + '<div class="signature-box"><div class="signature-box-title">Vérifié / Validé par</div><div class="signature-box-line">Signature et cachet</div></div>'
-    + '<div class="signature-box"><div class="signature-box-title">Archivé le</div><div class="signature-box-line">&nbsp;</div></div>'
-    + '</div>'
+    + (hideSigBlock ? '' :
+        '<div class="signature-block">'
+      + '<div class="signature-box"><div class="signature-box-title">Établi par</div><div class="signature-box-line">' + escapeHtml(meta.responsable) + ' — ' + escapeHtml(meta.dateStr) + '</div></div>'
+      + '<div class="signature-box"><div class="signature-box-title">Vérifié / Validé par</div><div class="signature-box-line">Signature et cachet</div></div>'
+      + '<div class="signature-box"><div class="signature-box-title">Archivé le</div><div class="signature-box-line">&nbsp;</div></div>'
+      + '</div>')
     /* Bandeau marketing SafetySphere */
     + '<div class="ss-footer-bar">'
     + '<div class="ss-footer-left">'
@@ -6978,7 +6979,7 @@ function buildDuerHTML(entries, meta, stampHtml) {
     + '<th style="width:31%">Mesures de prevention</th>'
     + '</tr></thead><tbody>'+tableRows+'</tbody></table>'
     + (stampHtml || '')
-    + reportFooterHTML(meta, 'DUER')
+    + reportFooterHTML(meta, 'DUER', !!(stampHtml && stampHtml.indexOf('SIGN') >= 0))
     + '</body></html>';
 }
 
@@ -7066,7 +7067,7 @@ function buildVgpHTML(records, meta, stampHtml) {
     + '<th style="width:12%;text-align:center">Statut / Rapport</th>'
     + '</tr></thead><tbody>'+tableRows+'</tbody></table>'
     + (stampHtml || '')
-    + reportFooterHTML(meta, 'Registre VGP')
+    + reportFooterHTML(meta, 'Registre VGP', !!(stampHtml && stampHtml.indexOf('SIGN') >= 0))
     + '</body></html>';
 }
 
