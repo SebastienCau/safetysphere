@@ -18,6 +18,7 @@
        v0.9.3 — Fix chargement Mes EU + création missions côté HSE/Company + modales propres
        v0.9.4 — Notifications : cloche topbar + section accueil par rôle (worker/company/hse/st/trainer)
        v0.9.5 — Dashboard personnalisable : drag & drop, masquer/afficher, resize, sauvegarde Supabase
+       v0.9.6 — Stabilisation : widgetsInit reset, requête Company notifications, nth-child→switchPage, CSS hidden-widget
   -->
   <meta name="app-version" content="0.8.1" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
@@ -204,8 +205,10 @@
     /* ── WIDGETS DRAGGABLES ── */
     .dash-grid { display:flex; flex-direction:column; gap:16px; }
     .db-widget { position:relative; border-radius:16px; transition:opacity .2s, transform .2s; }
-    .db-widget.hidden-widget > .db-widget-inner { display:none; }
-    .db-widget.hidden-widget { opacity:.5; }
+    /* Widget masqué : caché en mode normal, semi-visible en mode édition */
+    .db-widget.hidden-widget { display:none; }
+    .customize-mode .db-widget.hidden-widget { display:block; opacity:.4; }
+    .customize-mode .db-widget.hidden-widget > .db-widget-inner { display:none; }
     .db-widget.dragging { opacity:.4; transform:scale(.98); }
     .db-widget.drag-over { outline:2px dashed var(--orange); outline-offset:4px; border-radius:16px; }
     .db-widget-inner { border-radius:16px; overflow:hidden; }
@@ -435,7 +438,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.9.5</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.9.6</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -1778,6 +1781,10 @@ function showDashboard(role, fullName) {
 }
 function hideAllDashboards() {
   ['dashWorker','dashCompany','dashHSE','dashTrainer','dashGuest','dashSubcontractor','dashAdmin'].forEach(id => document.getElementById(id).classList.remove('active'));
+  // Réinitialiser les widgets pour permettre un rebuild propre
+  document.querySelectorAll('[data-widgets-init]').forEach(el => delete el.dataset.widgetsInit);
+  // Réinitialiser le mode personnalisation
+  _customizeMode = false;
   document.getElementById('authScreen').style.display = 'flex';
 }
 
@@ -3858,7 +3865,6 @@ function onDragEnd(e) {
 }
 
 
-// ── Resize par handle bas ──
 // ── Masquer/Afficher ──
 function toggleWidgetVisibility(btn, widgetId, role) {
   const widget  = document.querySelector(`[data-widget-id="${widgetId}"]`);
@@ -3888,17 +3894,6 @@ function toggleCustomizeMode() {
   });
 
   if (!_customizeMode) saveLayout(role);
-}
-
-function showCustomizeBtn(role) {
-  const map = { worker:'notifBell-Worker', company:'notifBell-Company', hse:'notifBell-HSE', subcontractor:'notifBell-Subcontractor', trainer:'notifBell-Trainer' };
-  const bellId = map[role];
-  if (!bellId) return;
-  const bell = document.getElementById(bellId);
-  if (bell) {
-    const btn = bell.previousElementSibling;
-    if (btn && btn.classList.contains('btn-customize')) btn.style.display = '';
-  }
 }
 
 // ── Sauvegarde layout ──
@@ -4009,7 +4004,7 @@ async function loadNotifications(role) {
 
     // Docs refusés
     (docs || []).filter(d => d.status === 'rejected').forEach(d =>
-      items.push({ icon:'❌', title:`Document refusé : ${d.doc_type}`, sub:'Déposez une nouvelle version pour le soumettre à validation', type:'danger', action:'Mes Habilitations', onClick:() => document.querySelector('#dashWorker .nav-tab:nth-child(2)').click() })
+      items.push({ icon:'❌', title:`Document refusé : ${d.doc_type}`, sub:'Déposez une nouvelle version pour le soumettre à validation', type:'danger', action:'Mes Habilitations', onClick:() => switchPage('Worker','docs', null) })
     );
     // Docs en attente depuis longtemps
     (docs || []).filter(d => d.status === 'pending').forEach(d =>
@@ -4018,34 +4013,38 @@ async function loadNotifications(role) {
     // Expirations proches
     (docs || []).filter(d => d.status === 'validated' && d.expires_at && d.expires_at <= soonIso && d.expires_at > nowIso).forEach(d => {
       const days = Math.ceil((new Date(d.expires_at) - now) / 86400000);
-      items.push({ icon:'⚠️', title:`Expire dans ${days} jour(s) : ${d.doc_type}`, sub:`Date d'expiration : ${new Date(d.expires_at).toLocaleDateString('fr-FR')}`, type:'warning', action:'Voir mes habilitations', onClick:() => document.querySelector('#dashWorker .nav-tab:nth-child(2)').click() });
+      items.push({ icon:'⚠️', title:`Expire dans ${days} jour(s) : ${d.doc_type}`, sub:`Date d'expiration : ${new Date(d.expires_at).toLocaleDateString('fr-FR')}`, type:'warning', action:'Voir mes habilitations', onClick:() => switchPage('Worker','docs', null) });
     });
     // Docs expirés
     (docs || []).filter(d => d.expires_at && d.expires_at < nowIso && d.status === 'validated').forEach(d =>
-      items.push({ icon:'🚨', title:`Expiré : ${d.doc_type}`, sub:`Expiré le ${new Date(d.expires_at).toLocaleDateString('fr-FR')} — renouvelez dès que possible`, type:'danger', action:'Renouveler', onClick:() => document.querySelector('#dashWorker .nav-tab:nth-child(2)').click() })
+      items.push({ icon:'🚨', title:`Expiré : ${d.doc_type}`, sub:`Expiré le ${new Date(d.expires_at).toLocaleDateString('fr-FR')} — renouvelez dès que possible`, type:'danger', action:'Renouveler', onClick:() => switchPage('Worker','docs', null) })
     );
   }
 
   // ── COMPANY ──
   else if (role === 'company') {
     const orgId = currentProfile.org_id;
+    // D'abord récupérer les IDs des workers de l'org
+    const { data: orgWorkers } = await sb.from('profiles').select('id').eq('org_id', orgId);
+    const workerIds = (orgWorkers || []).map(p => p.id);
+
     const [{ data: pending }, { data: missions }, { data: myDocs }] = await Promise.all([
-      sb.from('documents').select('id, doc_type, owner_id').eq('category','worker').eq('status','pending').in('owner_id',
-        (await sb.from('profiles').select('id').eq('org_id', orgId)).data?.map(p=>p.id) || []
-      ),
+      workerIds.length
+        ? sb.from('documents').select('id, doc_type').eq('category','worker').eq('status','pending').in('owner_id', workerIds)
+        : Promise.resolve({ data: [] }),
       sb.from('missions').select('id, title, st_org_id').eq('eu_org_id', orgId).eq('status','pending'),
       sb.from('documents').select('doc_type, expires_at, status').eq('owner_id', currentUser.id).eq('category','company')
     ]);
 
     (pending || []).forEach(d =>
-      items.push({ icon:'📋', title:`Document en attente de validation`, sub:`Un intervenant attend votre validation`, type:'info', action:'Voir les intervenants', onClick:() => document.querySelector('#dashCompany .nav-tab:nth-child(4)').click() })
+      items.push({ icon:'📋', title:`Document en attente de validation`, sub:`Un intervenant attend votre validation`, type:'info', action:'Voir les intervenants', onClick:() => switchPage('Company','workers', null) })
     );
     (missions || []).forEach(m =>
-      items.push({ icon:'🏗', title:`Nouvelle mission à valider : ${m.title}`, sub:`Un sous-traitant soumet une mission pour approbation`, type:'info', action:'Voir sous-traitants', onClick:() => document.querySelector('#dashCompany .nav-tab:nth-child(5)').click() })
+      items.push({ icon:'🏗', title:`Nouvelle mission à valider : ${m.title}`, sub:`Un sous-traitant soumet une mission pour approbation`, type:'info', action:'Voir sous-traitants', onClick:() => switchPage('Company','subcontractors', null) })
     );
     (myDocs || []).filter(d => d.status === 'validated' && d.expires_at && d.expires_at <= soonIso && d.expires_at > nowIso).forEach(d => {
       const days = Math.ceil((new Date(d.expires_at) - now) / 86400000);
-      items.push({ icon:'⚠️', title:`Document société expire dans ${days} jour(s) : ${d.doc_type}`, sub:`Renouvelez votre document avant expiration`, type:'warning', action:'Mes Documents', onClick:() => document.querySelector('#dashCompany .nav-tab:nth-child(3)').click() });
+      items.push({ icon:'⚠️', title:`Document société expire dans ${days} jour(s) : ${d.doc_type}`, sub:`Renouvelez votre document avant expiration`, type:'warning', action:'Mes Documents', onClick:() => switchPage('Company','societedocs', null) });
     });
   }
 
@@ -4055,7 +4054,7 @@ async function loadNotifications(role) {
     const { data: missions } = await sb.from('missions').select('id, title, st_org_id').eq('eu_org_id', orgId).eq('status','pending');
 
     (missions || []).forEach(m =>
-      items.push({ icon:'🏗', title:`Nouvelle mission à valider : ${m.title}`, sub:`Un sous-traitant attend votre approbation`, type:'info', action:'Voir sous-traitants', onClick:() => document.querySelector('#dashHSE .nav-tab:nth-child(3)').click() })
+      items.push({ icon:'🏗', title:`Nouvelle mission à valider : ${m.title}`, sub:`Un sous-traitant attend votre approbation`, type:'info', action:'Voir sous-traitants', onClick:() => switchPage('HSE','contractors', null) })
     );
 
     // Docs workers expirés ou proches dans les EU gérées
@@ -4067,7 +4066,7 @@ async function loadNotifications(role) {
       if (wIds.length) {
         const { data: expDocs } = await sb.from('documents').select('doc_type, expires_at').in('owner_id', wIds).eq('category','worker').eq('status','validated').lte('expires_at', soonIso).gte('expires_at', nowIso);
         if (expDocs && expDocs.length)
-          items.push({ icon:'⚠️', title:`${expDocs.length} habilitation(s) expirent bientôt`, sub:`Des intervenants de vos ST ont des documents à renouveler`, type:'warning', action:'Voir sous-traitants', onClick:() => document.querySelector('#dashHSE .nav-tab:nth-child(3)').click() });
+          items.push({ icon:'⚠️', title:`${expDocs.length} habilitation(s) expirent bientôt`, sub:`Des intervenants de vos ST ont des documents à renouveler`, type:'warning', action:'Voir sous-traitants', onClick:() => switchPage('HSE','contractors', null) });
       }
     }
   }
@@ -4078,17 +4077,17 @@ async function loadNotifications(role) {
     const { data: missions } = await sb.from('missions').select('id, title, status, eu_org_id').eq('st_org_id', orgId).in('status',['approved','rejected']);
 
     (missions || []).filter(m => m.status === 'approved').forEach(m =>
-      items.push({ icon:'✅', title:`Mission validée : ${m.title}`, sub:`L'EU a approuvé votre mission — vous pouvez démarrer`, type:'success', action:'Voir mes EU', onClick:() => { document.querySelector('#dashSubcontractor .nav-tab:nth-child(4)').click(); loadSTEU(); } })
+      items.push({ icon:'✅', title:`Mission validée : ${m.title}`, sub:`L'EU a approuvé votre mission — vous pouvez démarrer`, type:'success', action:'Voir mes EU', onClick:() => { switchPage('Subcontractor','eu', null); loadSTEU(); } })
     );
     (missions || []).filter(m => m.status === 'rejected').forEach(m =>
-      items.push({ icon:'❌', title:`Mission refusée : ${m.title}`, sub:`L'EU a refusé cette mission — modifiez-la et soumettez à nouveau`, type:'danger', action:'Voir mes EU', onClick:() => { document.querySelector('#dashSubcontractor .nav-tab:nth-child(4)').click(); loadSTEU(); } })
+      items.push({ icon:'❌', title:`Mission refusée : ${m.title}`, sub:`L'EU a refusé cette mission — modifiez-la et soumettez à nouveau`, type:'danger', action:'Voir mes EU', onClick:() => { switchPage('Subcontractor','eu', null); loadSTEU(); } })
     );
 
     // Docs société expiration proche
     const { data: myDocs } = await sb.from('documents').select('doc_type, expires_at, status').eq('owner_id', currentUser.id).eq('category','company');
     (myDocs || []).filter(d => d.status === 'validated' && d.expires_at && d.expires_at <= soonIso && d.expires_at > nowIso).forEach(d => {
       const days = Math.ceil((new Date(d.expires_at) - now) / 86400000);
-      items.push({ icon:'⚠️', title:`Document société expire dans ${days} jour(s) : ${d.doc_type}`, sub:`Renouvelez avant expiration pour rester conforme`, type:'warning', action:'Mes Documents', onClick:() => document.querySelector('#dashSubcontractor .nav-tab:nth-child(5)').click() });
+      items.push({ icon:'⚠️', title:`Document société expire dans ${days} jour(s) : ${d.doc_type}`, sub:`Renouvelez avant expiration pour rester conforme`, type:'warning', action:'Mes Documents', onClick:() => switchPage('Subcontractor','docs', null) });
     });
   }
 
@@ -4096,7 +4095,7 @@ async function loadNotifications(role) {
   else if (role === 'trainer') {
     const { data: pending } = await sb.from('documents').select('id, doc_type').eq('training_center_id', currentProfile.org_id).eq('center_status','pending');
     if (pending && pending.length)
-      items.push({ icon:'📋', title:`${pending.length} demande(s) de validation en attente`, sub:`Des intervenants attendent votre traitement`, type:'info', action:'Voir les demandes', onClick:() => document.querySelector('#dashTrainer .nav-tab:nth-child(3)').click() });
+      items.push({ icon:'📋', title:`${pending.length} demande(s) de validation en attente`, sub:`Des intervenants attendent votre traitement`, type:'info', action:'Voir les demandes', onClick:() => switchPage('Trainer','requests', null) });
   }
 
   // ── RENDU ──
