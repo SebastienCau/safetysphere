@@ -19,6 +19,7 @@
        v0.9.4 — Notifications : cloche topbar + section accueil par rôle (worker/company/hse/st/trainer)
        v0.9.5 — Dashboard personnalisable : drag & drop, masquer/afficher, resize, sauvegarde Supabase
        v0.9.6 — Stabilisation : widgetsInit reset, requête Company notifications, nth-child→switchPage, CSS hidden-widget
+       v0.9.7 — Sécurité P0 : escapeHtml XSS, gestion erreurs écritures Supabase, onAuthStateChange, suppression compte RGPD
   -->
   <meta name="app-version" content="0.8.1" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
@@ -438,7 +439,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.9.6</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v0.9.7</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -1440,6 +1441,17 @@ const COMPANY_DOCS = [
 ];
 
 // ── HELPERS UI ──
+// ── SÉCURITÉ : échappement HTML (prévention XSS) ──
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+
 function showToast(msg, type = 'success') {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -1647,12 +1659,12 @@ async function checkPendingSTInvites() {
     banner.innerHTML = `
       <div class="pending-banner-icon">🏭</div>
       <div class="pending-banner-body">
-        <div class="pending-banner-title">${euName} souhaite vous mettre en relation</div>
+        <div class="pending-banner-title">${escapeHtml(euName)} souhaite vous mettre en relation</div>
         <div class="pending-banner-sub">Acceptez pour apparaître dans leur liste de sous-traitants</div>
       </div>
       <div class="pending-banner-actions">
-        <button class="btn-sm btn-validate" onclick="acceptSTInvite('${inv.id}','${inv.eu_org_id}','${euName}')">✓ Accepter</button>
-        <button class="btn-sm btn-reject"   onclick="dismissSTBanner('${inv.id}')">✕</button>
+        <button class="btn-sm btn-validate" onclick="acceptSTInvite('${escapeHtml(inv.id)}','${escapeHtml(inv.eu_org_id)}','${escapeHtml(euName)}')">✓ Accepter</button>
+        <button class="btn-sm btn-reject"   onclick="dismissSTBanner('${escapeHtml(inv.id)}')">✕</button>
       </div>`;
     overviewEl.insertBefore(banner, welcomeEl.nextSibling);
   });
@@ -1695,12 +1707,12 @@ async function checkPendingWorkerInvites() {
     banner.innerHTML = `
       <div class="pending-banner-icon">🤝</div>
       <div class="pending-banner-body">
-        <div class="pending-banner-title">${stName} vous invite à rejoindre son équipe</div>
-        <div class="pending-banner-sub">Acceptez pour vous rattacher automatiquement à ${stName}</div>
+        <div class="pending-banner-title">${escapeHtml(stName)} vous invite à rejoindre son équipe</div>
+        <div class="pending-banner-sub">Acceptez pour vous rattacher automatiquement à ${escapeHtml(stName)}</div>
       </div>
       <div class="pending-banner-actions">
-        <button class="btn-sm btn-validate" onclick="acceptWorkerInvite('${inv.id}','${inv.org_id}','${stName}')">✓ Accepter</button>
-        <button class="btn-sm btn-reject"   onclick="dismissWorkerBanner('${inv.id}')">✕</button>
+        <button class="btn-sm btn-validate" onclick="acceptWorkerInvite('${escapeHtml(inv.id)}','${escapeHtml(inv.org_id)}','${escapeHtml(stName)}')">✓ Accepter</button>
+        <button class="btn-sm btn-reject"   onclick="dismissWorkerBanner('${escapeHtml(inv.id)}')">✕</button>
       </div>`;
     overviewEl.insertBefore(banner, welcomeEl.nextSibling);
   });
@@ -1869,8 +1881,46 @@ async function handleRegister(e) {
 async function handleLogout() {
   await sb.auth.signOut();
   currentUser = null; currentProfile = null;
-  applyTheme('dark'); // reset au dark à la déconnexion
+  applyTheme('dark');
   hideAllDashboards();
+}
+
+// ── RGPD : Suppression de compte (Art. 17) ──
+async function confirmDeleteAccount() {
+  const confirmed = confirm(
+    'SUPPRESSION DÉFINITIVE DE VOTRE COMPTE\n\n' +
+    'Cette action est irréversible. Seront supprimés :\n' +
+    '• Votre profil et vos informations personnelles\n' +
+    '• Vos documents et habilitations\n' +
+    '• Vos partages et invitations\n\n' +
+    'Confirmez-vous la suppression ?'
+  );
+  if (!confirmed) return;
+
+  const confirmEmail = prompt('Pour confirmer, saisissez votre adresse email :');
+  if (!confirmEmail || confirmEmail.trim().toLowerCase() !== currentProfile?.email?.toLowerCase()) {
+    showToast('Email incorrect — suppression annulée.', 'error');
+    return;
+  }
+
+  try {
+    const userId = currentUser.id;
+    // Supprimer les données liées (RLS permet à l'utilisateur de supprimer ses propres données)
+    await Promise.all([
+      sb.from('documents').delete().eq('owner_id', userId),
+      sb.from('document_shares').delete().eq('worker_id', userId),
+      sb.from('worker_invites').delete().eq('worker_email', currentProfile.email),
+    ]);
+    await sb.from('profiles').delete().eq('id', userId);
+
+    // Déconnexion immédiate
+    await sb.auth.signOut();
+    currentUser = null; currentProfile = null;
+    hideAllDashboards();
+    showToast('Compte supprimé. Vos données ont été effacées.', 'success');
+  } catch(e) {
+    showToast('Erreur lors de la suppression : ' + e.message, 'error');
+  }
 }
 
 // ── THEME ──
@@ -1890,7 +1940,8 @@ async function toggleTheme() {
   applyTheme(next);
   // Sauvegarder en base
   if (currentUser) {
-    await sb.from('profiles').update({ theme: next }).eq('id', currentUser.id);
+    const { error } = await sb.from('profiles').update({ theme: next }).eq('id', currentUser.id);
+    if (error) { showToast('Erreur sauvegarde thème', 'error'); return; }
     if (currentProfile) currentProfile.theme = next;
   }
 }
@@ -2194,7 +2245,7 @@ async function loadTrainerRequests() {
     .eq('center_status', 'pending');
 
   if (error) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Erreur chargement : ${error.message}</div></div>`;
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Erreur chargement : ${escapeHtml(error.message)}</div></div>`;
     return;
   }
   if (!docs || !docs.length) {
@@ -2997,7 +3048,8 @@ async function loadST(orgId, containerId) {
 
 async function cancelSTInviteFromList(inviteId, containerId) {
   if (!confirm('Supprimer cette invitation ?')) return;
-  await sb.from('st_invites').delete().eq('id', inviteId);
+  const { error } = await sb.from('st_invites').delete().eq('id', inviteId);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
   showToast('✓ Invitation supprimée', 'success');
   loadST(currentProfile.org_id, containerId);
 }
@@ -3041,11 +3093,12 @@ async function getOrCreateComplianceConfig() {
   const { data: existing } = await sb.from('compliance_config').select('*').eq('org_id', currentProfile.org_id).single();
   if (existing) return existing;
   // Créer avec valeurs par défaut
-  const { data: created } = await sb.from('compliance_config').insert({
+  const { data: created, error: createErr } = await sb.from('compliance_config').insert({
     org_id: currentProfile.org_id,
     components: { st_documents: true, worker_habilitations: false, st_ratio: false, pdp: false, permits: false },
     display_mode: 'percent'
   }).select().single();
+  if (createErr) { console.warn('compliance_config create error', createErr.message); return null; }
   return created;
 }
 
@@ -3215,8 +3268,9 @@ async function loadOrgProfile(dash) {
   // Générer org_qr_token si absent
   if (org && !org.org_qr_token) {
     const newToken = crypto.randomUUID();
-    await sb.from('organizations').update({ org_qr_token: newToken }).eq('id', org.id);
-    org.org_qr_token = newToken;
+    const { error } = await sb.from('organizations').update({ org_qr_token: newToken }).eq('id', org.id);
+    if (error) { showToast('Erreur génération QR : ' + error.message, 'error'); }
+    else { org.org_qr_token = newToken; }
   }
 
   if (!org) {
@@ -3283,13 +3337,13 @@ async function loadOrgProfile(dash) {
         <div style="font-size:13px;color:var(--muted);margin-bottom:16px">Affichez ce QR code pour permettre à vos partenaires et intervenants de vous identifier instantanément</div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:16px">
           <div style="background:linear-gradient(135deg,#1B3A5C,#0D1B2A);border:2px solid rgba(99,102,241,.35);border-radius:16px;padding:24px 28px;text-align:center;width:100%;max-width:320px">
-            <div style="font-size:13px;font-weight:700;color:#A5B4FC;margin-bottom:14px;letter-spacing:.5px">${org.name}</div>
+            <div style="font-size:13px;font-weight:700;color:#A5B4FC;margin-bottom:14px;letter-spacing:.5px">${escapeHtml(org.name)}</div>
             <div id="orgQrCanvas_${dash}" style="display:inline-block;background:#fff;padding:10px;border-radius:10px;margin-bottom:14px"></div>
             <div style="font-size:11px;color:#64748B">Scannez pour vérifier cette organisation</div>
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
-            <button class="btn-sm btn-upload" onclick="copyOrgQrLink('${org.org_qr_token}')">🔗 Copier le lien</button>
-            <button class="btn-sm" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted)" onclick="downloadOrgQr('orgQrCanvas_${dash}','${org.name}')">⬇️ Télécharger</button>
+            <button class="btn-sm btn-upload" onclick="copyOrgQrLink('${escapeHtml(org.org_qr_token)}')">🔗 Copier le lien</button>
+            <button class="btn-sm" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--muted)" onclick="downloadOrgQr('orgQrCanvas_${dash}','${escapeHtml(org.name)}')">⬇️ Télécharger</button>
           </div>
         </div>
       </div>
@@ -3302,6 +3356,13 @@ async function loadOrgProfile(dash) {
         <div class="section-title">🎛 Dashboard</div>
         <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Réinitialiser la mise en page personnalisée de votre tableau de bord</div>
         <button class="btn-sm btn-reject" onclick="resetDashboardLayout()">↺ Réinitialiser le dashboard</button>
+      </div>
+
+      <!-- RGPD : Suppression de compte -->
+      <div class="section-card" style="margin-top:8px;border-color:rgba(239,68,68,.25)">
+        <div class="section-title" style="color:#EF4444">⚠️ Zone de danger</div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:12px">La suppression de votre compte est <strong>définitive et irréversible</strong>. Toutes vos données (profil, documents, habilitations) seront effacées conformément au RGPD (Art. 17 — Droit à l'effacement).</div>
+        <button class="btn-sm btn-reject" style="border-color:rgba(239,68,68,.5);color:#EF4444" onclick="confirmDeleteAccount()">🗑 Supprimer mon compte</button>
       </div>
     </div>`;
 
@@ -3914,7 +3975,8 @@ async function saveLayout(role) {
   existing[role] = layout;
   currentProfile.dashboard_layout = existing;
 
-  await sb.from('profiles').update({ dashboard_layout: existing }).eq('id', currentUser.id);
+  const { error } = await sb.from('profiles').update({ dashboard_layout: existing }).eq('id', currentUser.id);
+  if (error) console.warn('saveLayout error', error.message);
 }
 
 function mergeLayout(defs, saved) {
@@ -3937,7 +3999,8 @@ async function resetDashboardLayout() {
   const existing = currentProfile.dashboard_layout || {};
   delete existing[role];
   currentProfile.dashboard_layout = existing;
-  await sb.from('profiles').update({ dashboard_layout: existing }).eq('id', currentUser.id);
+  const { error } = await sb.from('profiles').update({ dashboard_layout: existing }).eq('id', currentUser.id);
+  if (error) { showToast('Erreur réinitialisation : ' + error.message, 'error'); return; }
   showToast('✓ Dashboard réinitialisé', 'success');
   // Recharger
   showDashboard(role, currentProfile.full_name);
@@ -4231,9 +4294,13 @@ async function submitMission(missionId) {
 
 async function deleteMission(missionId) {
   if (!confirm('Supprimer définitivement cette mission ?')) return;
-  await sb.from('mission_workers').delete().eq('mission_id', missionId);
-  await sb.from('mission_doc_shares').delete().eq('mission_id', missionId);
-  await sb.from('missions').delete().eq('id', missionId);
+  const [r1, r2, r3] = await Promise.all([
+    sb.from('mission_workers').delete().eq('mission_id', missionId),
+    sb.from('mission_doc_shares').delete().eq('mission_id', missionId),
+    sb.from('missions').delete().eq('id', missionId)
+  ]);
+  const err = r1.error || r2.error || r3.error;
+  if (err) { showToast('Erreur suppression : ' + err.message, 'error'); return; }
   showToast('✓ Mission supprimée', 'success');
   loadSTEU();
 }
@@ -4330,7 +4397,8 @@ async function addMissionWorkerExternal() {
 }
 
 async function removeMissionWorker(mwId) {
-  await sb.from('mission_workers').delete().eq('id', mwId);
+  const { error } = await sb.from('mission_workers').delete().eq('id', mwId);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
   showToast('✓ Retiré de la mission', 'success');
   await refreshMissionWorkersList(_mwMissionId);
 }
@@ -4387,7 +4455,8 @@ async function shareDoc(docId, missionId) {
 }
 
 async function unshareDoc(shareId, missionId) {
-  await sb.from('mission_doc_shares').delete().eq('id', shareId);
+  const { error } = await sb.from('mission_doc_shares').delete().eq('id', shareId);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
   showToast('✓ Partage retiré', 'success');
   await refreshMissionDocsList(missionId);
 }
@@ -4437,7 +4506,7 @@ async function viewMissionWorkers(missionId, missionTitle) {
   modal.id = 'viewMissionWorkersModal';
   modal.innerHTML = `<div class="modal" style="max-width:540px">
     <button class="modal-close" onclick="document.getElementById('viewMissionWorkersModal').remove()">✕</button>
-    <div class="modal-title">👷 Intervenants — ${missionTitle}</div>
+    <div class="modal-title">👷 Intervenants — ${escapeHtml(missionTitle)}</div>
     <div style="margin-top:16px">${content}</div>
   </div>`;
   document.body.appendChild(modal);
@@ -4457,8 +4526,8 @@ async function viewMissionDocs(missionId, missionTitle, stOrgId) {
       const exp = doc.expires_at ? new Date(doc.expires_at).toLocaleDateString('fr-FR') : null;
       return `<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(34,197,94,.25);border-radius:10px;margin-bottom:8px">
         <div style="font-size:20px">📄</div>
-        <div style="flex:1"><div style="font-size:13px;font-weight:700">${doc.doc_type}</div>${exp ? `<div style="font-size:11px;color:var(--muted)">Expire le ${exp}</div>` : ''}</div>
-        ${doc.file_url ? `<button onclick="window.open('${doc.file_url}','_blank')" class="btn-sm btn-view" style="font-size:11px">👁 Voir</button>` : ''}
+        <div style="flex:1"><div style="font-size:13px;font-weight:700">${escapeHtml(doc.doc_type)}</div>${exp ? `<div style="font-size:11px;color:var(--muted)">Expire le ${escapeHtml(exp)}</div>` : ''}</div>
+        ${doc.file_url ? `<button onclick="window.open('${escapeHtml(doc.file_url)}','_blank')" class="btn-sm btn-view" style="font-size:11px">👁 Voir</button>` : ''}
       </div>`;
     }).join('');
   }
@@ -4470,7 +4539,7 @@ async function viewMissionDocs(missionId, missionTitle, stOrgId) {
   modal.id = 'viewMissionDocsModal';
   modal.innerHTML = `<div class="modal" style="max-width:520px">
     <button class="modal-close" onclick="document.getElementById('viewMissionDocsModal').remove()">✕</button>
-    <div class="modal-title">📄 Documents — ${missionTitle}</div>
+    <div class="modal-title">📄 Documents — ${escapeHtml(missionTitle)}</div>
     <div style="margin-top:16px">${content}</div>
   </div>`;
   document.body.appendChild(modal);
@@ -4584,9 +4653,9 @@ async function loadPublicOrgPage(token) {
     <div style="background:linear-gradient(135deg,#1B3A5C,#0D1B2A);border:2px solid rgba(99,102,241,.35);border-radius:20px;padding:28px 24px">
       <div style="text-align:center;margin-bottom:20px">
         <div style="font-size:44px;margin-bottom:10px">${typeIcon}</div>
-        <div style="font-size:22px;font-weight:900">${org.name}</div>
+        <div style="font-size:22px;font-weight:900">${escapeHtml(org.name)}</div>
         <div style="margin-top:6px">
-          <span style="font-size:12px;padding:4px 12px;border-radius:99px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.35);color:#A5B4FC;font-weight:700">${typeLabel}</span>
+          <span style="font-size:12px;padding:4px 12px;border-radius:99px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.35);color:#A5B4FC;font-weight:700">${escapeHtml(typeLabel)}</span>
         </div>
       </div>
 
@@ -4594,7 +4663,7 @@ async function loadPublicOrgPage(token) {
         <span style="font-size:18px">🔢</span>
         <div>
           <div style="font-size:10px;color:#64748B;font-weight:700;letter-spacing:.5px">SIRET</div>
-          <div style="font-size:14px;font-weight:700;letter-spacing:2px">${siretFormatted}</div>
+          <div style="font-size:14px;font-weight:700;letter-spacing:2px">${escapeHtml(siretFormatted)}</div>
         </div>
       </div>` : ''}
 
@@ -4602,7 +4671,7 @@ async function loadPublicOrgPage(token) {
         <span style="font-size:18px">⚖️</span>
         <div>
           <div style="font-size:10px;color:#64748B;font-weight:700;letter-spacing:.5px">FORME JURIDIQUE</div>
-          <div style="font-size:14px;font-weight:700">${org.legal_form}</div>
+          <div style="font-size:14px;font-weight:700">${escapeHtml(org.legal_form)}</div>
         </div>
       </div>` : ''}
 
@@ -4610,7 +4679,7 @@ async function loadPublicOrgPage(token) {
         <span style="font-size:18px">📍</span>
         <div>
           <div style="font-size:10px;color:#64748B;font-weight:700;letter-spacing:.5px">SIÈGE SOCIAL</div>
-          <div style="font-size:14px;font-weight:700">${org.address}</div>
+          <div style="font-size:14px;font-weight:700">${escapeHtml(org.address)}</div>
         </div>
       </div>` : ''}
 
@@ -4763,7 +4832,8 @@ async function loadSTWorkers() {
 }
 
 async function cancelWorkerInvite(inviteId) {
-  await sb.from('worker_invites').delete().eq('id', inviteId);
+  const { error } = await sb.from('worker_invites').delete().eq('id', inviteId);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
   showToast('✓ Invitation supprimée', 'success');
   loadSTWorkers();
 }
@@ -4863,7 +4933,8 @@ async function loadSTEU() {
 
 async function detachFromEU(relId, euName) {
   if (!confirm(`Se détacher de ${euName} ?`)) return;
-  await sb.from('org_relationships').delete().eq('id', relId);
+  const { error } = await sb.from('org_relationships').delete().eq('id', relId);
+  if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
   showToast('✓ Détaché de ' + euName, 'success');
   loadSTEU();
   loadSTStats();
@@ -4938,7 +5009,7 @@ async function handleSTFileImport(event) {
       const emailKey = Object.keys(rows[0] || {}).find(k => k.toLowerCase().includes('email') || k.toLowerCase().includes('mail'));
       if (!emailKey) { document.getElementById('stImportPreview').innerHTML = `<div style="color:#FCA5A5;font-size:13px">⚠️ Colonne "email" introuvable</div>`; return; }
       rows.forEach(r => { const e = (r[emailKey]||'').toString().trim().toLowerCase(); if (e.includes('@')) _stImportedEmails.push(e); });
-    } catch(e) { document.getElementById('stImportPreview').innerHTML = `<div style="color:#FCA5A5;font-size:13px">⚠️ Erreur : ${e.message}</div>`; return; }
+    } catch(e) { document.getElementById('stImportPreview').innerHTML = `<div style="color:#FCA5A5;font-size:13px">⚠️ Erreur : ${escapeHtml(e.message)}</div>`; return; }
   }
   document.getElementById('stImportPreview').innerHTML =
     `<div style="color:#86EFAC;font-size:13px">✓ ${_stImportedEmails.length} email(s) importé(s)</div>` +
@@ -4964,8 +5035,8 @@ async function sendSTInvites() {
 
   // Sauvegarder toutes les invitations en base
   const inserts = emails.map(email => ({ eu_org_id: currentProfile.org_id, st_email: email }));
-  await sb.from('st_invites').upsert(inserts, { onConflict: 'eu_org_id,st_email', ignoreDuplicates: true });
-
+  const { error } = await sb.from('st_invites').upsert(inserts, { onConflict: 'eu_org_id,st_email', ignoreDuplicates: true });
+  if (error) { showToast('Erreur envoi invitations : ' + error.message, 'error'); setLoading('inviteSTBtn', false, '✉️ Préparer les invitations'); return; }
   setLoading('inviteSTBtn', false, '✉️ Préparer les invitations');
   closeInviteSTModal();
 
@@ -5054,7 +5125,7 @@ async function handleWorkerFileImport(event) {
         if (email && email.includes('@')) _workerImportedEmails.push(email);
       });
     } catch(e) {
-      document.getElementById('workerImportPreview').innerHTML = `<div style="color:#FCA5A5;font-size:13px">⚠️ Erreur lecture fichier : ${e.message}</div>`;
+      document.getElementById('workerImportPreview').innerHTML = `<div style="color:#FCA5A5;font-size:13px">⚠️ Erreur lecture fichier : ${escapeHtml(e.message)}</div>`;
       return;
     }
   }
@@ -5080,7 +5151,8 @@ async function sendWorkerInvites() {
 
   // Sauvegarder les invitations en base (ignorer les doublons)
   const inserts = emails.map(email => ({ org_id: currentProfile.org_id, worker_email: email }));
-  await sb.from('worker_invites').upsert(inserts, { onConflict: 'org_id,worker_email', ignoreDuplicates: true });
+  const { error: invErr } = await sb.from('worker_invites').upsert(inserts, { onConflict: 'org_id,worker_email', ignoreDuplicates: true });
+  if (invErr) { showToast('Erreur envoi invitations : ' + invErr.message, 'error'); return; }
 
   const messages = emails.map(email => {
     const subject    = encodeURIComponent(`Invitation SafetySphere — ${org.name}`);
@@ -5131,6 +5203,23 @@ function copyAllWorkerInvites() {
     const { data: profile } = await sb.from('profiles').select('*').eq('id', session.user.id).single();
     if (profile) { currentProfile = profile; showDashboard(profile.role, profile.full_name); }
   }
+
+  // ── Surveillance expiration de session ──
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' && !session) {
+      // Session expirée ou déconnexion externe
+      if (currentUser) {
+        currentUser    = null;
+        currentProfile = null;
+        showToast('Votre session a expiré, veuillez vous reconnecter.', 'error');
+        setTimeout(() => hideAllDashboards(), 1500);
+      }
+    }
+    if (event === 'TOKEN_REFRESHED' && session) {
+      // Token rafraîchi silencieusement — mettre à jour currentUser
+      currentUser = session.user;
+    }
+  });
 })();
 </script>
 </body>
