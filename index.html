@@ -4793,11 +4793,10 @@ async function initDashboardWidgets(role) {
   overview.appendChild(grid);
 
   // Afficher le bouton Personnaliser de ce dashboard
-  const bellId = { worker:'notifBell-Worker', company:'notifBell-Company', hse:'notifBell-HSE', subcontractor:'notifBell-Subcontractor', trainer:'notifBell-Trainer' }[role];
-  if (bellId) {
-    const bell = document.getElementById(bellId);
-    const btn  = bell?.previousElementSibling;
-    if (btn?.classList.contains('btn-customize')) btn.style.display = '';
+  const dashId = { worker:'dashWorker', company:'dashCompany', hse:'dashHSE', subcontractor:'dashSubcontractor', trainer:'dashTrainer' }[role];
+  if (dashId) {
+    const dashEl = document.getElementById(dashId);
+    dashEl?.querySelectorAll('.btn-customize, .btn-add-kpi').forEach(b => b.style.display = '');
   }
 
   // Recharger les KPI personnalisés sauvegardés
