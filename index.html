@@ -8029,7 +8029,16 @@ async function requestSignatureOtp() {
   var email = currentProfile.email;
   if (!email) { showToast('Email introuvable', 'error'); btn.disabled = false; return; }
 
-  var res = await sb.auth.signInWithOtp({ email: email, options: { shouldCreateUser: false } });
+  // Forcer l'envoi d'un code OTP 6 chiffres (pas un magic link)
+  // Côté Supabase Dashboard : Auth > Email Templates > "Magic Link" → désactiver
+  // Auth > Settings > "Enable email OTP" → activer
+  var res = await sb.auth.signInWithOtp({
+    email: email,
+    options: {
+      shouldCreateUser: false,
+      emailRedirectTo: null,  // null = pas de redirect = mode code
+    }
+  });
   if (res.error) {
     showToast('Erreur envoi OTP : ' + res.error.message, 'error');
     btn.disabled = false; btn.textContent = '📧 Envoyer le code de vérification';
