@@ -679,6 +679,25 @@
     .risque-slider { flex:1; -webkit-appearance:none; appearance:none; height:4px; border-radius:4px; background:rgba(255,255,255,.12); outline:none; cursor:pointer; }
     .risque-slider::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:var(--orange); cursor:pointer; }
     .risque-val { font-size:13px; font-weight:900; color:var(--orange); width:20px; text-align:center; font-family:'Barlow Condensed',sans-serif; }
+    /* ══ KPI CATALOG ══ */
+    .kpi-catalog-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; max-height:420px; overflow-y:auto; padding-right:4px; }
+    .kpi-catalog-card { background:var(--inset-bg); border:2px solid var(--inset-border); border-radius:14px; padding:16px; cursor:pointer; transition:all .2s; position:relative; }
+    .kpi-catalog-card:hover { border-color:rgba(249,115,22,.4); background:rgba(249,115,22,.04); }
+    .kpi-catalog-card.selected { border-color:var(--orange); background:rgba(249,115,22,.1); }
+    .kpi-catalog-card.already-added { opacity:.4; cursor:not-allowed; pointer-events:none; }
+    .kpi-catalog-icon { font-size:26px; margin-bottom:8px; }
+    .kpi-catalog-name { font-size:13px; font-weight:700; margin-bottom:4px; }
+    .kpi-catalog-desc { font-size:11px; color:var(--muted); line-height:1.4; }
+    .kpi-catalog-badge { position:absolute; top:10px; right:10px; font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px; background:rgba(34,197,94,.15); color:#86EFAC; border:1px solid rgba(34,197,94,.25); }
+    body.theme-light .kpi-catalog-card { background:#fff; border-color:#E2E8F0; }
+    body.theme-light .kpi-catalog-card.selected { border-color:var(--orange); background:rgba(249,115,22,.06); }
+    .kpi-live-card { padding:20px; border-radius:14px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07); transition:border-color .2s,transform .2s; }
+    .kpi-live-card:hover { border-color:rgba(249,115,22,.25); transform:translateY(-2px); }
+    .kpi-live-value { font-family:'Barlow Condensed',sans-serif; font-size:36px; font-weight:900; color:var(--orange); line-height:1; margin-bottom:4px; }
+    .kpi-live-label { font-size:12px; color:var(--muted); }
+    .kpi-live-trend  { font-size:11px; margin-top:6px; }
+    body.theme-light .kpi-live-card { background:linear-gradient(135deg,#fff,#F8FAFC); border-color:#E2E8F0; }
+    body.theme-light .kpi-live-value { color:var(--orange); }
   </style>
 </head>
 <body>
@@ -810,7 +829,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-worker">👷 Intervenant</span>
     <span class="topbar-user" id="workerUserName"></span>
-    <button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="notif-bell" id="notifBell-Worker" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="btn-settings" id="settingsBtn" onclick="toggleSettingsPanel(this)" title="Réglages d'affichage" aria-expanded="false" aria-controls="settingsPanel">⚙️</button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="btn-add-kpi" onclick="openKpiCatalog()" title="Ajouter un indicateur" style="display:none;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:20px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:700;color:#A5B4FC;transition:all .2s">➕ Indicateur</button><button class="notif-bell" id="notifBell-Worker" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="btn-settings" id="settingsBtn" onclick="toggleSettingsPanel(this)" title="Réglages d'affichage" aria-expanded="false" aria-controls="settingsPanel">⚙️</button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Worker','overview',this)">🏠 Accueil</button>
@@ -914,7 +933,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-company">🏢 Société</span>
     <span class="topbar-user" id="companyUserName"></span>
-    <button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="notif-bell" id="notifBell-Company" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="btn-settings" id="settingsBtn" onclick="toggleSettingsPanel(this)" title="Réglages d'affichage" aria-expanded="false" aria-controls="settingsPanel">⚙️</button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="btn-add-kpi" onclick="openKpiCatalog()" title="Ajouter un indicateur" style="display:none;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:20px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:700;color:#A5B4FC;transition:all .2s">➕ Indicateur</button><button class="notif-bell" id="notifBell-Company" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="btn-settings" id="settingsBtn" onclick="toggleSettingsPanel(this)" title="Réglages d'affichage" aria-expanded="false" aria-controls="settingsPanel">⚙️</button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Company','overview',this)">🏠 Accueil</button>
@@ -999,7 +1018,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge" style="background:rgba(168,85,247,.15);color:#D8B4FE;border:1px solid rgba(168,85,247,.3)">🤝 Sous-Traitant</span>
     <span class="topbar-user" id="stUserName"></span>
-    <button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="notif-bell" id="notifBell-Subcontractor" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="btn-settings" id="settingsBtn" onclick="toggleSettingsPanel(this)" title="Réglages d'affichage" aria-expanded="false" aria-controls="settingsPanel">⚙️</button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="btn-add-kpi" onclick="openKpiCatalog()" title="Ajouter un indicateur" style="display:none;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:20px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:700;color:#A5B4FC;transition:all .2s">➕ Indicateur</button><button class="notif-bell" id="notifBell-Subcontractor" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="btn-settings" id="settingsBtn" onclick="toggleSettingsPanel(this)" title="Réglages d'affichage" aria-expanded="false" aria-controls="settingsPanel">⚙️</button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Subcontractor','overview',this)">🏠 Accueil</button>
@@ -1062,7 +1081,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-hse">🏭 HSE</span>
     <span class="topbar-user" id="hseUserName"></span>
-    <button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="notif-bell" id="notifBell-HSE" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="btn-settings" id="settingsBtn" onclick="toggleSettingsPanel(this)" title="Réglages d'affichage" aria-expanded="false" aria-controls="settingsPanel">⚙️</button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="btn-add-kpi" onclick="openKpiCatalog()" title="Ajouter un indicateur" style="display:none;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:20px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:700;color:#A5B4FC;transition:all .2s">➕ Indicateur</button><button class="notif-bell" id="notifBell-HSE" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="btn-settings" id="settingsBtn" onclick="toggleSettingsPanel(this)" title="Réglages d'affichage" aria-expanded="false" aria-controls="settingsPanel">⚙️</button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('HSE','overview',this)">🏠 Accueil</button>
@@ -1147,7 +1166,7 @@
     <div class="topbar-spacer"></div>
     <span class="topbar-role-badge badge-trainer">🎓 Formation</span>
     <span class="topbar-user" id="trainerUserName"></span>
-    <button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="notif-bell" id="notifBell-Trainer" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="btn-settings" id="settingsBtn" onclick="toggleSettingsPanel(this)" title="Réglages d'affichage" aria-expanded="false" aria-controls="settingsPanel">⚙️</button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
+    <button class="btn-customize" onclick="toggleCustomizeMode()" title="Personnaliser le dashboard" style="display:none">✏️ Personnaliser</button><button class="btn-add-kpi" onclick="openKpiCatalog()" title="Ajouter un indicateur" style="display:none;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:20px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:700;color:#A5B4FC;transition:all .2s">➕ Indicateur</button><button class="notif-bell" id="notifBell-Trainer" onclick="scrollToNotifs()" title="Notifications"><span>🔔</span><span class="notif-bell-dot"></span></button><button class="btn-settings" id="settingsBtn" onclick="toggleSettingsPanel(this)" title="Réglages d'affichage" aria-expanded="false" aria-controls="settingsPanel">⚙️</button><button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">🌙</button><button class="btn-logout" onclick="handleLogout()">Déconnexion</button>
   </nav>
   <div class="nav-tabs">
     <button class="nav-tab active" onclick="switchPage('Trainer','overview',this)">🏠 Accueil</button>
@@ -1890,6 +1909,20 @@
   </div>
 </div>
 </div><!-- /appContent -->
+
+<!-- ══ MODALE CATALOGUE KPI ══ -->
+<div class="modal-overlay" id="kpiCatalogModal">
+  <div class="modal" style="max-width:680px">
+    <button class="modal-close" onclick="closeKpiCatalog()">✕</button>
+    <div class="modal-title">📊 Ajouter un indicateur</div>
+    <div class="modal-subtitle">Sélectionnez les indicateurs à afficher sur votre dashboard</div>
+    <div id="kpiCatalogGrid" class="kpi-catalog-grid"></div>
+    <div style="display:flex;gap:10px;margin-top:20px">
+      <button id="kpiAddBtn" onclick="addSelectedKpis()" class="btn-sm btn-validate" style="flex:1;padding:11px;font-size:13px" disabled>✓ Ajouter la sélection</button>
+      <button onclick="closeKpiCatalog()" class="btn-sm btn-view" style="padding:11px 18px;font-size:13px">Annuler</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -4766,6 +4799,9 @@ async function initDashboardWidgets(role) {
     const btn  = bell?.previousElementSibling;
     if (btn?.classList.contains('btn-customize')) btn.style.display = '';
   }
+
+  // Recharger les KPI personnalisés sauvegardés
+  reloadSavedKpis(role);
 }
 
 // Wrapper les blocs HSE conformité + modules dans des divs avec IDs
@@ -4916,6 +4952,9 @@ function toggleCustomizeMode() {
     b.classList.toggle('active', _customizeMode);
     b.textContent = _customizeMode ? '✓ Terminer' : '✏️ Personnaliser';
   });
+
+  // Bouton ➕ Indicateur : afficher/masquer selon mode
+  document.querySelectorAll('.btn-add-kpi').forEach(b => { b.style.display = _customizeMode ? '' : 'none'; });
 
   if (!_customizeMode) saveLayout(role);
 }
@@ -7046,6 +7085,258 @@ async function deleteFdsEntry(id) {
   renderFdsSection(_conformRole);
 }
 
+
+
+// ══════════════════════════════════════════════════════
+// CATALOGUE KPI — Indicateurs de performance dynamiques
+// ══════════════════════════════════════════════════════
+
+const KPI_CATALOG = {
+  worker: [
+    { id:'kw-docs-total',    icon:'📄', name:'Total documents',         desc:'Nombre total de documents déposés',                                          color:'#6366F1',
+      fetch: async function() { var r = await sb.from('documents').select('id',{count:'exact'}).eq('owner_id',currentUser.id); return { value: r.count||0, trend:null }; } },
+    { id:'kw-docs-valid',    icon:'✅', name:'Documents validés',        desc:'Documents avec statut "validé"',                                            color:'#22C55E',
+      fetch: async function() { var r = await sb.from('documents').select('id',{count:'exact'}).eq('owner_id',currentUser.id).eq('status','validated'); return { value:r.count||0, trend:null }; } },
+    { id:'kw-docs-expiry60', icon:'📅', name:'Expirent dans 60j',        desc:'Documents arrivant à échéance dans les 60 prochains jours',                 color:'#F59E0B',
+      fetch: async function() { var now=new Date(); var d60=new Date(); d60.setDate(d60.getDate()+60); var r=await sb.from('documents').select('expires_at').eq('owner_id',currentUser.id); var cnt=(r.data||[]).filter(function(d){return d.expires_at&&new Date(d.expires_at)>now&&new Date(d.expires_at)<d60;}).length; return {value:cnt,trend:null}; } },
+    { id:'kw-shares-active', icon:'📤', name:'Partages actifs',          desc:'Nombre de documents partagés en cours',                                     color:'#14B8A6',
+      fetch: async function() { var r=await sb.from('mission_doc_shares').select('id',{count:'exact'}).eq('worker_id',currentUser.id); return {value:r.count||0,trend:null}; } },
+  ],
+  company: [
+    { id:'kc-workers-total',   icon:'👷', name:'Total intervenants',      desc:'Ensemble des intervenants liés à l\'entreprise',                           color:'#6366F1',
+      fetch: async function() { var r=await sb.from('profiles').select('id',{count:'exact'}).eq('org_id',currentProfile.org_id).eq('role','worker'); return {value:r.count||0,trend:null}; } },
+    { id:'kc-docs-valid-pct',  icon:'📊', name:'Taux conformité docs',    desc:'% de documents société validés sur total attendu',                          color:'#22C55E',
+      fetch: async function() { var r=await sb.from('documents').select('status').eq('owner_id',currentUser.id).eq('category','company'); var d=r.data||[]; var pct=d.length?Math.round(d.filter(function(x){return x.status==='validated';}).length/d.length*100):0; return {value:pct+'%',trend:null}; } },
+    { id:'kc-st-total',        icon:'🤝', name:'Sous-traitants actifs',   desc:'Nombre de sociétés sous-traitantes liées',                                  color:'#A855F7',
+      fetch: async function() { var r=await sb.from('organizations').select('id',{count:'exact'}).eq('parent_org_id',currentProfile.org_id); return {value:r.count||0,trend:null}; } },
+    { id:'kc-duer-unites',     icon:'📋', name:'Unités DUER',             desc:'Nombre d\'unités de travail dans le DUER',                                  color:'#F97316',
+      fetch: async function() { var r=await sb.from('duer_entries').select('id',{count:'exact'}).eq('org_id',currentProfile.org_id); return {value:r.count||0,trend:null}; } },
+    { id:'kc-duer-critiques',  icon:'🔴', name:'Risques critiques DUER',  desc:'Unités de travail avec criticité ≥ 12',                                    color:'#EF4444',
+      fetch: async function() { var r=await sb.from('duer_entries').select('gravite,probabilite').eq('org_id',currentProfile.org_id); var cnt=(r.data||[]).filter(function(e){return e.gravite*e.probabilite>=12;}).length; return {value:cnt,trend:null}; } },
+    { id:'kc-vgp-retard',      icon:'⏰', name:'VGP en retard',           desc:'Équipements dont la vérification réglementaire est dépassée',               color:'#EF4444',
+      fetch: async function() {
+        var records=await sb.from('registre_vgp').select('equipement,derniere_verification').eq('org_id',currentProfile.org_id);
+        var today=new Date(); var cnt=0;
+        (records.data||[]).forEach(function(r){
+          var eq=VGP_EQUIPEMENTS.find(function(e){return e.key===r.equipement;});
+          if(!eq||!r.derniere_verification) return;
+          var p=new Date(r.derniere_verification); p.setMonth(p.getMonth()+eq.periodicite);
+          if(p<today) cnt++;
+        });
+        return {value:cnt,trend:null};
+      } },
+    { id:'kc-vgp-ok',          icon:'✅', name:'VGP à jour',              desc:'Équipements dont la vérification est en cours de validité',                 color:'#22C55E',
+      fetch: async function() {
+        var records=await sb.from('registre_vgp').select('equipement,derniere_verification').eq('org_id',currentProfile.org_id);
+        var today=new Date(); var cnt=0;
+        (records.data||[]).forEach(function(r){
+          var eq=VGP_EQUIPEMENTS.find(function(e){return e.key===r.equipement;});
+          if(!eq||!r.derniere_verification) return;
+          var p=new Date(r.derniere_verification); p.setMonth(p.getMonth()+eq.periodicite);
+          if(p>=today) cnt++;
+        });
+        return {value:cnt,trend:null};
+      } },
+    { id:'kc-fds-total',       icon:'⚗️', name:'Produits FDS référencés', desc:'Nombre de produits chimiques dans la bibliothèque FDS',                    color:'#6366F1',
+      fetch: async function() { var r=await sb.from('fds_library').select('id',{count:'exact'}).eq('org_id',currentProfile.org_id); return {value:r.count||0,trend:null}; } },
+    { id:'kc-fds-renouveler',  icon:'♻️', name:'FDS à renouveler',        desc:'FDS de plus de 3 ans nécessitant une mise à jour',                          color:'#F59E0B',
+      fetch: async function() { var r=await sb.from('fds_library').select('version_date').eq('org_id',currentProfile.org_id); var limit=new Date(); limit.setFullYear(limit.getFullYear()-3); var cnt=(r.data||[]).filter(function(d){return d.version_date&&new Date(d.version_date)<limit;}).length; return {value:cnt,trend:null}; } },
+  ],
+  hse: [
+    { id:'kh-st-total',        icon:'🏢', name:'Sociétés ST',             desc:'Nombre de sous-traitants dans le périmètre HSE',                           color:'#6366F1',
+      fetch: async function() { var r=await sb.from('profiles').select('org_id',{count:'exact',head:true}).eq('role','company'); return {value:r.count||0,trend:null}; } },
+    { id:'kh-duer-unites',     icon:'📋', name:'Unités DUER',             desc:'Unités de travail dans le DUER de l\'organisation',                         color:'#F97316',
+      fetch: async function() { var r=await sb.from('duer_entries').select('id',{count:'exact'}).eq('org_id',currentProfile.org_id); return {value:r.count||0,trend:null}; } },
+    { id:'kh-duer-critiques',  icon:'🔴', name:'Risques critiques',       desc:'Risques DUER de criticité ≥ 12 nécessitant action prioritaire',            color:'#EF4444',
+      fetch: async function() { var r=await sb.from('duer_entries').select('gravite,probabilite').eq('org_id',currentProfile.org_id); var cnt=(r.data||[]).filter(function(e){return e.gravite*e.probabilite>=12;}).length; return {value:cnt,trend:null}; } },
+    { id:'kh-vgp-retard',      icon:'⏰', name:'VGP en retard',           desc:'Équipements réglementaires dont la vérification est dépassée',              color:'#EF4444',
+      fetch: async function() {
+        var records=await sb.from('registre_vgp').select('equipement,derniere_verification').eq('org_id',currentProfile.org_id);
+        var today=new Date(); var cnt=0;
+        (records.data||[]).forEach(function(r){
+          var eq=VGP_EQUIPEMENTS.find(function(e){return e.key===r.equipement;});
+          if(!eq||!r.derniere_verification) return;
+          var p=new Date(r.derniere_verification); p.setMonth(p.getMonth()+eq.periodicite);
+          if(p<today) cnt++;
+        });
+        return {value:cnt,trend:null};
+      } },
+    { id:'kh-fds-total',       icon:'⚗️', name:'Produits chimiques',      desc:'Produits dans la bibliothèque FDS',                                         color:'#6366F1',
+      fetch: async function() { var r=await sb.from('fds_library').select('id',{count:'exact'}).eq('org_id',currentProfile.org_id); return {value:r.count||0,trend:null}; } },
+  ],
+  subcontractor: [
+    { id:'ks-docs-total',      icon:'📄', name:'Documents totaux',        desc:'Documents déposés par l\'organisation',                                     color:'#6366F1',
+      fetch: async function() { var r=await sb.from('documents').select('id',{count:'exact'}).eq('owner_id',currentUser.id); return {value:r.count||0,trend:null}; } },
+    { id:'ks-workers-total',   icon:'👷', name:'Intervenants',             desc:'Nombre d\'intervenants dans l\'équipe',                                     color:'#F97316',
+      fetch: async function() { var r=await sb.from('profiles').select('id',{count:'exact'}).eq('org_id',currentProfile.org_id).eq('role','worker'); return {value:r.count||0,trend:null}; } },
+    { id:'ks-eu-total',        icon:'🏭', name:'EU partenaires',           desc:'Entreprises utilisatrices partenaires',                                     color:'#A855F7',
+      fetch: async function() { var r=await sb.from('mission_doc_shares').select('company_id').eq('st_org_id',currentProfile.org_id); var ids=new Set((r.data||[]).map(function(x){return x.company_id;})); return {value:ids.size,trend:null}; } },
+  ],
+  trainer: [
+    { id:'kt-pending',         icon:'📋', name:'Demandes en attente',     desc:'Formations en attente de validation',                                       color:'#F59E0B',
+      fetch: async function() { var r=await sb.from('documents').select('id',{count:'exact'}).eq('training_center_id',currentProfile.org_id).eq('center_status','pending'); return {value:r.count||0,trend:null}; } },
+    { id:'kt-validated-month', icon:'✅', name:'Validations ce mois',     desc:'Formations validées au cours du mois en cours',                             color:'#22C55E',
+      fetch: async function() { var start=new Date(); start.setDate(1); var r=await sb.from('documents').select('id',{count:'exact'}).eq('training_center_id',currentProfile.org_id).eq('center_status','validated').gte('updated_at',start.toISOString()); return {value:r.count||0,trend:null}; } },
+    { id:'kt-stagiaires',      icon:'👷', name:'Stagiaires suivis',        desc:'Nombre de travailleurs avec formation en cours',                            color:'#6366F1',
+      fetch: async function() { var r=await sb.from('documents').select('owner_id').eq('training_center_id',currentProfile.org_id); var ids=new Set((r.data||[]).map(function(x){return x.owner_id;})); return {value:ids.size,trend:null}; } },
+  ],
+};
+
+var _kpiSelected = []; // IDs sélectionnés dans la modale
+
+// ── Ouvrir la modale catalogue ─────────────────────────
+function openKpiCatalog() {
+  var role   = currentProfile && currentProfile.role;
+  var catalog = KPI_CATALOG[role] || [];
+  var active  = getActiveKpiIds(role);
+
+  _kpiSelected = [];
+  document.getElementById('kpiAddBtn').disabled = true;
+
+  var grid = document.getElementById('kpiCatalogGrid');
+  if (!catalog.length) {
+    grid.innerHTML = '<div class="empty-state-text" style="padding:20px">Aucun indicateur disponible pour ce rôle.</div>';
+  } else {
+    grid.innerHTML = catalog.map(function(kpi) {
+      var already = active.indexOf(kpi.id) >= 0;
+      return '<div class="kpi-catalog-card' + (already ? ' already-added' : '') + '" data-kpi-id="' + kpi.id + '" onclick="toggleKpiSelect(this)">'
+        + (already ? '<span class="kpi-catalog-badge">✓ Ajouté</span>' : '')
+        + '<div class="kpi-catalog-icon">' + kpi.icon + '</div>'
+        + '<div class="kpi-catalog-name">' + escapeHtml(kpi.name) + '</div>'
+        + '<div class="kpi-catalog-desc">' + escapeHtml(kpi.desc) + '</div>'
+        + '</div>';
+    }).join('');
+  }
+  document.getElementById('kpiCatalogModal').classList.add('open');
+}
+
+function closeKpiCatalog() {
+  document.getElementById('kpiCatalogModal').classList.remove('open');
+  _kpiSelected = [];
+}
+
+function toggleKpiSelect(card) {
+  var id = card.dataset.kpiId;
+  var idx = _kpiSelected.indexOf(id);
+  if (idx >= 0) { _kpiSelected.splice(idx,1); card.classList.remove('selected'); }
+  else          { _kpiSelected.push(id);       card.classList.add('selected'); }
+  document.getElementById('kpiAddBtn').disabled = _kpiSelected.length === 0;
+  document.getElementById('kpiAddBtn').textContent = _kpiSelected.length > 1
+    ? '✓ Ajouter ' + _kpiSelected.length + ' indicateurs'
+    : '✓ Ajouter la sélection';
+}
+
+function getActiveKpiIds(role) {
+  var layout = currentProfile && currentProfile.dashboard_layout && currentProfile.dashboard_layout[role];
+  if (!layout) return [];
+  return layout.filter(function(w) { return w.id && w.id.indexOf('kpi-') === 0; }).map(function(w) { return w.id.replace('kpi-',''); });
+}
+
+// ── Ajouter les KPI sélectionnés au dashboard ──────────
+async function addSelectedKpis() {
+  if (!_kpiSelected.length) return;
+  var role    = currentProfile && currentProfile.role;
+  var catalog = KPI_CATALOG[role] || [];
+  var grid    = document.getElementById('dash-grid-' + role);
+  if (!grid) { showToast('Ouvrez d\'abord l\'onglet Accueil', 'error'); return; }
+
+  var btn = document.getElementById('kpiAddBtn');
+  btn.disabled = true; btn.textContent = '⏳ Chargement...';
+
+  for (var i = 0; i < _kpiSelected.length; i++) {
+    var kpiId = _kpiSelected[i];
+    var kpi   = catalog.find(function(k) { return k.id === kpiId; });
+    if (!kpi) continue;
+    await appendKpiWidget(grid, kpi, role);
+  }
+
+  closeKpiCatalog();
+  await saveLayout(role);
+  showToast(_kpiSelected.length === 1 ? 'Indicateur ajouté !' : _kpiSelected.length + ' indicateurs ajoutés !', 'success');
+}
+
+async function appendKpiWidget(grid, kpi, role) {
+  var widgetId = 'kpi-' + kpi.id;
+
+  // Éviter doublon
+  if (grid.querySelector('[data-widget-id="' + widgetId + '"]')) return;
+
+  // Créer le conteneur KPI live
+  var kpiEl = document.createElement('div');
+  kpiEl.id  = 'kpi-el-' + kpi.id;
+  kpiEl.className = 'kpi-live-card';
+  kpiEl.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
+    + '<span style="font-size:26px">' + kpi.icon + '</span>'
+    + '<div class="kpi-live-label" style="font-size:13px;font-weight:700;color:var(--text2)">' + escapeHtml(kpi.name) + '</div>'
+    + '</div>'
+    + '<div class="kpi-live-value" style="color:' + kpi.color + '">…</div>'
+    + '<div class="kpi-live-label">' + escapeHtml(kpi.desc) + '</div>';
+
+  // Wrapper widget
+  var widget = document.createElement('div');
+  widget.className    = 'db-widget';
+  widget.dataset.widgetId = widgetId;
+
+  var bar = document.createElement('div');
+  bar.className = 'db-widget-bar';
+  bar.innerHTML = '<span class="db-widget-handle" title="Déplacer">⠿</span>'
+    + '<span class="db-widget-label">' + kpi.icon + ' ' + escapeHtml(kpi.name) + '</span>'
+    + '<div class="db-widget-actions">'
+    + '<button class="db-widget-btn" onclick="toggleWidgetVisibility(this,\'' + widgetId + '\',\'' + role + '\')">🙈 Masquer</button>'
+    + '<button class="db-widget-btn" style="color:#FCA5A5;border-color:rgba(239,68,68,.3)" onclick="removeKpiWidget(this,\'' + widgetId + '\',\'' + role + '\')">✕ Supprimer</button>'
+    + '</div>';
+
+  var inner = document.createElement('div');
+  inner.className = 'db-widget-inner';
+  inner.appendChild(kpiEl);
+
+  widget.appendChild(bar);
+  widget.appendChild(inner);
+  grid.appendChild(widget);
+  initWidgetDrag(widget);
+
+  // Charger la valeur
+  try {
+    var result = await kpi.fetch();
+    var valEl  = kpiEl.querySelector('.kpi-live-value');
+    if (valEl) valEl.textContent = result.value !== undefined ? result.value : '—';
+  } catch(e) {
+    var valEl = kpiEl.querySelector('.kpi-live-value');
+    if (valEl) valEl.textContent = '—';
+  }
+}
+
+// ── Supprimer un KPI du dashboard ──────────────────────
+async function removeKpiWidget(btn, widgetId, role) {
+  if (!confirm('Supprimer cet indicateur du dashboard ?')) return;
+  var widget = btn.closest('.db-widget');
+  if (widget) widget.remove();
+  await saveLayout(role);
+  showToast('Indicateur supprimé', 'success');
+}
+
+// ── Recharger les KPI custom au chargement du dashboard ─
+async function reloadSavedKpis(role) {
+  var layout = currentProfile && currentProfile.dashboard_layout && currentProfile.dashboard_layout[role];
+  if (!layout) return;
+  var grid    = document.getElementById('dash-grid-' + role);
+  if (!grid) return;
+  var catalog = KPI_CATALOG[role] || [];
+
+  for (var i = 0; i < layout.length; i++) {
+    var w = layout[i];
+    if (!w.id || w.id.indexOf('kpi-') !== 0) continue;
+    var kpiId = w.id.replace('kpi-','');
+    var kpi   = catalog.find(function(k) { return k.id === kpiId; });
+    if (!kpi) continue;
+    await appendKpiWidget(grid, kpi, role);
+    // Appliquer hidden si sauvegardé
+    if (w.hidden) {
+      var el = grid.querySelector('[data-widget-id="' + w.id + '"]');
+      if (el) el.classList.add('hidden-widget');
+    }
+  }
+}
 
 </script>
 </div>
