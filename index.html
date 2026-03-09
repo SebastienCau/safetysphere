@@ -2080,28 +2080,45 @@
 </div>
 
 
-<!-- ══ MODALE SIGNATURE OTP ══ -->
+<!-- ══ MODALE SIGNATURE ══ -->
 <div class="modal-overlay" id="signatureOtpModal">
-  <div class="modal" style="max-width:440px;text-align:center">
+  <div class="modal" style="max-width:460px;text-align:center">
     <button class="modal-close" onclick="closeSignatureOtp()">✕</button>
-    <div style="font-size:36px;margin-bottom:10px">✍️</div>
-    <div class="modal-title">Signature du document</div>
-    <div class="modal-subtitle" id="sigOtpSubtitle">Un code de vérification va être envoyé à votre adresse email</div>
+    <div style="font-size:32px;margin-bottom:8px">✍️</div>
+    <div class="modal-title">Signer le document</div>
+    <div class="modal-subtitle" id="sigOtpSubtitle">Choisissez votre mode de signature</div>
 
-    <!-- Étape 1 : demande OTP -->
-    <div id="sigOtpStep1">
+    <!-- Étape 0 : choix du mode -->
+    <div id="sigOtpStep0">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0">
+        <button onclick="chooseSignatureMode('otp')" style="background:rgba(249,115,22,.08);border:2px solid rgba(249,115,22,.3);border-radius:14px;padding:20px 14px;cursor:pointer;transition:all .2s;text-align:center" onmouseover="this.style.borderColor='#F97316'" onmouseout="this.style.borderColor='rgba(249,115,22,.3)'">
+          <div style="font-size:28px;margin-bottom:8px">📧</div>
+          <div style="font-size:13px;font-weight:700;color:var(--white);margin-bottom:4px">Signature numérique</div>
+          <div style="font-size:11px;color:var(--muted)">Code OTP par email<br>eIDAS Niveau 1</div>
+        </button>
+        <button onclick="chooseSignatureMode('manual')" style="background:rgba(99,102,241,.08);border:2px solid rgba(99,102,241,.3);border-radius:14px;padding:20px 14px;cursor:pointer;transition:all .2s;text-align:center" onmouseover="this.style.borderColor='#818CF8'" onmouseout="this.style.borderColor='rgba(99,102,241,.3)'">
+          <div style="font-size:28px;margin-bottom:8px">🖊️</div>
+          <div style="font-size:13px;font-weight:700;color:var(--white);margin-bottom:4px">Signature manuscrite</div>
+          <div style="font-size:11px;color:var(--muted)">Imprimer, signer<br>et renvoyer le scan</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Étape 1 : OTP — demande code -->
+    <div id="sigOtpStep1" style="display:none">
       <div style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);border-radius:10px;padding:14px 16px;margin:18px 0;text-align:left">
         <div style="font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px">Email de vérification</div>
         <div style="font-size:14px;font-weight:700" id="sigOtpEmailDisplay">—</div>
       </div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:20px">En signant, vous attestez avoir pris connaissance du document et en approuvez le contenu.</div>
       <button onclick="requestSignatureOtp()" class="btn-sm btn-validate" style="width:100%;padding:12px;font-size:13px" id="sigOtpRequestBtn">📧 Envoyer le code de vérification</button>
+      <button onclick="goToStep(0)" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;margin-top:10px;text-decoration:underline">← Retour</button>
     </div>
 
-    <!-- Étape 2 : saisie code -->
+    <!-- Étape 2 : OTP — saisie code -->
     <div id="sigOtpStep2" style="display:none">
       <div style="font-size:12px;color:var(--muted);margin:14px 0 20px">Saisissez le code à 8 chiffres reçu par email.<br>Valable <span id="sigOtpCountdown" style="font-weight:700;color:var(--orange)">60</span> secondes.</div>
-      <div style="display:flex;gap:8px;justify-content:center;margin-bottom:20px">
+      <div style="display:flex;gap:6px;justify-content:center;margin-bottom:20px">
         <input type="text" id="sigOtpD1" maxlength="1" class="otp-digit" oninput="otpDigitInput(this,'sigOtpD2')" onkeydown="otpDigitBack(event,this,null)">
         <input type="text" id="sigOtpD2" maxlength="1" class="otp-digit" oninput="otpDigitInput(this,'sigOtpD3')" onkeydown="otpDigitBack(event,this,'sigOtpD1')">
         <input type="text" id="sigOtpD3" maxlength="1" class="otp-digit" oninput="otpDigitInput(this,'sigOtpD4')" onkeydown="otpDigitBack(event,this,'sigOtpD2')">
@@ -2115,11 +2132,41 @@
       <button onclick="resetOtpToStep1()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;margin-top:12px;text-decoration:underline">↩ Renvoyer un code</button>
     </div>
 
-    <!-- Étape 3 : succès -->
+    <!-- Étape 3 : Succès OTP -->
     <div id="sigOtpStep3" style="display:none">
       <div style="font-size:48px;margin:20px 0">✅</div>
-      <div style="font-size:15px;font-weight:700;color:var(--success);margin-bottom:8px">Signature validée</div>
+      <div style="font-size:15px;font-weight:700;color:var(--success);margin-bottom:8px">Signature numérique validée</div>
       <div style="font-size:12px;color:var(--muted)" id="sigOtpSuccessDetail">—</div>
+      <button onclick="closeSignatureOtp()" class="btn-sm btn-validate" style="width:100%;padding:12px;font-size:13px;margin-top:20px">Ouvrir le rapport signé</button>
+    </div>
+
+    <!-- Étape 4 : Manuscrite — télécharger vierge -->
+    <div id="sigOtpStep4" style="display:none">
+      <div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);border-radius:10px;padding:16px;margin:18px 0;text-align:left">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Procédure de signature manuscrite :</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:12px;display:flex;gap:10px;align-items:flex-start"><span style="background:#6366F1;color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0">1</span><span>Téléchargez le document vierge ci-dessous</span></div>
+          <div style="font-size:12px;display:flex;gap:10px;align-items:flex-start"><span style="background:#6366F1;color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0">2</span><span>Imprimez-le, apposez votre signature manuscrite</span></div>
+          <div style="font-size:12px;display:flex;gap:10px;align-items:flex-start"><span style="background:#6366F1;color:#fff;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0">3</span><span>Scannez-le et téléversez-le ci-dessous pour l'archiver</span></div>
+        </div>
+      </div>
+      <button onclick="downloadUnsignedReport()" class="btn-sm" style="width:100%;padding:11px;font-size:13px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#A5B4FC;margin-bottom:12px">🖨️ Télécharger le document à imprimer</button>
+      <div style="border-top:1px solid var(--inset-border);padding-top:16px;margin-top:4px">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;text-align:left;font-weight:600">📤 Téléverser le document signé</div>
+        <div class="file-drop-zone" id="manualSigDropZone" onclick="document.getElementById('manualSigFile').click()" style="cursor:pointer;padding:16px">
+          <div class="file-drop-text" id="manualSigDropText">Cliquez pour sélectionner le scan (PDF, JPG)</div>
+        </div>
+        <input type="file" id="manualSigFile" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="onManualSigFileChange(this)">
+        <button onclick="uploadManualSignature()" class="btn-sm btn-validate" style="width:100%;padding:11px;font-size:13px;margin-top:12px" id="manualSigUploadBtn" disabled>📤 Archiver le document signé</button>
+      </div>
+      <button onclick="goToStep(0)" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;margin-top:10px;text-decoration:underline">← Retour</button>
+    </div>
+
+    <!-- Étape 5 : Manuscrite — succès upload -->
+    <div id="sigOtpStep5" style="display:none">
+      <div style="font-size:48px;margin:20px 0">📁</div>
+      <div style="font-size:15px;font-weight:700;color:#A5B4FC;margin-bottom:8px">Document manuscrit archivé</div>
+      <div style="font-size:12px;color:var(--muted)" id="sigManualSuccessDetail">—</div>
       <button onclick="closeSignatureOtp()" class="btn-sm btn-validate" style="width:100%;padding:12px;font-size:13px;margin-top:20px">Fermer</button>
     </div>
   </div>
@@ -6892,20 +6939,12 @@ function openReportWindow(html, title, meta) {
 // ══════════════════════════════════════════════════════
 // RAPPORT DUER
 // ══════════════════════════════════════════════════════
-async function generateDuerPDF() {
-  var result = await sb.from('duer_entries').select('*').eq('org_id', currentProfile.org_id).order('created_at');
-  var entries = result.data;
-  if (!entries || entries.length === 0) { showToast('Aucune unité à exporter', 'error'); return; }
-
-  var meta = await buildReportMeta('DUER');
-
+function buildDuerHTML(entries, meta, stampHtml) {
   var totalEntries = entries.length;
   var critiques = entries.filter(function(e){ return e.gravite*e.probabilite>=12; }).length;
   var eleves    = entries.filter(function(e){ var c=e.gravite*e.probabilite; return c>=6&&c<12; }).length;
   var maitris   = totalEntries - critiques - eleves;
-
   function riskColor(g,p){ var c=g*p; if(c>=16)return{bg:'#FEE2E2',border:'#EF4444',text:'#991B1B',label:'Critique'}; if(c>=9)return{bg:'#FFEDD5',border:'#F97316',text:'#9A3412',label:'Élevé'}; if(c>=4)return{bg:'#FEF3C7',border:'#F59E0B',text:'#92400E',label:'Modéré'}; return{bg:'#DCFCE7',border:'#22C55E',text:'#166534',label:'Faible'}; }
-
   var tableRows = entries.map(function(e,i){
     var g=e.gravite||1; var p=e.probabilite||1; var c=g*p;
     var rc=riskColor(g,p); var pct=Math.round((c/25)*100);
@@ -6918,168 +6957,39 @@ async function generateDuerPDF() {
         +'<span style="display:inline-block;padding:2px 8px;background:'+rc.bg+';color:'+rc.text+';border:1px solid '+rc.border+';border-radius:10px;font-size:10px;font-weight:700">'+rc.label+' '+c+'/25</span>'
         +'<div style="font-size:10px;color:#6B7280;margin-top:3px">G:'+g+' × P:'+p+'</div>'
       +'</td>'
-      +'<td style="padding:10px 12px;font-size:11px;border-right:1px solid #E5E7EB;width:31%">'+(risques.length?risques.map(function(r){return'<div style="margin-bottom:3px">⚠ '+escapeHtml(r)+'</div>';}).join(''):'<span style="color:#9CA3AF">—</span>')+'</td>'
-      +'<td style="padding:10px 12px;font-size:11px;width:31%">'+(mesures.length?mesures.map(function(m){return'<div style="margin-bottom:3px;color:#166534">✓ '+escapeHtml(m)+'</div>';}).join(''):'<span style="color:#9CA3AF">—</span>')+'</td>'
+      +'<td style="padding:10px 12px;font-size:11px;border-right:1px solid #E5E7EB;width:31%">'+(risques.length?risques.map(function(r){return'<div style="margin-bottom:3px">&#9888; '+escapeHtml(r)+'</div>';}).join(''):'<span style="color:#9CA3AF">&#8212;</span>')+'</td>'
+      +'<td style="padding:10px 12px;font-size:11px;width:31%">'+(mesures.length?mesures.map(function(m){return'<div style="margin-bottom:3px;color:#166534">&#10003; '+escapeHtml(m)+'</div>';}).join(''):'<span style="color:#9CA3AF">&#8212;</span>')+'</td>'
       +'</tr>';
   }).join('');
-
-  var html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>DUER — '+escapeHtml(meta.reportNum)+'</title>'
+  return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>DUER &#8212; '+escapeHtml(meta.reportNum)+'</title>'
     + reportCSS(true)
     + '</head><body>'
-    + reportHeaderHTML(meta, 'Document Unique d\'Évaluation des Risques (DUER)', 'Art. R4121-1 Code du Travail · Obligation annuelle')
+    + reportHeaderHTML(meta, 'Document Unique d\'Evaluation des Risques (DUER)', 'Art. R4121-1 Code du Travail - Obligation annuelle')
     + '<div class="stat-row">'
-    + '<div class="stat-box" style="background:#EFF6FF;border:1px solid #BFDBFE"><div class="stat-box-val" style="color:#1D4ED8">'+totalEntries+'</div><div class="stat-box-lbl" style="color:#1D4ED8">Unités de travail</div></div>'
-    + '<div class="stat-box" style="background:#FEE2E2;border:1px solid #FECACA"><div class="stat-box-val" style="color:#DC2626">'+critiques+'</div><div class="stat-box-lbl" style="color:#DC2626">Risques critiques (≥12)</div></div>'
-    + '<div class="stat-box" style="background:#FEF3C7;border:1px solid #FDE68A"><div class="stat-box-val" style="color:#B45309">'+eleves+'</div><div class="stat-box-lbl" style="color:#B45309">Risques élevés (6-11)</div></div>'
-    + '<div class="stat-box" style="background:#DCFCE7;border:1px solid #BBF7D0"><div class="stat-box-val" style="color:#15803D">'+maitris+'</div><div class="stat-box-lbl" style="color:#15803D">Risques maîtrisés (&lt;6)</div></div>'
+    + '<div class="stat-box" style="background:#EFF6FF;border:1px solid #BFDBFE"><div class="stat-box-val" style="color:#1D4ED8">'+totalEntries+'</div><div class="stat-box-lbl" style="color:#1D4ED8">Unites de travail</div></div>'
+    + '<div class="stat-box" style="background:#FEE2E2;border:1px solid #FECACA"><div class="stat-box-val" style="color:#DC2626">'+critiques+'</div><div class="stat-box-lbl" style="color:#DC2626">Risques critiques (&gt;=12)</div></div>'
+    + '<div class="stat-box" style="background:#FEF3C7;border:1px solid #FDE68A"><div class="stat-box-val" style="color:#B45309">'+eleves+'</div><div class="stat-box-lbl" style="color:#B45309">Risques eleves (6-11)</div></div>'
+    + '<div class="stat-box" style="background:#DCFCE7;border:1px solid #BBF7D0"><div class="stat-box-val" style="color:#15803D">'+maitris+'</div><div class="stat-box-lbl" style="color:#15803D">Risques maitris (&lt;6)</div></div>'
     + '</div>'
     + '<table><thead><tr>'
-    + '<th style="width:22%">N° · Unité de travail</th>'
-    + '<th style="width:15%;text-align:center">Criticité (G×P)</th>'
-    + '<th style="width:31%">Risques identifiés</th>'
-    + '<th style="width:31%">Mesures de prévention</th>'
+    + '<th style="width:22%">N - Unite de travail</th>'
+    + '<th style="width:15%;text-align:center">Criticite (GxP)</th>'
+    + '<th style="width:31%">Risques identifies</th>'
+    + '<th style="width:31%">Mesures de prevention</th>'
     + '</tr></thead><tbody>'+tableRows+'</tbody></table>'
+    + (stampHtml || '')
     + reportFooterHTML(meta, 'DUER')
     + '</body></html>';
-
-  openReportWindow(html, 'DUER', meta);
 }
 
-function openDuerTemplateModal(role) {
-  _conformRole = role || _conformRole;
-  var sectors = Object.entries(DUER_TEMPLATES);
-  var cards = sectors.map(function(entry) {
-    var key = entry[0]; var s = entry[1];
-    var shortLabel = s.label.split('—')[0].trim();
-    return '<div class="sector-card" onclick="importDuerTemplate(\'' + key + '\')">'
-      + '<div class="sector-card-icon">' + s.icon + '</div>'
-      + '<div class="sector-card-label">' + escapeHtml(shortLabel) + '</div></div>';
-  }).join('');
-
-  var modalHtml = '<div class="modal-overlay open" id="duerTemplateModal" style="z-index:1100">'
-    + '<div class="modal" style="max-width:660px">'
-    + '<button class="modal-close" onclick="document.getElementById(\'duerTemplateModal\').remove()">✕</button>'
-    + '<div class="modal-title">📋 Modèles sectoriels</div>'
-    + '<div class="modal-subtitle">Sélectionnez votre secteur pour pré-remplir le DUER avec les risques types</div>'
-    + '<div class="sector-grid">' + cards + '</div>'
-    + '</div></div>';
-  document.body.insertAdjacentHTML('beforeend', modalHtml);
+async function generateDuerPDF() {
+  var result = await sb.from('duer_entries').select('*').eq('org_id', currentProfile.org_id).order('created_at');
+  var entries = result.data;
+  if (!entries || entries.length === 0) { showToast('Aucune unite a exporter', 'error'); return; }
+  var meta = await buildReportMeta('DUER');
+  openReportWindow(buildDuerHTML(entries, meta, ''), 'DUER', meta);
 }
 
-async function importDuerTemplate(sectorKey) {
-  var tmpl = DUER_TEMPLATES[sectorKey];
-  if (!tmpl) return;
-  if (!confirm('Importer ' + tmpl.unites.length + ' unités de travail du secteur "' + tmpl.label + '" ?\nLes unités existantes sont conservées.')) return;
-
-  var modal = document.getElementById('duerTemplateModal');
-  if (modal) modal.remove();
-  showToast('Importation en cours...', 'success');
-
-  var now = new Date().toISOString();
-  var inserts = tmpl.unites.map(function(u) {
-    return { org_id: currentProfile.org_id, unite_travail: u.unite, gravite: u.gravite, probabilite: u.probabilite, risques: u.risques, mesures: u.mesures, created_at: now, updated_at: now };
-  });
-
-  var result = await sb.from('duer_entries').insert(inserts);
-  if (result.error) { showToast('Erreur import : ' + result.error.message, 'error'); return; }
-  showToast(inserts.length + ' unités importées avec succès !', 'success');
-  renderDuerSection(_conformRole);
-}
-
-// ══════════════════════════════
-// 12.2 — REGISTRE VGP
-// ══════════════════════════════
-
-async function renderVgpSection(role) {
-  var ctn = document.getElementById(role + '-conform-vgp');
-  if (!ctn) return;
-  ctn.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div></div>';
-
-  var result = await sb.from('registre_vgp').select('*').eq('org_id', currentProfile.org_id);
-  var records = result.data || [];
-  var today    = new Date();
-  var soonDate = new Date(); soonDate.setDate(soonDate.getDate() + 30);
-
-  function getVgpStatus(equip, record) {
-    if (!record || !record.derniere_verification) return 'non_planifie';
-    var derniere  = new Date(record.derniere_verification);
-    var prochaine = new Date(derniere);
-    prochaine.setMonth(prochaine.getMonth() + equip.periodicite);
-    if (prochaine < today)    return 'critique';
-    if (prochaine < soonDate) return 'alerte';
-    return 'ok';
-  }
-
-  var critCount = 0, alertCount = 0, okCount = 0, npCount = 0;
-  VGP_EQUIPEMENTS.forEach(function(eq) {
-    var r = records.find(function(x) { return x.equipement === eq.key; });
-    var s = getVgpStatus(eq, r);
-    if (s === 'critique') critCount++;
-    else if (s === 'alerte') alertCount++;
-    else if (s === 'ok') okCount++;
-    else npCount++;
-  });
-
-  var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">'
-    + '<div><div class="section-title" style="margin:0">Registre de Sécurité &amp; Vérifications Périodiques</div>'
-    + '<div style="font-size:12px;color:var(--muted);margin-top:4px">Contrôles réglementaires obligatoires avec alertes J-30</div></div>'
-    + '<button class="btn-sm" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#A5B4FC" onclick="generateVgpPDFSigned()">📥 Télécharger le rapport</button>'
-    + '</div>'
-    + '<div class="stats-grid" style="margin-bottom:24px">'
-    + '<div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value">' + okCount + '</div><div class="stat-label">À jour</div></div>'
-    + '<div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value">' + alertCount + '</div><div class="stat-label">Échéance &lt; 30j</div></div>'
-    + '<div class="stat-card"><div class="stat-icon">🔴</div><div class="stat-value">' + critCount + '</div><div class="stat-label">En retard</div></div>'
-    + '<div class="stat-card"><div class="stat-icon">⏸️</div><div class="stat-value">' + npCount + '</div><div class="stat-label">Non planifiés</div></div>'
-    + '</div>';
-
-  var cats = [];
-  VGP_EQUIPEMENTS.forEach(function(e) { if (cats.indexOf(e.categorie) < 0) cats.push(e.categorie); });
-
-  cats.forEach(function(cat) {
-    html += '<div class="section-title">' + escapeHtml(cat) + '</div>';
-    var eqs = VGP_EQUIPEMENTS.filter(function(e) { return e.categorie === cat; });
-    eqs.forEach(function(eq) {
-      var record   = records.find(function(r) { return r.equipement === eq.key; });
-      var status   = getVgpStatus(eq, record);
-      var iconCls  = 'vgp-icon-' + (status === 'non_planifie' ? 'np' : status);
-      var badgeCls = 'vgp-badge-' + (status === 'non_planifie' ? 'np' : status);
-      var badgeTxt = status === 'ok' ? '✅ À jour' : status === 'alerte' ? '⚠️ Échéance proche' : status === 'critique' ? '🔴 En retard' : '⏸️ Non planifié';
-
-      var dateInfo = 'Jamais vérifié';
-      var prochaineInfo = '';
-      if (record && record.derniere_verification) {
-        var d = new Date(record.derniere_verification);
-        var p = new Date(d); p.setMonth(p.getMonth() + eq.periodicite);
-        var daysLeft = Math.ceil((p - today) / 86400000);
-        dateInfo = 'Dernière : ' + d.toLocaleDateString('fr-FR');
-        prochaineInfo = ' — Prochaine : ' + p.toLocaleDateString('fr-FR') + (daysLeft > 0 ? ' (' + daysLeft + 'j)' : ' (DÉPASSÉ)');
-      }
-
-      var rapportBtn = (record && record.rapport_url)
-        ? '<button class="btn-sm btn-view" style="margin-top:8px" onclick="window.open(\'' + escapeHtml(record.rapport_url) + '\',\'_blank\')">📄 Voir le rapport</button>'
-        : '';
-
-      html += '<div class="vgp-card">'
-        + '<div class="vgp-icon ' + iconCls + '">' + eq.icon + '</div>'
-        + '<div class="vgp-info">'
-        + '<div class="vgp-name">' + escapeHtml(eq.label) + '</div>'
-        + '<div class="vgp-meta">' + escapeHtml(dateInfo + prochaineInfo) + ' · Périodicité : ' + eq.periodicite + ' mois · ' + eq.legalRef + '</div>'
-        + rapportBtn
-        + '</div>'
-        + '<div class="vgp-status">'
-        + '<span class="vgp-badge ' + badgeCls + '">' + badgeTxt + '</span>'
-        + '<button class="btn-sm btn-upload" onclick="openVgpModal(\'' + eq.key + '\',\'' + role + '\')">📅 Saisir vérif.</button>'
-        + '</div></div>';
-    });
-  });
-
-  ctn.innerHTML = html;
-}
-
-// ── Rapport VGP ──────────────────────────────────────
-// ══════════════════════════════════════════════════════
-// RAPPORT VGP
-// ══════════════════════════════════════════════════════
 function buildVgpHTML(records, meta, stampHtml) {
   var today    = new Date();
   var soonDate = new Date(); soonDate.setDate(soonDate.getDate() + 30);
@@ -7092,10 +7002,10 @@ function buildVgpHTML(records, meta, stampHtml) {
     return 'ok';
   }
   function statusStyle(s) {
-    if (s==='critique') return{bg:'#FEE2E2',border:'#EF4444',text:'#991B1B',label:'🔴 En retard'};
-    if (s==='alerte')   return{bg:'#FEF3C7',border:'#F59E0B',text:'#92400E',label:'⚠️ Échéance proche'};
-    if (s==='ok')       return{bg:'#DCFCE7',border:'#22C55E',text:'#166534',label:'✅ À jour'};
-    return                    {bg:'#F3F4F6',border:'#D1D5DB',text:'#6B7280',label:'⏸️ Non planifié'};
+    if (s==='critique') return{bg:'#FEE2E2',border:'#EF4444',text:'#991B1B',label:'En retard'};
+    if (s==='alerte')   return{bg:'#FEF3C7',border:'#F59E0B',text:'#92400E',label:'Echeance proche'};
+    if (s==='ok')       return{bg:'#DCFCE7',border:'#22C55E',text:'#166534',label:'A jour'};
+    return                    {bg:'#F3F4F6',border:'#D1D5DB',text:'#6B7280',label:'Non planifie'};
   }
   var critCount=0,alertCount=0,okCount=0,npCount=0;
   VGP_EQUIPEMENTS.forEach(function(eq){
@@ -7112,18 +7022,18 @@ function buildVgpHTML(records, meta, stampHtml) {
       var record=records.find(function(r){return r.equipement===eq.key;});
       var status=getVgpStatus(eq,record); var st=statusStyle(status);
       var rowBg=rowIdx%2===0?'#ffffff':'#F9FAFB'; rowIdx++;
-      var derniereStr='—',prochaineStr='—',daysLeftStr='—';
+      var derniereStr='--',prochaineStr='--',daysLeftStr='--';
       if(record&&record.derniere_verification){
         var d=new Date(record.derniere_verification);
         var p=new Date(d); p.setMonth(p.getMonth()+eq.periodicite);
         var dl=Math.ceil((p-today)/86400000);
         derniereStr=d.toLocaleDateString('fr-FR');
         prochaineStr=p.toLocaleDateString('fr-FR');
-        daysLeftStr=dl>0?dl+' j':'<span style="color:#DC2626;font-weight:700">DÉPASSÉ ('+Math.abs(dl)+'j)</span>';
+        daysLeftStr=dl>0?dl+' j':'DEPASSE ('+Math.abs(dl)+'j)';
       }
       var rapportCell=(record&&record.rapport_url)
-        ?'<a href="'+record.rapport_url+'" target="_blank" style="color:#2563EB;font-size:10px">📄 Rapport</a>'
-        :'<span style="color:#9CA3AF;font-size:10px">—</span>';
+        ?'<a href="'+record.rapport_url+'" target="_blank" style="color:#2563EB;font-size:10px">Rapport</a>'
+        :'<span style="color:#9CA3AF;font-size:10px">--</span>';
       tableRows+='<tr style="background:'+rowBg+'">'
         +'<td style="padding:9px 12px;font-size:12px;font-weight:600">'+eq.icon+' '+escapeHtml(eq.label)+'</td>'
         +'<td style="padding:9px 12px;font-size:10px;color:#6B7280">'+eq.legalRef+'</td>'
@@ -7137,22 +7047,22 @@ function buildVgpHTML(records, meta, stampHtml) {
         +'</tr>';
     });
   });
-  return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>VGP — '+escapeHtml(meta.reportNum)+'</title>'
+  return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><title>VGP -- '+escapeHtml(meta.reportNum)+'</title>'
     + reportCSS(true)
     + '</head><body>'
-    + reportHeaderHTML(meta, 'Registre de Sécurité — Vérifications Générales Périodiques', 'Décret 98-1084 · Art. R4323-22 Code du Travail · Alertes J-30')
+    + reportHeaderHTML(meta, 'Registre de Securite -- Verifications Generales Periodiques', 'Decret 98-1084 - Art. R4323-22 Code du Travail - Alertes J-30')
     + '<div class="stat-row">'
-    + '<div class="stat-box" style="background:#DCFCE7;border:1px solid #BBF7D0"><div class="stat-box-val" style="color:#15803D">'+okCount+'</div><div class="stat-box-lbl" style="color:#15803D">À jour</div></div>'
-    + '<div class="stat-box" style="background:#FEF3C7;border:1px solid #FDE68A"><div class="stat-box-val" style="color:#B45309">'+alertCount+'</div><div class="stat-box-lbl" style="color:#B45309">Échéance &lt; 30j</div></div>'
+    + '<div class="stat-box" style="background:#DCFCE7;border:1px solid #BBF7D0"><div class="stat-box-val" style="color:#15803D">'+okCount+'</div><div class="stat-box-lbl" style="color:#15803D">A jour</div></div>'
+    + '<div class="stat-box" style="background:#FEF3C7;border:1px solid #FDE68A"><div class="stat-box-val" style="color:#B45309">'+alertCount+'</div><div class="stat-box-lbl" style="color:#B45309">Echeance &lt; 30j</div></div>'
     + '<div class="stat-box" style="background:#FEE2E2;border:1px solid #FECACA"><div class="stat-box-val" style="color:#DC2626">'+critCount+'</div><div class="stat-box-lbl" style="color:#DC2626">En retard</div></div>'
-    + '<div class="stat-box" style="background:#F3F4F6;border:1px solid #E5E7EB"><div class="stat-box-val" style="color:#6B7280">'+npCount+'</div><div class="stat-box-lbl" style="color:#6B7280">Non planifiés</div></div>'
+    + '<div class="stat-box" style="background:#F3F4F6;border:1px solid #E5E7EB"><div class="stat-box-val" style="color:#6B7280">'+npCount+'</div><div class="stat-box-lbl" style="color:#6B7280">Non planifies</div></div>'
     + '</div>'
     + '<table><thead><tr>'
-    + '<th style="width:19%">Équipement</th>'
-    + '<th style="width:17%">Référence légale</th>'
-    + '<th style="width:10%;text-align:center">Périodicité</th>'
-    + '<th style="width:13%;text-align:center">Dernière vérif.</th>'
-    + '<th style="width:15%;text-align:center">Prochaine vérif.</th>'
+    + '<th style="width:19%">Equipement</th>'
+    + '<th style="width:17%">Reference legale</th>'
+    + '<th style="width:10%;text-align:center">Periodicite</th>'
+    + '<th style="width:13%;text-align:center">Derniere verif.</th>'
+    + '<th style="width:15%;text-align:center">Prochaine verif.</th>'
     + '<th style="width:12%;text-align:center">Statut / Rapport</th>'
     + '</tr></thead><tbody>'+tableRows+'</tbody></table>'
     + (stampHtml || '')
@@ -8004,10 +7914,11 @@ async function openSignatureModal(reportNum, reportType, meta, onSuccess) {
 
   _sigContext = { reportNum: reportNum, reportType: reportType, meta: meta, onSuccess: onSuccess };
 
-  // Réinitialiser la modale
-  document.getElementById('sigOtpStep1').style.display = '';
-  document.getElementById('sigOtpStep2').style.display = 'none';
-  document.getElementById('sigOtpStep3').style.display = 'none';
+  // Réinitialiser sur l'écran de choix (step 0)
+  [0,1,2,3,4,5].forEach(function(i) {
+    var el = document.getElementById('sigOtpStep' + i);
+    if (el) el.style.display = (i === 0 ? '' : 'none');
+  });
   document.getElementById('sigOtpSubtitle').textContent = 'Signature du rapport ' + reportType + ' · ' + reportNum;
   document.getElementById('sigOtpEmailDisplay').textContent = currentProfile.email || '—';
   document.getElementById('sigOtpRequestBtn').disabled = false;
@@ -8178,7 +8089,7 @@ async function generateDuerPDFSigned() {
     var html = buildDuerHTML(entries, meta, stampHtml);
     openReportWindow(html, 'DUER', meta);
     if (!sig.bypassed) closeSignatureOtp();
-  });
+  }, { entries: entries });
 }
 
 async function generateVgpPDFSigned() {
@@ -8191,7 +8102,7 @@ async function generateVgpPDFSigned() {
     var html = buildVgpHTML(records, meta, stampHtml);
     openReportWindow(html, 'VGP', meta);
     if (!sig.bypassed) closeSignatureOtp();
-  });
+  }, { records: records });
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -8311,6 +8222,151 @@ async function loadSigAuditLog() {
       + '</div>';
   }).join('');
 }
+
+
+// ══ NAVIGATION MODALE SIGNATURE ══════════════════════════════
+
+function goToStep(n) {
+  [0,1,2,3,4,5].forEach(function(i) {
+    var el = document.getElementById('sigOtpStep' + i);
+    if (el) el.style.display = (i === n ? '' : 'none');
+  });
+}
+
+function chooseSignatureMode(mode) {
+  if (mode === 'otp') {
+    document.getElementById('sigOtpRequestBtn').disabled = false;
+    document.getElementById('sigOtpRequestBtn').textContent = '📧 Envoyer le code de vérification';
+    goToStep(1);
+  } else {
+    goToStep(4);
+  }
+}
+
+// ── Télécharger le rapport vierge (sans cachet) pour impression ──
+function downloadUnsignedReport() {
+  if (!_sigContext) return;
+  var html, title;
+  if (_sigContext.reportType === 'DUER' && _sigContext._entries) {
+    html  = buildDuerHTML(_sigContext._entries, _sigContext.meta, buildManualSignatureBlockHTML());
+    title = 'DUER';
+  } else if (_sigContext.reportType === 'VGP' && _sigContext._records) {
+    html  = buildVgpHTML(_sigContext._records, _sigContext.meta, buildManualSignatureBlockHTML());
+    title = 'VGP';
+  } else {
+    showToast('Données rapport non disponibles', 'error'); return;
+  }
+  // Télécharger directement en HTML (le navigateur peut l'imprimer en PDF)
+  var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href     = url;
+  a.download = title + '-' + _sigContext.reportNum + '-A-SIGNER.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
+  showToast('Document téléchargé — imprimez et signez', 'success');
+}
+
+// Bloc réservé pour signature manuscrite (bas de rapport)
+function buildManualSignatureBlockHTML() {
+  return '<div style="margin-top:24px;border:2px dashed #D1D5DB;border-radius:10px;padding:20px;page-break-inside:avoid">'
+    + '<div style="font-size:10px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:16px">Signature manuscrite</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px">'
+    + sigLineHTML('Établi par')
+    + sigLineHTML('Vérifié par')
+    + sigLineHTML('Date')
+    + '</div>'
+    + '<div style="margin-top:16px;height:60px;border-bottom:1px solid #9CA3AF;position:relative">'
+    + '<span style="position:absolute;bottom:6px;left:0;font-size:10px;color:#9CA3AF">Signature</span></div>'
+    + '</div>';
+}
+function sigLineHTML(label) {
+  return '<div><div style="font-size:9px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:20px">'+label+'</div>'
+    + '<div style="border-bottom:1px solid #9CA3AF;height:24px"></div></div>';
+}
+
+// ── Upload scan signé ─────────────────────────────────────────
+var _manualSigFile = null;
+
+function onManualSigFileChange(input) {
+  _manualSigFile = input.files[0] || null;
+  var dropText = document.getElementById('manualSigDropText');
+  var uploadBtn = document.getElementById('manualSigUploadBtn');
+  if (dropText) dropText.textContent = _manualSigFile ? _manualSigFile.name : 'Cliquez pour sélectionner';
+  if (uploadBtn) uploadBtn.disabled = !_manualSigFile;
+}
+
+async function uploadManualSignature() {
+  if (!_manualSigFile || !_sigContext) return;
+  var btn = document.getElementById('manualSigUploadBtn');
+  btn.disabled = true; btn.textContent = '⏳ Archivage...';
+
+  var pad     = function(n){ return String(n).padStart(2,'0'); };
+  var now     = new Date();
+  var sigId   = 'SIG-MAN-' + now.getFullYear() + pad(now.getMonth()+1) + pad(now.getDate()) + '-' + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+  var filePath = currentProfile.org_id + '/' + sigId + '-' + _manualSigFile.name;
+
+  var fileUrl = null;
+  var upRes = await sb.storage.from('rapport-archives').upload(filePath, _manualSigFile, { upsert: true });
+  if (!upRes.error) {
+    var signed = await sb.storage.from('rapport-archives').createSignedUrl(filePath, 60 * 60 * 24 * 365);
+    if (!signed.error) fileUrl = signed.data.signedUrl;
+  }
+
+  // Enregistrer en base
+  var sigEntry = {
+    org_id      : currentProfile.org_id,
+    user_id     : currentUser.id,
+    responsable : currentProfile.full_name || currentProfile.email,
+    email       : currentProfile.email,
+    report_num  : _sigContext.reportNum,
+    report_type : _sigContext.reportType,
+    sig_id      : sigId,
+    method      : 'manuscrite_scannee',
+    signed_at   : now.toISOString(),
+  };
+  await sb.from('report_signatures').insert(sigEntry);
+
+  // Archiver aussi le fichier dans report_archive
+  if (fileUrl) {
+    await sb.from('report_archive').insert({
+      org_id       : currentProfile.org_id,
+      created_by   : currentUser.id,
+      responsable  : currentProfile.full_name || currentProfile.email,
+      email        : currentProfile.email || '',
+      report_num   : sigId,
+      report_type  : _sigContext.reportType,
+      label        : _sigContext.reportType + ' — signature manuscrite scannée',
+      source       : 'manuscrit',
+      generated_at : now.toISOString(),
+      file_url     : fileUrl,
+    });
+  }
+
+  var sigDate = now.toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
+  var sigTime = pad(now.getHours()) + 'h' + pad(now.getMinutes());
+  document.getElementById('sigManualSuccessDetail').innerHTML =
+    'Réf. : <strong>' + sigId + '</strong><br>'
+    + sigDate + ' à ' + sigTime + '<br>'
+    + '<span style="color:var(--muted)">Conservé dans l\'historique · Méthode : manuscrite scannée</span>';
+
+  _manualSigFile = null;
+  goToStep(5);
+  showToast('✓ Document signé archivé', 'success');
+}
+
+// ── Patch openSignatureModal — stocker entries/records pour téléchargement ──
+var _origOpenSignatureModal = openSignatureModal;
+openSignatureModal = async function(reportNum, reportType, meta, onSuccess, extraData) {
+  // Stocker les données dans le contexte pour downloadUnsignedReport
+  await _origOpenSignatureModal(reportNum, reportType, meta, onSuccess);
+  if (_sigContext && extraData) {
+    _sigContext._entries = extraData.entries || null;
+    _sigContext._records = extraData.records || null;
+  }
+};
 
 </script>
 </div>
