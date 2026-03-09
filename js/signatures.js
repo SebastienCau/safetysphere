@@ -2,6 +2,7 @@
 // SafetySphere — signatures.js  (v2.0.0)
 // Signature OTP · Workflow envoi · Page publique signature
 // Document consolidé · Admin signatures · Demandes entrantes
+// Navigation modale signature · Upload manuel
 // ============================================================
 // Dépendances : core.js · reports.js (renderHistoriqueSection,
 //               openReportViewer, archiveReport)
@@ -156,15 +157,7 @@ openSignatureModal = async function(reportNum, reportType, meta, onSuccess, extr
 
 
 
-
-// ══════════════════════════════════════════════════════════════════════════════
-// WORKFLOW SIGNATURE V2 — Parallèle / Séquentiel configurable par type de doc
-// ══════════════════════════════════════════════════════════════════════════════
-
-// ── Config workflow par type doc (chargée depuis doc_workflow_config) ──
-var _workflowConfig = {}; // { 'DUER': 'parallel', 'VGP': 'parallel', 'PDP': 'sequential', ... }
-
-async function loadWorkflowConfig() {
+// ── SYSTÈME DE SIGNATURE OTP + WORKFLOW ──────────────────────
 
 // ══════════════════════════════════════════════════════════════
 // SYSTÈME DE SIGNATURE OTP
