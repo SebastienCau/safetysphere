@@ -3573,16 +3573,25 @@ async function processQrUrl(url) {
 
 function scrollToNotifs() {
   const role = currentProfile?.role;
-  const map  = { worker:'Worker', company:'Company', hse:'HSE', subcontractor:'Subcontractor', trainer:'Trainer' };
-  const dash = map[role];
-  if (!dash) return;
-  // Aller sur la page d'accueil
-  const overviewTab = document.querySelector(`#dash${dash.replace('Subcontractor','Subcontractor')} .nav-tab`);
-  if (overviewTab) overviewTab.click();
+  const map = {
+    worker:        { dash:'Worker',        page:'overview' },
+    company:       { dash:'Company',       page:'overview' },
+    hse:           { dash:'HSE',           page:'overview' },
+    subcontractor: { dash:'Subcontractor', page:'overview' },
+    trainer:       { dash:'Trainer',       page:'overview' }
+  };
+  const target = map[role];
+  if (!target) return;
+
+  // Cliquer sur le premier onglet (Accueil) du bon dashboard
+  const firstTab = document.querySelector(`#dash${target.dash} .nav-tab`);
+  if (firstTab) firstTab.click();
+
+  // Scroll vers la section notifications après affichage
   setTimeout(() => {
-    const el = document.getElementById(`notifs-${dash}`);
+    const el = document.getElementById(`notifs-${target.dash}`);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, 100);
+  }, 150);
 }
 
 function renderNotifItem(icon, title, sub, type, action, onClick) {
