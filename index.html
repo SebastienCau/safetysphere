@@ -8552,7 +8552,7 @@ async function renderHistoriqueSection(role) {
   container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement de l\'historique...</div></div>';
 
   // Charger archive + corbeille
-  var archRes   = await sb.from('report_archive').select('*, sig_status, sig_request_id, sig_total, sig_signed, signed_file_url, parent_id').eq('org_id', currentProfile.org_id).order('generated_at', { ascending: false });
+  var archRes   = await sb.from('report_archive').select('*').eq('org_id', currentProfile.org_id).order('generated_at', { ascending: false });
   var trashRes  = await sb.from('report_trash').select('*').eq('org_id', currentProfile.org_id).order('deleted_at', { ascending: false });
 
   var allArchives = archRes.data || [];
