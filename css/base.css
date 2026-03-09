@@ -1,0 +1,41 @@
+/* ============================================================
+   SafetySphere — base.css
+   Reset, variables CSS, layout fondamental
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy:    #0D1B2A;
+  --steel:   #1B3A5C;
+  --orange:  #F97316;
+  --orange2: #EA580C;
+  --white:   #FFFFFF;
+  --muted:   #94A3B8;
+  --light:   #CBD5E0;
+  --danger:  #EF4444;
+  --success: #22C55E;
+  --warn:    #F59E0B;
+  --purple:  #A855F7;
+  --teal:    #14B8A6;
+  /* Theme tokens */
+  --bg:         #0D1B2A;
+  --bg2:        #1B3A5C;
+  --surface:    rgba(255,255,255,.04);
+  --surface2:   rgba(255,255,255,.07);
+  --border:     rgba(255,255,255,.07);
+  --border2:    rgba(255,255,255,.12);
+  --text:       #FFFFFF;
+  --text2:      #94A3B8;
+  --topbar-bg:  rgba(13,27,42,.95);
+  --topbar-border: rgba(255,255,255,.07);
+  --card-hover: rgba(249,115,22,.25);
+  --input-bg:   rgba(255,255,255,.06);
+  --input-border: rgba(255,255,255,.1);
+  /* Encarts inline : variables utilisées dans les templates JS */
+  --inset-bg:     rgba(255,255,255,.04);
+  --inset-bg2:    rgba(255,255,255,.03);
+  --inset-border: rgba(255,255,255,.08);
+  --inset-border2:rgba(255,255,255,.06);
+  --inset-sep:    rgba(255,255,255,.08);
+}
+
