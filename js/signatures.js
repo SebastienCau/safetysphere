@@ -160,17 +160,17 @@ var _allSigUsers  = [];
 async function isSignatureEnabled() {
   try {
     // 1. Paramètre global
-    var globalRes = await sb.from('signature_settings').select('enabled').eq('scope','global').eq('scope_id','global').single();
+    var globalRes = await sb.from('signature_settings').select('enabled').eq('scope','global').eq('scope_id','global').maybeSingle();
     if (globalRes.data && globalRes.data.enabled === false) return false;
 
     // 2. Désactivé pour l'organisation
     if (currentProfile.org_id) {
-      var orgRes = await sb.from('signature_settings').select('enabled').eq('scope','org').eq('scope_id', currentProfile.org_id).single();
+      var orgRes = await sb.from('signature_settings').select('enabled').eq('scope','org').eq('scope_id', currentProfile.org_id).maybeSingle();
       if (orgRes.data && orgRes.data.enabled === false) return false;
     }
 
     // 3. Désactivé pour l'utilisateur
-    var userRes = await sb.from('signature_settings').select('enabled').eq('scope','user').eq('scope_id', currentUser.id).single();
+    var userRes = await sb.from('signature_settings').select('enabled').eq('scope','user').eq('scope_id', currentUser.id).maybeSingle();
     if (userRes.data && userRes.data.enabled === false) return false;
 
     return true;
@@ -504,7 +504,7 @@ async function inlineArchiveToTrash(archiveId, reportType, role) {
 
 async function loadAdminSignatures() {
   // Charger paramètre global
-  var globalRes = await sb.from('signature_settings').select('enabled').eq('scope','global').eq('scope_id','global').single();
+  var globalRes = await sb.from('signature_settings').select('enabled').eq('scope','global').eq('scope_id','global').maybeSingle();
   var globalEnabled = !globalRes.data || globalRes.data.enabled !== false;
   var chk = document.getElementById('sigGlobalEnabled');
   var lbl = document.getElementById('sigGlobalStatusLabel');
