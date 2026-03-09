@@ -22,8 +22,9 @@
        v0.9.7 — Sécurité P0 : escapeHtml XSS, gestion erreurs écritures Supabase, onAuthStateChange, suppression compte RGPD
        v0.9.8 — Accessibilité : zoom police (80–130%), contraste texte (Normal/Élevé/Maximum), panneau ⚙️ topbar, sauvegarde profil
        v1.0.0 — Fix category_check : contrainte SQL LIKE 'custom_%', upsert onConflict+category ; Onglet "Habilitations" personnalisable (_defaultDocTypes)
+       v1.1.0 — Phase 12 : DUER dynamique (templates sectoriels), Registre VGP légaux (J-30), Bibliothèque FDS (Company + HSE)
   -->
-  <meta name="app-version" content="1.0.0" />
+  <meta name="app-version" content="1.1.0" />
   <link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -604,6 +605,80 @@
       .dash-body { padding: 18px 14px; }
       .topbar { padding: 0 14px; }
     }
+
+    /* ══ PHASE 12 — DUER / VGP / FDS ══ */
+    .duer-card { background:var(--inset-bg); border:1px solid var(--inset-border); border-radius:14px; padding:20px; margin-bottom:14px; transition:border-color .2s; }
+    .duer-card:hover { border-color:rgba(249,115,22,.25); }
+    .duer-card-header { display:flex; align-items:flex-start; gap:14px; margin-bottom:14px; }
+    .duer-card-icon { width:42px; height:42px; border-radius:10px; background:rgba(249,115,22,.12); border:1px solid rgba(249,115,22,.2); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+    .duer-card-title { flex:1; }
+    .duer-card-name { font-size:15px; font-weight:700; margin-bottom:3px; }
+    .duer-card-sector { font-size:11px; color:var(--muted); }
+    .duer-card-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; padding-top:14px; border-top:1px solid var(--inset-sep); }
+    .duer-risk-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+    .duer-risk-faible   { background:rgba(34,197,94,.12);  color:#86EFAC;  border:1px solid rgba(34,197,94,.25); }
+    .duer-risk-modere   { background:rgba(245,158,11,.12); color:#FCD34D;  border:1px solid rgba(245,158,11,.25); }
+    .duer-risk-eleve    { background:rgba(249,115,22,.12); color:#FED7AA;  border:1px solid rgba(249,115,22,.25); }
+    .duer-risk-critique { background:rgba(239,68,68,.12);  color:#FCA5A5;  border:1px solid rgba(239,68,68,.25); }
+    .duer-tags { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+    .duer-tag  { padding:3px 10px; border-radius:12px; font-size:11px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); color:var(--muted); }
+    .duer-score-bar { height:6px; border-radius:3px; background:rgba(255,255,255,.08); margin-top:12px; overflow:hidden; }
+    .duer-score-fill { height:100%; border-radius:3px; transition:width .4s ease; }
+    body.theme-light .duer-card { background:#fff; border-color:#E2E8F0; }
+    body.theme-light .duer-tag  { background:rgba(0,0,0,.04); border-color:#E2E8F0; color:#64748B; }
+    body.theme-light .duer-card:hover { border-color:rgba(249,115,22,.4); }
+
+    .vgp-card { background:var(--inset-bg); border:1px solid var(--inset-border); border-radius:14px; padding:18px 20px; margin-bottom:12px; display:flex; align-items:center; gap:16px; transition:border-color .2s; }
+    .vgp-card:hover { border-color:rgba(255,255,255,.15); }
+    .vgp-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+    .vgp-icon-ok       { background:rgba(34,197,94,.12);  border:1px solid rgba(34,197,94,.2); }
+    .vgp-icon-alerte   { background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.2); }
+    .vgp-icon-critique { background:rgba(239,68,68,.12);  border:1px solid rgba(239,68,68,.2); }
+    .vgp-icon-np       { background:rgba(148,163,184,.08);border:1px solid rgba(148,163,184,.15); }
+    .vgp-info { flex:1; }
+    .vgp-name { font-size:14px; font-weight:700; margin-bottom:3px; }
+    .vgp-meta { font-size:12px; color:var(--muted); }
+    .vgp-status { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+    .vgp-badge { padding:4px 12px; border-radius:20px; font-size:11px; font-weight:700; white-space:nowrap; }
+    .vgp-badge-ok       { background:rgba(34,197,94,.12);  color:#86EFAC;  border:1px solid rgba(34,197,94,.25); }
+    .vgp-badge-alerte   { background:rgba(245,158,11,.12); color:#FCD34D;  border:1px solid rgba(245,158,11,.25); }
+    .vgp-badge-critique { background:rgba(239,68,68,.12);  color:#FCA5A5;  border:1px solid rgba(239,68,68,.25); }
+    .vgp-badge-np       { background:rgba(148,163,184,.08);color:var(--muted); border:1px solid rgba(148,163,184,.2); }
+    body.theme-light .vgp-card { background:#fff; border-color:#E2E8F0; }
+
+    .fds-card { background:var(--inset-bg); border:1px solid var(--inset-border); border-radius:14px; padding:18px 20px; margin-bottom:12px; display:flex; align-items:center; gap:16px; transition:border-color .2s; }
+    .fds-card:hover { border-color:rgba(255,255,255,.15); }
+    .fds-icon { width:44px; height:44px; border-radius:12px; background:rgba(99,102,241,.12); border:1px solid rgba(99,102,241,.2); display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+    .fds-info { flex:1; }
+    .fds-name { font-size:14px; font-weight:700; margin-bottom:3px; }
+    .fds-meta { font-size:12px; color:var(--muted); }
+    body.theme-light .fds-card { background:#fff; border-color:#E2E8F0; }
+
+    .sector-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; margin-bottom:28px; }
+    .sector-card { background:var(--inset-bg); border:2px solid var(--inset-border); border-radius:14px; padding:18px 14px; cursor:pointer; text-align:center; transition:all .2s; }
+    .sector-card:hover { border-color:rgba(249,115,22,.4); background:rgba(249,115,22,.05); }
+    .sector-card.selected { border-color:var(--orange); background:rgba(249,115,22,.1); }
+    .sector-card-icon { font-size:28px; margin-bottom:8px; }
+    .sector-card-label { font-size:12px; font-weight:700; color:var(--text2); line-height:1.3; }
+    .sector-card.selected .sector-card-label { color:var(--orange); }
+    body.theme-light .sector-card { background:#fff; border-color:#E2E8F0; }
+    body.theme-light .sector-card.selected { border-color:var(--orange); background:rgba(249,115,22,.06); }
+
+    .conform-tabs { display:flex; gap:4px; margin-bottom:24px; border-bottom:1px solid rgba(255,255,255,.07); }
+    .conform-tab { padding:10px 18px; background:transparent; border:none; border-bottom:2px solid transparent; color:var(--muted); font-family:'Barlow',sans-serif; font-size:13px; font-weight:600; cursor:pointer; transition:all .2s; white-space:nowrap; margin-bottom:-1px; }
+    .conform-tab:hover { color:var(--white); }
+    .conform-tab.active { color:var(--orange); border-bottom-color:var(--orange); }
+    body.theme-light .conform-tabs { border-bottom-color:rgba(0,0,0,.08); }
+    body.theme-light .conform-tab { color:#64748B; }
+    body.theme-light .conform-tab.active { color:var(--orange); }
+    .conform-section { display:none; }
+    .conform-section.active { display:block; }
+
+    .risque-slider-row { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+    .risque-slider-label { font-size:12px; color:var(--muted); width:90px; flex-shrink:0; }
+    .risque-slider { flex:1; -webkit-appearance:none; appearance:none; height:4px; border-radius:4px; background:rgba(255,255,255,.12); outline:none; cursor:pointer; }
+    .risque-slider::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:var(--orange); cursor:pointer; }
+    .risque-val { font-size:13px; font-weight:900; color:var(--orange); width:20px; text-align:center; font-family:'Barlow Condensed',sans-serif; }
   </style>
 </head>
 <body>
@@ -653,7 +728,7 @@
         <div class="form-group"><label class="form-label">Mot de passe</label><input type="password" class="form-input" id="loginPassword" placeholder="••••••••" required /></div>
         <div style="text-align:right;margin-top:-6px;margin-bottom:14px"><a href="#" onclick="showForgotPassword();return false;" style="font-size:13px;color:var(--muted);text-decoration:none;">Mot de passe oublié ?</a></div>
         <button type="submit" class="btn-primary" id="loginBtn">Se connecter</button>
-        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v1.0.0</span></div>
+        <div style="text-align:center;margin-top:14px"><span style="font-size:12px;color:rgba(148,163,184,.45);letter-spacing:.5px;font-family:'Barlow Condensed',sans-serif;font-weight:700">v1.1.0</span></div>
       </form>
       <!-- FORGOT -->
       <div id="forgotForm" style="display:none">
@@ -848,6 +923,7 @@
     <button class="nav-tab" onclick="switchPage('Company','workers',this)">👷 Intervenants <span id="pendingBadge" class="notif-badge" style="display:none">!</span></button>
     <button class="nav-tab" onclick="switchPage('Company','subcontractors',this)">🤝 Sous-Traitants <span id="stInviteBadge" class="notif-badge" style="display:none">!</span></button>
     <button class="nav-tab" onclick="switchPage('Company','received',this)">📂 Documents reçus</button>
+    <button class="nav-tab" onclick="switchPage('Company','conformite',this);loadConformite('Company')">📋 Conformité</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="Company-overview">
@@ -893,6 +969,20 @@
       <div class="dash-subtitle">Invitez vos sous-traitants à rejoindre SafetySphere</div>
       <button class="btn-sm btn-upload" style="margin-bottom:24px;padding:10px 20px;font-size:13px" onclick="openInviteSTModal()">✉️ Inviter un sous-traitant</button>
       <div id="companySTContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
+    </div>
+
+    <!-- ══ PAGE CONFORMITÉ (Company) ══ -->
+    <div class="page-section" id="Company-conformite">
+      <div class="dash-welcome">📋 <em>Conformité</em> & Prévention</div>
+      <div class="dash-subtitle">DUER · Registre VGP · Bibliothèque FDS</div>
+      <div class="conform-tabs" id="conformTabs-Company">
+        <button class="conform-tab active" onclick="switchConformTab('Company','duer',this)">📄 DUER</button>
+        <button class="conform-tab" onclick="switchConformTab('Company','vgp',this)">🔧 Registre VGP</button>
+        <button class="conform-tab" onclick="switchConformTab('Company','fds',this)">⚗️ FDS Chimiques</button>
+      </div>
+      <div id="Company-conform-duer" class="conform-section active"></div>
+      <div id="Company-conform-vgp"  class="conform-section"></div>
+      <div id="Company-conform-fds"  class="conform-section"></div>
     </div>
     <div class="page-section" id="Company-received">
       <div class="dash-welcome">Documents <em>Reçus</em></div>
@@ -979,6 +1069,7 @@
     <button class="nav-tab" onclick="switchPage('HSE','entreprise',this);loadOrgProfile('HSE')">🏢 Mon Entreprise</button>
     <button class="nav-tab" onclick="switchPage('HSE','contractors',this)">🤝 Sous-traitants <span id="hseSTBadge" class="notif-badge" style="display:none">!</span></button>
     <button class="nav-tab" onclick="switchPage('HSE','received',this)">📂 Documents reçus</button>
+    <button class="nav-tab" onclick="switchPage('HSE','conformite',this);loadConformite('HSE')">📋 Conformité</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="HSE-overview">
@@ -1026,6 +1117,20 @@
       <div class="dash-subtitle">Invitez vos sous-traitants à rejoindre SafetySphere</div>
       <button class="btn-sm btn-upload" style="margin-bottom:24px;padding:10px 20px;font-size:13px" onclick="openInviteSTModal()">✉️ Inviter un sous-traitant</button>
       <div id="hseSTContainer"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
+    </div>
+
+    <!-- ══ PAGE CONFORMITÉ (HSE) ══ -->
+    <div class="page-section" id="HSE-conformite">
+      <div class="dash-welcome">📋 <em>Conformité</em> & Prévention</div>
+      <div class="dash-subtitle">DUER · Registre VGP · Bibliothèque FDS</div>
+      <div class="conform-tabs" id="conformTabs-HSE">
+        <button class="conform-tab active" onclick="switchConformTab('HSE','duer',this)">📄 DUER</button>
+        <button class="conform-tab" onclick="switchConformTab('HSE','vgp',this)">🔧 Registre VGP</button>
+        <button class="conform-tab" onclick="switchConformTab('HSE','fds',this)">⚗️ FDS Chimiques</button>
+      </div>
+      <div id="HSE-conform-duer" class="conform-section active"></div>
+      <div id="HSE-conform-vgp"  class="conform-section"></div>
+      <div id="HSE-conform-fds"  class="conform-section"></div>
     </div>
     <div class="page-section" id="HSE-received">
       <div class="dash-welcome">Documents <em>Reçus</em></div>
@@ -1664,8 +1769,127 @@
       <div style="font-size:11px;color:var(--muted);margin-top:6px">🎓 Le centre recevra une demande de validation</div>
     </div>
     <button class="btn-primary" id="uploadBtn" onclick="uploadDocument()">Envoyer le document</button>
+  
+
+</div>
+</div>
+
+<!-- ══ MODALE DUER — Ajout/Édition unité de travail ══ -->
+<div class="modal-overlay" id="duerEntryModal">
+  <div class="modal" style="max-width:620px">
+    <button class="modal-close" onclick="closeDuerModal()">✕</button>
+    <div class="modal-title" id="duerModalTitle">➕ Unité de travail</div>
+    <div class="modal-subtitle">Définissez les risques et mesures de prévention associés</div>
+    <input type="hidden" id="duerEntryId" value="">
+
+    <div class="form-group">
+      <label class="form-label">Unité de travail *</label>
+      <input type="text" id="duerUniteName" class="form-input" placeholder="Ex : Travaux en hauteur, Manutention..." maxlength="120">
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="form-group">
+        <label class="form-label">Gravité (1→5)</label>
+        <div class="risque-slider-row">
+          <input type="range" min="1" max="5" value="3" id="duerGravite" class="risque-slider" oninput="document.getElementById('duerGraviteVal').textContent=this.value;updateDuerCotation()">
+          <span class="risque-val" id="duerGraviteVal">3</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted)"><span>Légère</span><span>Catastrophique</span></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Probabilité (1→5)</label>
+        <div class="risque-slider-row">
+          <input type="range" min="1" max="5" value="2" id="duerProbabilite" class="risque-slider" oninput="document.getElementById('duerProbabiliteVal').textContent=this.value;updateDuerCotation()">
+          <span class="risque-val" id="duerProbabiliteVal">2</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted)"><span>Improbable</span><span>Certaine</span></div>
+      </div>
+    </div>
+    <div id="duerCotationDisplay" style="margin-bottom:18px;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:700;text-align:center;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:#FCD34D">
+      Criticité : <span id="duerCotationScore">6</span>/25 — <span id="duerCotationLabel">Modéré</span>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Risques identifiés</label>
+      <textarea id="duerRisques" class="form-input" rows="3" placeholder="Un risque par ligne : Chute de hauteur, Électrocution..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Mesures de prévention</label>
+      <textarea id="duerMesures" class="form-input" rows="3" placeholder="Une mesure par ligne : Port du harnais, Habilitation électrique..."></textarea>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:6px">
+      <button id="duerSaveBtn" onclick="saveDuerEntry()" class="btn-sm btn-validate" style="flex:1;padding:11px;font-size:13px">✓ Enregistrer</button>
+      <button onclick="closeDuerModal()" class="btn-sm btn-view" style="padding:11px 18px;font-size:13px">Annuler</button>
+    </div>
   </div>
 </div>
+
+<!-- ══ MODALE VGP — Saisir/Modifier vérification ══ -->
+<div class="modal-overlay" id="vgpEntryModal">
+  <div class="modal" style="max-width:500px">
+    <button class="modal-close" onclick="closeVgpModal()">✕</button>
+    <div class="modal-title" id="vgpModalTitle">🔧 Vérification périodique</div>
+    <div class="modal-subtitle" id="vgpModalSubtitle"></div>
+    <input type="hidden" id="vgpEntryId" value="">
+    <input type="hidden" id="vgpEquipementKey" value="">
+
+    <div class="form-group">
+      <label class="form-label">Date de la dernière vérification *</label>
+      <input type="date" id="vgpDerniereVerif" class="form-input">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Rapport de vérification (PDF)</label>
+      <div class="file-drop" onclick="document.getElementById('vgpRapportFile').click()" id="vgpFileDrop">
+        <div class="file-drop-icon">📄</div>
+        <div class="file-drop-text">Cliquez ou glissez le rapport<br><strong>PDF recommandé</strong></div>
+      </div>
+      <input type="file" id="vgpRapportFile" class="file-input-hidden" accept=".pdf,.jpg,.png" onchange="onVgpFileSelect(this)">
+      <div id="vgpFilePreview" class="file-name-preview"></div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button id="vgpSaveBtn" onclick="saveVgpEntry()" class="btn-sm btn-validate" style="flex:1;padding:11px;font-size:13px">✓ Enregistrer</button>
+      <button onclick="closeVgpModal()" class="btn-sm btn-view" style="padding:11px 18px;font-size:13px">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODALE FDS — Ajouter produit chimique ══ -->
+<div class="modal-overlay" id="fdsEntryModal">
+  <div class="modal" style="max-width:500px">
+    <button class="modal-close" onclick="closeFdsModal()">✕</button>
+    <div class="modal-title" id="fdsModalTitle">⚗️ Produit chimique</div>
+    <div class="modal-subtitle">Référencez un produit et uploadez sa Fiche de Données de Sécurité</div>
+    <input type="hidden" id="fdsEntryId" value="">
+
+    <div class="form-group">
+      <label class="form-label">Nom du produit *</label>
+      <input type="text" id="fdsProduit" class="form-input" placeholder="Ex: Acétone, Peinture époxy XB12...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Fournisseur</label>
+      <input type="text" id="fdsFournisseur" class="form-input" placeholder="Ex: Sika, Total, 3M...">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Date de version de la FDS</label>
+      <input type="date" id="fdsVersionDate" class="form-input">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Fichier FDS (PDF)</label>
+      <div class="file-drop" onclick="document.getElementById('fdsFichier').click()" id="fdsFileDrop">
+        <div class="file-drop-icon">⚗️</div>
+        <div class="file-drop-text">Cliquez pour sélectionner la FDS<br><strong>PDF recommandé</strong></div>
+      </div>
+      <input type="file" id="fdsFichier" class="file-input-hidden" accept=".pdf" onchange="onFdsFileSelect(this)">
+      <div id="fdsFilePreview" class="file-name-preview"></div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button id="fdsSaveBtn" onclick="saveFdsEntry()" class="btn-sm btn-validate" style="flex:1;padding:11px;font-size:13px">✓ Enregistrer</button>
+      <button onclick="closeFdsModal()" class="btn-sm btn-view" style="padding:11px 18px;font-size:13px">Annuler</button>
+    </div>
+  </div>
+</div>
+</div><!-- /appContent -->
 
 <div class="toast" id="toast"></div>
 
@@ -1696,6 +1920,8 @@ const COMPANY_DOCS = [
   { key: 'urssaf',    name: 'Attestation URSSAF',   icon: '📊', desc: 'Vigilance sociale à jour' },
   { key: 'accord_st', name: 'Accord Sous-Traitance',icon: '🤝', desc: 'Convention signée avec le donneur' },
 ];
+
+
 
 // ── HELPERS UI ──
 // ── SÉCURITÉ : échappement HTML (prévention XSS) ──
@@ -5958,6 +6184,602 @@ function copyAllWorkerInvites() {
     }
   });
 })();
+
+// ══════════════════════════════════════════════════════
+// PHASE 12 — CONFORMITÉ (DUER · VGP · FDS)
+// ══════════════════════════════════════════════════════
+
+const DUER_TEMPLATES = {
+  BTP: { label:'BTP — Bâtiment & Travaux Publics', icon:'🏗️', unites:[
+    { id:'btp_hauteur', unite:'Travaux en hauteur (échafaudages, toiture, nacelle)', risques:['Chute de hauteur','Chute d\'objet','Basculement d\'échafaudage'], mesures:['Port du harnais obligatoire','Vérification journalière des échafaudages','Filets de protection','Formation CACES nacelle'], gravite:4, probabilite:3 },
+    { id:'btp_elec', unite:'Travaux à proximité de réseaux électriques', risques:['Électrocution','Arc électrique','Brûlures'], mesures:['Habilitation électrique BR minimum','Consignation LOTO','Détecteur de réseau','EPI isolants'], gravite:5, probabilite:2 },
+    { id:'btp_confine', unite:'Travaux en espace confiné (tranchées, regards, cuves)', risques:['Asphyxie','Intoxication','Ensevelissement'], mesures:['Attestation espace confiné obligatoire','Détecteur 4 gaz','Système de récupération','Surveillance extérieure permanente'], gravite:5, probabilite:2 },
+    { id:'btp_manut', unite:'Manutention manuelle et mécanique', risques:['TMS','Écrasement','Renversement d\'engin'], mesures:['Formation gestes et postures','CACES requis','Zone de manœuvre balisée','Signaleur lors des manœuvres'], gravite:3, probabilite:4 },
+    { id:'btp_pouss', unite:'Découpe, ponçage, démolition (poussières)', risques:['Silicose','Amiante si bâti avant 1997','Troubles respiratoires'], mesures:['Diagnostic amiante avant travaux','Masque FFP3','Aspiration à la source','Arrosage anti-poussières'], gravite:4, probabilite:3 },
+  ]},
+  Logistique: { label:'Logistique & Entrepôt', icon:'📦', unites:[
+    { id:'log_chariot', unite:'Conduite de chariots élévateurs', risques:['Renversement du chariot','Collision piéton/chariot','Chute de charges'], mesures:['CACES 3 obligatoire','Séparation flux piétons/engins','Vitesse limitée à 10 km/h','Visite médicale aptitude'], gravite:4, probabilite:3 },
+    { id:'log_manut', unite:'Manutention manuelle de charges lourdes', risques:['Lombalgies','Hernies discales','Chute de colis'], mesures:['Formation gestes et postures','Ceinture lombaire','Aide mécanique si > 25 kg','Rotation des postes'], gravite:3, probabilite:5 },
+    { id:'log_stock', unite:'Stockage en hauteur (rayonnages)', risques:['Effondrement de rayonnage','Chute de marchandises'], mesures:['Contrôle annuel des rayonnages','Charge maximale affichée','Ceinture sur nacelle de picking'], gravite:4, probabilite:2 },
+    { id:'log_quai', unite:'Quais de chargement / déchargement', risques:['Collision avec PL','Chute dans le vide du quai','Coincement'], mesures:['Cales de roue obligatoires','Éclairage renforcé','Procédure accueil chauffeurs','Barrières de sécurité'], gravite:4, probabilite:3 },
+  ]},
+  Menuiserie: { label:'Menuiserie & Travail du Bois', icon:'🪵', unites:[
+    { id:'men_machines', unite:'Utilisation de machines-outils (scie, toupie, dégauchisseuse)', risques:['Coupure','Amputation','Projection d\'éclats','Bruit > 85 dB'], mesures:['Protecteurs de lame en place','Poussoir/guide obligatoire','Protections auditives','Formation machines'], gravite:4, probabilite:3 },
+    { id:'men_pouss', unite:'Production de poussières de bois', risques:['Cancers des fosses nasales (bois durs)','Irritations respiratoires'], mesures:['Aspiration centralisée','Masque P3 pour bois durs','Surveillance médicale renforcée'], gravite:4, probabilite:4 },
+    { id:'men_chim', unite:'Utilisation de colles, vernis, solvants', risques:['Intoxication aux solvants','Dermatites','Incendie/explosion'], mesures:['FDS à jour et consultées','Port de gants nitrile','Ventilation du local','Armoire coupe-feu'], gravite:3, probabilite:3 },
+  ]},
+  Garage: { label:'Garage & Mécanique Automobile', icon:'🔧', unites:[
+    { id:'gar_fosse', unite:'Travaux en fosse', risques:['Chute dans la fosse','Intoxication CO','Basculement du véhicule'], mesures:['Garde-corps fosse','Détecteur CO','Calage véhicule obligatoire','Ventilation forcée'], gravite:4, probabilite:2 },
+    { id:'gar_chim', unite:'Manipulation de fluides (huile, liquide de frein, réfrigérant)', risques:['Brûlures chimiques','Intoxication','Pollution environnementale'], mesures:['FDS affichées au poste','Gants résistants aux huiles','Récupérateur de fluides'], gravite:3, probabilite:4 },
+    { id:'gar_levage', unite:'Levage de véhicules (pont élévateur, cric)', risques:['Écrasement','Basculement','Chute de pièces'], mesures:['VGP pont élévateur annuelle','Vérification des points de levage','Béquilles de sécurité'], gravite:5, probabilite:2 },
+  ]},
+  Bureaux: { label:'Bureaux & Tertiaire', icon:'🏢', unites:[
+    { id:'bur_ecran', unite:'Travail sur écran prolongé', risques:['TMS (poignet, nuque)','Fatigue visuelle','Stress'], mesures:['Réglage du poste ergonomique','Pause 5 min / heure','Visite médecine du travail écran'], gravite:2, probabilite:5 },
+    { id:'bur_incendie', unite:'Risque incendie bâtiment tertiaire', risques:['Incendie','Panique','Intoxication fumées'], mesures:['Plan d\'évacuation affiché','Exercice évacuation annuel','Extincteurs vérifiés annuellement'], gravite:4, probabilite:1 },
+    { id:'bur_depl', unite:'Déplacements professionnels (voiture)', risques:['Accident de trajet','Fatigue','Malaise'], mesures:['Politique risque routier','Interdiction téléphone au volant','Limitation du temps de conduite'], gravite:4, probabilite:3 },
+  ]},
+  Restauration: { label:'Restauration & Cuisine', icon:'🍽️', unites:[
+    { id:'res_coupe', unite:'Utilisation de couteaux et équipements tranchants', risques:['Coupures','Blessures graves'], mesures:['Gants anti-coupure','Formation gestes','Rangement sécurisé'], gravite:3, probabilite:4 },
+    { id:'res_chaleur', unite:'Travail en cuisine chaude (fours, friteuses, plaques)', risques:['Brûlures','Coup de chaleur','Incendie'], mesures:['Maniques/protection thermique','Ventilation cuisine','Hotte et extraction propres'], gravite:3, probabilite:4 },
+    { id:'res_glissade', unite:'Sols mouillés en cuisine', risques:['Glissade','Chute','Fracture'], mesures:['Chaussures antidérapantes obligatoires','Signalisation sol glissant','Nettoyage immédiat des déversements'], gravite:3, probabilite:5 },
+    { id:'res_chim', unite:'Produits de nettoyage et désinfection', risques:['Brûlures chimiques','Irritations respiratoires','Intoxication'], mesures:['FDS affichées','Gants et lunettes','Ne jamais mélanger les produits'], gravite:3, probabilite:3 },
+  ]},
+};
+
+const VGP_EQUIPEMENTS = [
+  { key:'extincteurs',       label:'Extincteurs',                  icon:'🧯', categorie:'Incendie',    periodicite:12, legalRef:'Arrêté du 25/06/1980' },
+  { key:'sssi',              label:'Système de Sécurité Incendie', icon:'🚨', categorie:'Incendie',    periodicite:12, legalRef:'NFS 61-933' },
+  { key:'portes_coupe_feu',  label:'Portes coupe-feu',             icon:'🚪', categorie:'Incendie',    periodicite:12, legalRef:'Article R123-43' },
+  { key:'installation_elec', label:'Installation électrique',      icon:'⚡', categorie:'Électricité', periodicite:12, legalRef:'Décret 88-1056' },
+  { key:'tableau_elec',      label:'Tableau électrique TGBT',      icon:'🔌', categorie:'Électricité', periodicite:12, legalRef:'NF C 15-100' },
+  { key:'pont_elevateur',    label:'Pont élévateur',               icon:'🚗', categorie:'Levage',      periodicite:12, legalRef:'Décret 98-1084' },
+  { key:'chariot_elevateur', label:'Chariots élévateurs',          icon:'🏭', categorie:'Levage',      periodicite:12, legalRef:'Décret 98-1084' },
+  { key:'chaudiere',         label:'Chaudière / chauffage',        icon:'🔥', categorie:'Thermique',   periodicite:12, legalRef:'Arrêté du 02/08/1977' },
+  { key:'clim',              label:'Climatisation (> 12 kW)',      icon:'❄️', categorie:'Thermique',   periodicite:12, legalRef:'Arrêté du 16/04/2010' },
+  { key:'portes_auto',       label:'Portes automatiques',          icon:'🚪', categorie:'Équipements', periodicite:12, legalRef:'EN 12635' },
+  { key:'ascenseur',         label:'Ascenseur',                    icon:'🛗', categorie:'Équipements', periodicite:6,  legalRef:'Décret 2004-964' },
+  { key:'epi_incendie',      label:'EPI Incendie (combinaison)',   icon:'🧥', categorie:'EPI',         periodicite:12, legalRef:'R. 4543-13' },
+];
+
+let _conformRole = 'Company';
+let _conformTab  = 'duer';
+let _vgpFile     = null;
+let _fdsFile     = null;
+
+// ── Navigation ──────────────────────────────────────────
+async function loadConformite(role) {
+  _conformRole = role;
+  _conformTab  = 'duer';
+  ['duer','vgp','fds'].forEach(function(t) {
+    var s = document.getElementById(role + '-conform-' + t);
+    if (s) s.classList.toggle('active', t === 'duer');
+  });
+  var tabs = document.querySelectorAll('#conformTabs-' + role + ' .conform-tab');
+  tabs.forEach(function(b, i) { b.classList.toggle('active', i === 0); });
+  await renderDuerSection(role);
+}
+
+function switchConformTab(role, tab, btn) {
+  _conformTab = tab;
+  ['duer','vgp','fds'].forEach(function(t) {
+    var s = document.getElementById(role + '-conform-' + t);
+    if (s) s.classList.toggle('active', t === tab);
+  });
+  document.querySelectorAll('#conformTabs-' + role + ' .conform-tab').forEach(function(b) { b.classList.remove('active'); });
+  if (btn) btn.classList.add('active');
+  if (tab === 'duer') renderDuerSection(role);
+  if (tab === 'vgp')  renderVgpSection(role);
+  if (tab === 'fds')  renderFdsSection(role);
+}
+
+// ══════════════════════════════
+// 12.1 — DUER
+// ══════════════════════════════
+
+function duerCotationInfo(g, p) {
+  var c = g * p;
+  if (c >= 16) return { label:'Critique', cls:'duer-risk-critique', color:'#EF4444' };
+  if (c >= 9)  return { label:'Élevé',    cls:'duer-risk-eleve',    color:'#F97316' };
+  if (c >= 4)  return { label:'Modéré',   cls:'duer-risk-modere',   color:'#F59E0B' };
+  return             { label:'Faible',   cls:'duer-risk-faible',   color:'#22C55E' };
+}
+
+async function renderDuerSection(role) {
+  var ctn = document.getElementById(role + '-conform-duer');
+  if (!ctn) return;
+  ctn.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div></div>';
+
+  var result = await sb.from('duer_entries').select('*').eq('org_id', currentProfile.org_id).order('created_at');
+  var entries = result.data;
+  var err = result.error;
+
+  if (err) {
+    ctn.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Erreur : ' + escapeHtml(err.message) + '</div></div>';
+    return;
+  }
+
+  var hasDuer = entries && entries.length > 0;
+  var totalEntries = hasDuer ? entries.length : 0;
+  var critiques = hasDuer ? entries.filter(function(e) { return e.gravite * e.probabilite >= 12; }).length : 0;
+  var eleves    = hasDuer ? entries.filter(function(e) { var c = e.gravite * e.probabilite; return c >= 6 && c < 12; }).length : 0;
+
+  var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">'
+    + '<div><div class="section-title" style="margin:0">Document Unique d\'Évaluation des Risques</div>'
+    + '<div style="font-size:12px;color:var(--muted);margin-top:4px">Obligation légale — Art. R4121-1 du Code du Travail</div></div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    + '<button class="btn-sm btn-view" onclick="openDuerTemplateModal(\'' + role + '\')">📋 Importer un modèle secteur</button>'
+    + '<button class="btn-sm btn-upload" onclick="openDuerModal(null,\'' + role + '\')">➕ Ajouter une unité</button>'
+    + '</div></div>';
+
+  if (hasDuer) {
+    html += '<div class="stats-grid" style="margin-bottom:24px">'
+      + '<div class="stat-card"><div class="stat-icon">📋</div><div class="stat-value">' + totalEntries + '</div><div class="stat-label">Unités de travail</div></div>'
+      + '<div class="stat-card"><div class="stat-icon">🔴</div><div class="stat-value">' + critiques + '</div><div class="stat-label">Risques critiques</div></div>'
+      + '<div class="stat-card"><div class="stat-icon">🟡</div><div class="stat-value">' + eleves + '</div><div class="stat-label">Risques élevés</div></div>'
+      + '<div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value">' + (totalEntries - critiques - eleves) + '</div><div class="stat-label">Risques maîtrisés</div></div>'
+      + '</div>';
+    entries.forEach(function(e) { html += renderDuerCard(e, role); });
+  } else {
+    html += '<div class="empty-state"><div class="empty-state-icon">📄</div>'
+      + '<div class="empty-state-text">Aucune unité de travail.<br>Importez un modèle sectoriel ou créez votre première unité.</div></div>';
+  }
+
+  ctn.innerHTML = html;
+}
+
+function renderDuerCard(e, role) {
+  var info = duerCotationInfo(e.gravite || 1, e.probabilite || 1);
+  var cot  = (e.gravite || 1) * (e.probabilite || 1);
+  var pct  = Math.round((cot / 25) * 100);
+  var risques = Array.isArray(e.risques) ? e.risques : (e.risques ? JSON.parse(e.risques) : []);
+  var mesures = Array.isArray(e.mesures) ? e.mesures : (e.mesures ? JSON.parse(e.mesures) : []);
+
+  var rTags = risques.map(function(r) { return '<span class="duer-tag">⚠️ ' + escapeHtml(r) + '</span>'; }).join('');
+  var mTags = mesures.map(function(m) { return '<span class="duer-tag" style="border-color:rgba(34,197,94,.2);color:var(--success)">✓ ' + escapeHtml(m) + '</span>'; }).join('');
+
+  return '<div class="duer-card">'
+    + '<div class="duer-card-header">'
+    + '<div class="duer-card-icon">⚠️</div>'
+    + '<div class="duer-card-title">'
+    + '<div class="duer-card-name">' + escapeHtml(e.unite_travail) + '</div>'
+    + '<div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">'
+    + '<span class="duer-risk-badge ' + info.cls + '">' + info.label + ' — ' + cot + '/25</span>'
+    + '<span style="font-size:11px;color:var(--muted)">G:' + e.gravite + ' × P:' + e.probabilite + '</span>'
+    + '</div></div>'
+    + '<div style="display:flex;gap:6px;flex-shrink:0">'
+    + '<button class="btn-sm btn-view" onclick="openDuerModal(\'' + e.id + '\',\'' + role + '\')">✏️</button>'
+    + '<button class="btn-sm btn-reject" onclick="deleteDuerEntry(\'' + e.id + '\',\'' + role + '\')">🗑</button>'
+    + '</div></div>'
+    + '<div class="duer-score-bar"><div class="duer-score-fill" style="width:' + pct + '%;background:' + info.color + '"></div></div>'
+    + (rTags ? '<div class="duer-tags" style="margin-top:12px">' + rTags + '</div>' : '')
+    + (mTags ? '<div class="duer-tags">' + mTags + '</div>' : '')
+    + '</div>';
+}
+
+async function openDuerModal(entryId, role) {
+  _conformRole = role || _conformRole;
+  document.getElementById('duerEntryId').value = entryId || '';
+  document.getElementById('duerModalTitle').textContent = entryId ? '✏️ Modifier l\'unité' : '➕ Nouvelle unité de travail';
+  document.getElementById('duerGravite').value = '3';
+  document.getElementById('duerProbabilite').value = '2';
+  document.getElementById('duerGraviteVal').textContent = '3';
+  document.getElementById('duerProbabiliteVal').textContent = '2';
+  document.getElementById('duerUniteName').value = '';
+  document.getElementById('duerRisques').value = '';
+  document.getElementById('duerMesures').value = '';
+  updateDuerCotation();
+
+  if (entryId) {
+    var r = await sb.from('duer_entries').select('*').eq('id', entryId).single();
+    var data = r.data;
+    if (data) {
+      document.getElementById('duerUniteName').value   = data.unite_travail || '';
+      document.getElementById('duerGravite').value     = data.gravite || 3;
+      document.getElementById('duerProbabilite').value = data.probabilite || 2;
+      document.getElementById('duerGraviteVal').textContent    = data.gravite || 3;
+      document.getElementById('duerProbabiliteVal').textContent = data.probabilite || 2;
+      var risques = Array.isArray(data.risques) ? data.risques : (data.risques ? JSON.parse(data.risques) : []);
+      var mesures = Array.isArray(data.mesures) ? data.mesures : (data.mesures ? JSON.parse(data.mesures) : []);
+      document.getElementById('duerRisques').value = risques.join('\n');
+      document.getElementById('duerMesures').value = mesures.join('\n');
+      updateDuerCotation();
+    }
+  }
+  document.getElementById('duerEntryModal').classList.add('open');
+}
+
+function closeDuerModal() { document.getElementById('duerEntryModal').classList.remove('open'); }
+
+function updateDuerCotation() {
+  var g = parseInt(document.getElementById('duerGravite').value);
+  var p = parseInt(document.getElementById('duerProbabilite').value);
+  var info = duerCotationInfo(g, p);
+  document.getElementById('duerCotationScore').textContent = g * p;
+  document.getElementById('duerCotationLabel').textContent = info.label;
+  var el = document.getElementById('duerCotationDisplay');
+  var colorMap = { 'Critique':'239,68,68', 'Élevé':'249,115,22', 'Modéré':'245,158,11', 'Faible':'34,197,94' };
+  var rgb = colorMap[info.label] || '245,158,11';
+  el.style.background   = 'rgba(' + rgb + ',.1)';
+  el.style.borderColor  = 'rgba(' + rgb + ',.25)';
+  var textMap = { 'Critique':'#FCA5A5', 'Élevé':'#FED7AA', 'Modéré':'#FCD34D', 'Faible':'#86EFAC' };
+  el.style.color = textMap[info.label] || '#FCD34D';
+}
+
+async function saveDuerEntry() {
+  var name = document.getElementById('duerUniteName').value.trim();
+  if (!name) { showToast('Donnez un nom à l\'unité de travail', 'error'); return; }
+  var btn = document.getElementById('duerSaveBtn');
+  btn.disabled = true; btn.textContent = '⏳';
+
+  var entryId    = document.getElementById('duerEntryId').value;
+  var risquesRaw = document.getElementById('duerRisques').value;
+  var mesuresRaw = document.getElementById('duerMesures').value;
+
+  var payload = {
+    org_id:        currentProfile.org_id,
+    unite_travail: name,
+    gravite:       parseInt(document.getElementById('duerGravite').value),
+    probabilite:   parseInt(document.getElementById('duerProbabilite').value),
+    risques:       risquesRaw.split('\n').map(function(s) { return s.trim(); }).filter(Boolean),
+    mesures:       mesuresRaw.split('\n').map(function(s) { return s.trim(); }).filter(Boolean),
+    updated_at:    new Date().toISOString(),
+  };
+
+  var result;
+  if (entryId) {
+    result = await sb.from('duer_entries').update(payload).eq('id', entryId);
+  } else {
+    payload.created_at = new Date().toISOString();
+    result = await sb.from('duer_entries').insert(payload);
+  }
+  btn.disabled = false; btn.textContent = '✓ Enregistrer';
+  if (result.error) { showToast('Erreur : ' + result.error.message, 'error'); return; }
+  showToast(entryId ? 'Unité mise à jour' : 'Unité ajoutée au DUER', 'success');
+  closeDuerModal();
+  renderDuerSection(_conformRole);
+}
+
+async function deleteDuerEntry(id, role) {
+  if (!confirm('Supprimer cette unité de travail du DUER ?')) return;
+  var result = await sb.from('duer_entries').delete().eq('id', id);
+  if (result.error) { showToast('Erreur : ' + result.error.message, 'error'); return; }
+  showToast('Unité supprimée', 'success');
+  renderDuerSection(role || _conformRole);
+}
+
+function openDuerTemplateModal(role) {
+  _conformRole = role || _conformRole;
+  var sectors = Object.entries(DUER_TEMPLATES);
+  var cards = sectors.map(function(entry) {
+    var key = entry[0]; var s = entry[1];
+    var shortLabel = s.label.split('—')[0].trim();
+    return '<div class="sector-card" onclick="importDuerTemplate(\'' + key + '\')">'
+      + '<div class="sector-card-icon">' + s.icon + '</div>'
+      + '<div class="sector-card-label">' + escapeHtml(shortLabel) + '</div></div>';
+  }).join('');
+
+  var modalHtml = '<div class="modal-overlay open" id="duerTemplateModal" style="z-index:1100">'
+    + '<div class="modal" style="max-width:660px">'
+    + '<button class="modal-close" onclick="document.getElementById(\'duerTemplateModal\').remove()">✕</button>'
+    + '<div class="modal-title">📋 Modèles sectoriels</div>'
+    + '<div class="modal-subtitle">Sélectionnez votre secteur pour pré-remplir le DUER avec les risques types</div>'
+    + '<div class="sector-grid">' + cards + '</div>'
+    + '</div></div>';
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+async function importDuerTemplate(sectorKey) {
+  var tmpl = DUER_TEMPLATES[sectorKey];
+  if (!tmpl) return;
+  if (!confirm('Importer ' + tmpl.unites.length + ' unités de travail du secteur "' + tmpl.label + '" ?\nLes unités existantes sont conservées.')) return;
+
+  var modal = document.getElementById('duerTemplateModal');
+  if (modal) modal.remove();
+  showToast('Importation en cours...', 'success');
+
+  var now = new Date().toISOString();
+  var inserts = tmpl.unites.map(function(u) {
+    return { org_id: currentProfile.org_id, unite_travail: u.unite, gravite: u.gravite, probabilite: u.probabilite, risques: u.risques, mesures: u.mesures, created_at: now, updated_at: now };
+  });
+
+  var result = await sb.from('duer_entries').insert(inserts);
+  if (result.error) { showToast('Erreur import : ' + result.error.message, 'error'); return; }
+  showToast(inserts.length + ' unités importées avec succès !', 'success');
+  renderDuerSection(_conformRole);
+}
+
+// ══════════════════════════════
+// 12.2 — REGISTRE VGP
+// ══════════════════════════════
+
+async function renderVgpSection(role) {
+  var ctn = document.getElementById(role + '-conform-vgp');
+  if (!ctn) return;
+  ctn.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div></div>';
+
+  var result = await sb.from('registre_vgp').select('*').eq('org_id', currentProfile.org_id);
+  var records = result.data || [];
+  var today    = new Date();
+  var soonDate = new Date(); soonDate.setDate(soonDate.getDate() + 30);
+
+  function getVgpStatus(equip, record) {
+    if (!record || !record.derniere_verification) return 'non_planifie';
+    var derniere  = new Date(record.derniere_verification);
+    var prochaine = new Date(derniere);
+    prochaine.setMonth(prochaine.getMonth() + equip.periodicite);
+    if (prochaine < today)    return 'critique';
+    if (prochaine < soonDate) return 'alerte';
+    return 'ok';
+  }
+
+  var critCount = 0, alertCount = 0, okCount = 0, npCount = 0;
+  VGP_EQUIPEMENTS.forEach(function(eq) {
+    var r = records.find(function(x) { return x.equipement === eq.key; });
+    var s = getVgpStatus(eq, r);
+    if (s === 'critique') critCount++;
+    else if (s === 'alerte') alertCount++;
+    else if (s === 'ok') okCount++;
+    else npCount++;
+  });
+
+  var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">'
+    + '<div><div class="section-title" style="margin:0">Registre de Sécurité &amp; Vérifications Périodiques</div>'
+    + '<div style="font-size:12px;color:var(--muted);margin-top:4px">Contrôles réglementaires obligatoires avec alertes J-30</div></div>'
+    + '</div>'
+    + '<div class="stats-grid" style="margin-bottom:24px">'
+    + '<div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value">' + okCount + '</div><div class="stat-label">À jour</div></div>'
+    + '<div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value">' + alertCount + '</div><div class="stat-label">Échéance &lt; 30j</div></div>'
+    + '<div class="stat-card"><div class="stat-icon">🔴</div><div class="stat-value">' + critCount + '</div><div class="stat-label">En retard</div></div>'
+    + '<div class="stat-card"><div class="stat-icon">⏸️</div><div class="stat-value">' + npCount + '</div><div class="stat-label">Non planifiés</div></div>'
+    + '</div>';
+
+  var cats = [];
+  VGP_EQUIPEMENTS.forEach(function(e) { if (cats.indexOf(e.categorie) < 0) cats.push(e.categorie); });
+
+  cats.forEach(function(cat) {
+    html += '<div class="section-title">' + escapeHtml(cat) + '</div>';
+    var eqs = VGP_EQUIPEMENTS.filter(function(e) { return e.categorie === cat; });
+    eqs.forEach(function(eq) {
+      var record   = records.find(function(r) { return r.equipement === eq.key; });
+      var status   = getVgpStatus(eq, record);
+      var iconCls  = 'vgp-icon-' + (status === 'non_planifie' ? 'np' : status);
+      var badgeCls = 'vgp-badge-' + (status === 'non_planifie' ? 'np' : status);
+      var badgeTxt = status === 'ok' ? '✅ À jour' : status === 'alerte' ? '⚠️ Échéance proche' : status === 'critique' ? '🔴 En retard' : '⏸️ Non planifié';
+
+      var dateInfo = 'Jamais vérifié';
+      var prochaineInfo = '';
+      if (record && record.derniere_verification) {
+        var d = new Date(record.derniere_verification);
+        var p = new Date(d); p.setMonth(p.getMonth() + eq.periodicite);
+        var daysLeft = Math.ceil((p - today) / 86400000);
+        dateInfo = 'Dernière : ' + d.toLocaleDateString('fr-FR');
+        prochaineInfo = ' — Prochaine : ' + p.toLocaleDateString('fr-FR') + (daysLeft > 0 ? ' (' + daysLeft + 'j)' : ' (DÉPASSÉ)');
+      }
+
+      var rapportBtn = (record && record.rapport_url)
+        ? '<button class="btn-sm btn-view" style="margin-top:8px" onclick="window.open(\'' + escapeHtml(record.rapport_url) + '\',\'_blank\')">📄 Voir le rapport</button>'
+        : '';
+
+      html += '<div class="vgp-card">'
+        + '<div class="vgp-icon ' + iconCls + '">' + eq.icon + '</div>'
+        + '<div class="vgp-info">'
+        + '<div class="vgp-name">' + escapeHtml(eq.label) + '</div>'
+        + '<div class="vgp-meta">' + escapeHtml(dateInfo + prochaineInfo) + ' · Périodicité : ' + eq.periodicite + ' mois · ' + eq.legalRef + '</div>'
+        + rapportBtn
+        + '</div>'
+        + '<div class="vgp-status">'
+        + '<span class="vgp-badge ' + badgeCls + '">' + badgeTxt + '</span>'
+        + '<button class="btn-sm btn-upload" onclick="openVgpModal(\'' + eq.key + '\',\'' + role + '\')">📅 Saisir vérif.</button>'
+        + '</div></div>';
+    });
+  });
+
+  ctn.innerHTML = html;
+}
+
+function openVgpModal(equipKey, role) {
+  _conformRole = role || _conformRole;
+  _vgpFile = null;
+  var equip = VGP_EQUIPEMENTS.find(function(e) { return e.key === equipKey; });
+  if (!equip) return;
+  document.getElementById('vgpModalTitle').textContent    = '🔧 ' + equip.label;
+  document.getElementById('vgpModalSubtitle').textContent = 'Périodicité légale : ' + equip.periodicite + ' mois — ' + equip.legalRef;
+  document.getElementById('vgpEquipementKey').value = equipKey;
+  document.getElementById('vgpEntryId').value       = '';
+  document.getElementById('vgpDerniereVerif').value  = '';
+  document.getElementById('vgpFilePreview').textContent = '';
+  document.getElementById('vgpRapportFile').value   = '';
+  document.getElementById('vgpEntryModal').classList.add('open');
+}
+
+function closeVgpModal() { document.getElementById('vgpEntryModal').classList.remove('open'); _vgpFile = null; }
+
+function onVgpFileSelect(input) {
+  _vgpFile = input.files[0];
+  document.getElementById('vgpFilePreview').textContent = _vgpFile ? '✓ ' + _vgpFile.name : '';
+}
+
+async function saveVgpEntry() {
+  var date = document.getElementById('vgpDerniereVerif').value;
+  if (!date) { showToast('Saisissez la date de la vérification', 'error'); return; }
+  var btn = document.getElementById('vgpSaveBtn');
+  btn.disabled = true; btn.textContent = '⏳';
+
+  var equipKey = document.getElementById('vgpEquipementKey').value;
+  var equip    = VGP_EQUIPEMENTS.find(function(e) { return e.key === equipKey; });
+  var rapportUrl = null;
+
+  if (_vgpFile) {
+    var ext  = _vgpFile.name.split('.').pop();
+    var path = currentProfile.org_id + '/vgp/' + equipKey + '_' + Date.now() + '.' + ext;
+    var upResult = await sb.storage.from('documents').upload(path, _vgpFile);
+    if (upResult.error) {
+      showToast('Erreur upload rapport : ' + upResult.error.message, 'error');
+      btn.disabled = false; btn.textContent = '✓ Enregistrer';
+      return;
+    }
+    rapportUrl = sb.storage.from('documents').getPublicUrl(path).data.publicUrl;
+  }
+
+  var derniere  = new Date(date);
+  var prochaine = new Date(derniere);
+  prochaine.setMonth(prochaine.getMonth() + (equip ? equip.periodicite : 12));
+
+  var payload = {
+    org_id:                 currentProfile.org_id,
+    equipement:             equipKey,
+    categorie:              equip ? equip.categorie : '',
+    periodicite_mois:       equip ? equip.periodicite : 12,
+    derniere_verification:  date,
+    prochaine_verification: prochaine.toISOString().split('T')[0],
+    statut:                 'ok',
+  };
+  if (rapportUrl) payload.rapport_url = rapportUrl;
+
+  var result = await sb.from('registre_vgp').upsert(payload, { onConflict: 'org_id,equipement' });
+  btn.disabled = false; btn.textContent = '✓ Enregistrer';
+  if (result.error) { showToast('Erreur : ' + result.error.message, 'error'); return; }
+  showToast('Vérification enregistrée', 'success');
+  closeVgpModal();
+  renderVgpSection(_conformRole);
+}
+
+// ══════════════════════════════
+// 12.3 — BIBLIOTHÈQUE FDS
+// ══════════════════════════════
+
+async function renderFdsSection(role) {
+  var ctn = document.getElementById(role + '-conform-fds');
+  if (!ctn) return;
+  ctn.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div></div>';
+
+  var result = await sb.from('fds_library').select('*').eq('org_id', currentProfile.org_id).order('produit');
+  var fiches = result.data;
+  if (result.error) {
+    ctn.innerHTML = '<div class="empty-state"><div class="empty-state-text">Erreur : ' + escapeHtml(result.error.message) + '</div></div>';
+    return;
+  }
+
+  var today   = new Date();
+  var limit3y = new Date(); limit3y.setFullYear(limit3y.getFullYear() - 3);
+
+  function getFdsStatus(f) {
+    if (!f.fds_url)      return { label:'⚠️ FDS manquante',         badge:'vgp-badge-critique' };
+    if (!f.version_date) return { label:'📅 Date inconnue',          badge:'vgp-badge-alerte' };
+    if (new Date(f.version_date) < limit3y) return { label:'♻️ À renouveler (> 3 ans)', badge:'vgp-badge-alerte' };
+    return                                  { label:'✅ À jour',                        badge:'vgp-badge-ok' };
+  }
+
+  var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">'
+    + '<div><div class="section-title" style="margin:0">Bibliothèque des Fiches de Données de Sécurité</div>'
+    + '<div style="font-size:12px;color:var(--muted);margin-top:4px">Produits chimiques utilisés sur site — Règlement REACH · Directive 67/548/CE</div></div>'
+    + '<button class="btn-sm btn-upload" onclick="openFdsModal(null)">➕ Ajouter un produit</button>'
+    + '</div>';
+
+  if (fiches && fiches.length > 0) {
+    fiches.forEach(function(f) {
+      var st = getFdsStatus(f);
+      var vd = f.version_date ? new Date(f.version_date).toLocaleDateString('fr-FR') : 'Date inconnue';
+      var meta = (f.fournisseur ? escapeHtml(f.fournisseur) + ' · ' : '') + 'Version : ' + vd;
+      var fdsBtn = f.fds_url
+        ? '<button class="btn-sm btn-view" onclick="window.open(\'' + escapeHtml(f.fds_url) + '\',\'_blank\')">📄 FDS</button>'
+        : '';
+      html += '<div class="fds-card">'
+        + '<div class="fds-icon">⚗️</div>'
+        + '<div class="fds-info">'
+        + '<div class="fds-name">' + escapeHtml(f.produit) + '</div>'
+        + '<div class="fds-meta">' + meta + '</div>'
+        + '<div style="margin-top:6px"><span class="vgp-badge ' + st.badge + '" style="font-size:11px">' + st.label + '</span></div>'
+        + '</div>'
+        + '<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">'
+        + fdsBtn
+        + '<button class="btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);color:#A5B4FC" onclick="openFdsModal(\'' + f.id + '\')">✏️</button>'
+        + '<button class="btn-sm btn-reject" onclick="deleteFdsEntry(\'' + f.id + '\')">🗑</button>'
+        + '</div></div>';
+    });
+  } else {
+    html += '<div class="empty-state"><div class="empty-state-icon">⚗️</div>'
+      + '<div class="empty-state-text">Aucun produit chimique référencé.<br>Ajoutez vos premiers produits et uploadez leurs FDS.</div></div>';
+  }
+
+  ctn.innerHTML = html;
+}
+
+async function openFdsModal(fdsId) {
+  _fdsFile = null;
+  document.getElementById('fdsEntryId').value   = fdsId || '';
+  document.getElementById('fdsModalTitle').textContent = fdsId ? '✏️ Modifier le produit' : '⚗️ Nouveau produit chimique';
+  document.getElementById('fdsProduit').value    = '';
+  document.getElementById('fdsFournisseur').value = '';
+  document.getElementById('fdsVersionDate').value = '';
+  document.getElementById('fdsFilePreview').textContent = '';
+  document.getElementById('fdsFichier').value   = '';
+
+  if (fdsId) {
+    var r = await sb.from('fds_library').select('*').eq('id', fdsId).single();
+    if (r.data) {
+      document.getElementById('fdsProduit').value     = r.data.produit || '';
+      document.getElementById('fdsFournisseur').value  = r.data.fournisseur || '';
+      document.getElementById('fdsVersionDate').value  = r.data.version_date || '';
+    }
+  }
+  document.getElementById('fdsEntryModal').classList.add('open');
+}
+
+function closeFdsModal() { document.getElementById('fdsEntryModal').classList.remove('open'); _fdsFile = null; }
+
+function onFdsFileSelect(input) {
+  _fdsFile = input.files[0];
+  document.getElementById('fdsFilePreview').textContent = _fdsFile ? '✓ ' + _fdsFile.name : '';
+}
+
+async function saveFdsEntry() {
+  var produit = document.getElementById('fdsProduit').value.trim();
+  if (!produit) { showToast('Saisissez le nom du produit', 'error'); return; }
+  var btn = document.getElementById('fdsSaveBtn');
+  btn.disabled = true; btn.textContent = '⏳';
+
+  var fdsUrl = null;
+  if (_fdsFile) {
+    var path = currentProfile.org_id + '/fds/' + Date.now() + '_' + _fdsFile.name;
+    var upResult = await sb.storage.from('documents').upload(path, _fdsFile);
+    if (upResult.error) {
+      showToast('Erreur upload FDS : ' + upResult.error.message, 'error');
+      btn.disabled = false; btn.textContent = '✓ Enregistrer';
+      return;
+    }
+    fdsUrl = sb.storage.from('documents').getPublicUrl(path).data.publicUrl;
+  }
+
+  var fdsId   = document.getElementById('fdsEntryId').value;
+  var payload = {
+    org_id:       currentProfile.org_id,
+    produit:      produit,
+    fournisseur:  document.getElementById('fdsFournisseur').value.trim() || null,
+    version_date: document.getElementById('fdsVersionDate').value || null,
+  };
+  if (fdsUrl) payload.fds_url = fdsUrl;
+
+  var result = fdsId
+    ? await sb.from('fds_library').update(payload).eq('id', fdsId)
+    : await sb.from('fds_library').insert(payload);
+
+  btn.disabled = false; btn.textContent = '✓ Enregistrer';
+  if (result.error) { showToast('Erreur : ' + result.error.message, 'error'); return; }
+  showToast(fdsId ? 'Produit mis à jour' : 'Produit ajouté à la bibliothèque', 'success');
+  closeFdsModal();
+  renderFdsSection(_conformRole);
+}
+
+async function deleteFdsEntry(id) {
+  if (!confirm('Supprimer ce produit de la bibliothèque FDS ?')) return;
+  var result = await sb.from('fds_library').delete().eq('id', id);
+  if (result.error) { showToast('Erreur : ' + result.error.message, 'error'); return; }
+  showToast('Produit supprimé', 'success');
+  renderFdsSection(_conformRole);
+}
+
+
 </script>
 </div>
 
