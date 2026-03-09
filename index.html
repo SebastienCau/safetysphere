@@ -6991,6 +6991,97 @@ async function generateDuerPDF() {
   openReportWindow(buildDuerHTML(entries, meta, ''), 'DUER', meta);
 }
 
+// ══════════════════════════════
+// 12.2 — REGISTRE VGP
+// ══════════════════════════════
+
+async function renderVgpSection(role) {
+  var ctn = document.getElementById(role + '-conform-vgp');
+  if (!ctn) return;
+  ctn.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div></div>';
+
+  var result = await sb.from('registre_vgp').select('*').eq('org_id', currentProfile.org_id);
+  var records = result.data || [];
+  var today    = new Date();
+  var soonDate = new Date(); soonDate.setDate(soonDate.getDate() + 30);
+
+  function getVgpStatus(equip, record) {
+    if (!record || !record.derniere_verification) return 'non_planifie';
+    var derniere  = new Date(record.derniere_verification);
+    var prochaine = new Date(derniere);
+    prochaine.setMonth(prochaine.getMonth() + equip.periodicite);
+    if (prochaine < today)    return 'critique';
+    if (prochaine < soonDate) return 'alerte';
+    return 'ok';
+  }
+
+  var critCount = 0, alertCount = 0, okCount = 0, npCount = 0;
+  VGP_EQUIPEMENTS.forEach(function(eq) {
+    var r = records.find(function(x) { return x.equipement === eq.key; });
+    var s = getVgpStatus(eq, r);
+    if (s === 'critique') critCount++;
+    else if (s === 'alerte') alertCount++;
+    else if (s === 'ok') okCount++;
+    else npCount++;
+  });
+
+  var hasSomeRecord = records.length > 0;
+  var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">'
+    + '<div><div class="section-title" style="margin:0">Registre de Sécurité &amp; Vérifications Périodiques</div>'
+    + '<div style="font-size:12px;color:var(--muted);margin-top:4px">Contrôles réglementaires obligatoires avec alertes J-30</div></div>'
+    + (hasSomeRecord ? '<button class="btn-sm" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#A5B4FC" onclick="generateVgpPDFSigned()">📥 Télécharger le rapport</button>' : '')
+    + '</div>'
+    + '<div class="stats-grid" style="margin-bottom:24px">'
+    + '<div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value">' + okCount + '</div><div class="stat-label">À jour</div></div>'
+    + '<div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value">' + alertCount + '</div><div class="stat-label">Échéance &lt; 30j</div></div>'
+    + '<div class="stat-card"><div class="stat-icon">🔴</div><div class="stat-value">' + critCount + '</div><div class="stat-label">En retard</div></div>'
+    + '<div class="stat-card"><div class="stat-icon">⏸️</div><div class="stat-value">' + npCount + '</div><div class="stat-label">Non planifiés</div></div>'
+    + '</div>';
+
+  var cats = [];
+  VGP_EQUIPEMENTS.forEach(function(e) { if (cats.indexOf(e.categorie) < 0) cats.push(e.categorie); });
+
+  cats.forEach(function(cat) {
+    html += '<div class="section-title">' + escapeHtml(cat) + '</div>';
+    var eqs = VGP_EQUIPEMENTS.filter(function(e) { return e.categorie === cat; });
+    eqs.forEach(function(eq) {
+      var record   = records.find(function(r) { return r.equipement === eq.key; });
+      var status   = getVgpStatus(eq, record);
+      var iconCls  = 'vgp-icon-' + (status === 'non_planifie' ? 'np' : status);
+      var badgeCls = 'vgp-badge-' + (status === 'non_planifie' ? 'np' : status);
+      var badgeTxt = status === 'ok' ? '✅ À jour' : status === 'alerte' ? '⚠️ Échéance proche' : status === 'critique' ? '🔴 En retard' : '⏸️ Non planifié';
+
+      var dateInfo = 'Jamais vérifié';
+      var prochaineInfo = '';
+      if (record && record.derniere_verification) {
+        var d = new Date(record.derniere_verification);
+        var p = new Date(d); p.setMonth(p.getMonth() + eq.periodicite);
+        var daysLeft = Math.ceil((p - today) / 86400000);
+        dateInfo = 'Dernière : ' + d.toLocaleDateString('fr-FR');
+        prochaineInfo = ' — Prochaine : ' + p.toLocaleDateString('fr-FR') + (daysLeft > 0 ? ' (' + daysLeft + 'j)' : ' (DÉPASSÉ)');
+      }
+
+      var rapportBtn = (record && record.rapport_url)
+        ? '<button class="btn-sm btn-view" style="margin-top:8px" onclick="window.open(\'' + escapeHtml(record.rapport_url) + '\',\'_blank\')">📄 Voir le rapport</button>'
+        : '';
+
+      html += '<div class="vgp-card">'
+        + '<div class="vgp-icon ' + iconCls + '">' + eq.icon + '</div>'
+        + '<div class="vgp-info">'
+        + '<div class="vgp-name">' + escapeHtml(eq.label) + '</div>'
+        + '<div class="vgp-meta">' + escapeHtml(dateInfo + prochaineInfo) + ' · Périodicité : ' + eq.periodicite + ' mois · ' + eq.legalRef + '</div>'
+        + rapportBtn
+        + '</div>'
+        + '<div class="vgp-status">'
+        + '<span class="vgp-badge ' + badgeCls + '">' + badgeTxt + '</span>'
+        + '<button class="btn-sm btn-upload" onclick="openVgpModal(\'' + eq.key + '\',\'' + role + '\')">📅 Saisir vérif.</button>'
+        + '</div></div>';
+    });
+  });
+
+  ctn.innerHTML = html;
+}
+
 function buildVgpHTML(records, meta, stampHtml) {
   var today    = new Date();
   var soonDate = new Date(); soonDate.setDate(soonDate.getDate() + 30);
