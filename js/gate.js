@@ -68,7 +68,7 @@ async function loadAdminModules() {
   // Construire un map : orgId_moduleId → enabled
   var enabledMap = {};
   settings.forEach(function(s) {
-    enabledMap[s.scope_id] = s.enabled;
+    enabledMap[s.org_id + '_' + s.module_id] = s.enabled;
   });
 
   if (!orgs.length) {
@@ -148,11 +148,10 @@ async function toggleOrgModule(orgId, moduleId, enabled, toggleId) {
   if (thumb) thumb.style.left = enabled ? '20px' : '3px';
   if (label) { label.textContent = enabled ? '✅ Actif' : '○ Inactif'; label.style.color = enabled ? color : 'var(--muted)'; }
 
-  // Sauvegarder dans signature_settings avec scope 'org_module'
-  var scopeId = orgId + '_' + moduleId;
-  var res = await sb.from('signature_settings').upsert(
-    { scope: 'org_module', scope_id: scopeId, enabled: enabled },
-    { onConflict: 'scope,scope_id' }
+  // Sauvegarder dans org_modules
+  var res = await sb.from('org_modules').upsert(
+    { org_id: orgId, module_id: moduleId, enabled: enabled },
+    { onConflict: 'org_id,module_id' }
   );
 
   if (res.error) {
