@@ -271,8 +271,8 @@
     <button class="nav-tab" onclick="switchPage('Company','received',this)">📂 Documents reçus</button>
     <button class="nav-tab" onclick="switchPage('Company','conformite',this);loadConformite('Company')">📋 Conformité</button>
     <button class="nav-tab" onclick="switchPage('Company','analytics',this);loadRoleAnalytics('Company')">📈 Analytics</button>
-    <button class="nav-tab" onclick="switchPage('Company','incidents',this);loadIncidents('company')" style="display:none">🚨 Incidents</button>
     <button class="nav-tab" onclick="switchPage('Company','gate',this);loadGate('Company')">🚪 Gate</button>
+    <button class="nav-tab" id="navIncidents-Company" onclick="switchPage('Company','incidents',this);loadIncidents('company')" style="display:none">🚨 Incidents</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="Company-overview">
@@ -346,17 +346,17 @@
     <div class="page-section" id="Company-analytics">
       <div class="dash-welcome">Analytics <em>Entreprise</em></div>
       <div class="dash-subtitle">KPI stratégiques de votre activité sous-traitante</div>
-    <div class="page-section" id="Company-incidents">
-      <div class="dash-welcome">🚨 <em>Incidents</em> & Sécurité</div>
-      <div class="dash-subtitle">Suivi des incidents du site</div>
-      <div id="Company-incidents-content" style="margin-top:8px"></div>
+      <div id="role-analytics-Company" style="margin-top:8px"></div>
     </div>
     <div class="page-section" id="Company-gate">
       <div class="dash-welcome">🚪 <em>Gate</em> — Contrôle d'accès</div>
       <div class="dash-subtitle">Registre des visiteurs · Check-in / Check-out · Configuration</div>
       <div id="Company-gate-content" style="margin-top:8px"></div>
     </div>
-      <div id="role-analytics-Company" style="margin-top:8px"></div>
+    <div class="page-section" id="Company-incidents">
+      <div class="dash-welcome">🚨 <em>Incidents</em> & Quasi-accidents</div>
+      <div class="dash-subtitle">Déclaration · Suivi · Actions correctives · Statistiques</div>
+      <div id="Company-incidents-content" style="margin-top:8px"></div>
     </div>
   </div>
 </div>
@@ -453,8 +453,8 @@
     <button class="nav-tab" onclick="switchPage('HSE','received',this)">📂 Documents reçus</button>
     <button class="nav-tab" onclick="switchPage('HSE','conformite',this);loadConformite('HSE')">📋 Conformité</button>
     <button class="nav-tab" onclick="switchPage('HSE','analytics',this);loadRoleAnalytics('HSE')">📈 Analytics</button>
-    <button class="nav-tab" onclick="switchPage('HSE','incidents',this);loadIncidents('hse')" style="display:none">🚨 Incidents</button>
     <button class="nav-tab" onclick="switchPage('HSE','gate',this);loadGate('HSE')">🚪 Gate</button>
+    <button class="nav-tab" id="navIncidents-HSE" onclick="switchPage('HSE','incidents',this);loadIncidents('hse')" style="display:none">🚨 Incidents</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="HSE-overview">
@@ -468,9 +468,6 @@
         <div class="stat-card"><div class="stat-icon">📋</div><div class="stat-value">0</div><div class="stat-label">PdP actifs</div></div>
         <div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value">0</div><div class="stat-label">Non-conformités</div></div>
       </div>
-
-      <!-- ── WIDGET KPI INCIDENTS (incidents.js) ── -->
-      <div id="hse-incidents-kpi"></div>
 
       <!-- ── WIDGET CONFORMITÉ ── -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-top:28px;margin-bottom:16px">
@@ -533,17 +530,17 @@
     <div class="page-section" id="HSE-analytics">
       <div class="dash-welcome">Analytics <em>HSE</em></div>
       <div class="dash-subtitle">KPI stratégiques — conformité, risques et sous-traitants</div>
-    <div class="page-section" id="HSE-incidents">
-      <div class="dash-welcome">🚨 <em>Incidents</em> & Sécurité</div>
-      <div class="dash-subtitle">Déclaration · Suivi · Actions correctives</div>
-      <div id="HSE-incidents-content" style="margin-top:8px"></div>
+      <div id="role-analytics-HSE" style="margin-top:8px"></div>
     </div>
     <div class="page-section" id="HSE-gate">
       <div class="dash-welcome">🚪 <em>Gate</em> — Contrôle d'accès</div>
       <div class="dash-subtitle">Registre des visiteurs · Check-in / Check-out · Configuration</div>
       <div id="HSE-gate-content" style="margin-top:8px"></div>
     </div>
-      <div id="role-analytics-HSE" style="margin-top:8px"></div>
+    <div class="page-section" id="HSE-incidents">
+      <div class="dash-welcome">🚨 <em>Incidents</em> & Quasi-accidents</div>
+      <div class="dash-subtitle">Déclaration · Suivi · Actions correctives · Statistiques</div>
+      <div id="HSE-incidents-content" style="margin-top:8px"></div>
     </div>
   </div>
 </div>
@@ -1881,10 +1878,10 @@
 <script src="js/signatures.js"></script> <!-- 4. Workflow signature, OTP, page publique -->
 <script src="js/reports.js"></script>    <!-- 5. Rapports, archivage, historique, widgets -->
 <script src="js/conformite.js"></script> <!-- 6. DUER, VGP, FDS, PDP, perso -->
-<script src="js/incidents.js"></script>       <!-- 7. Module Incidents & Sécurité -->
-<script src="js/analytics_charts.js"></script> <!-- 8. DashCharts — graphes accueil -->
-<script src="js/chart.js"></script>            <!-- 9. SSChart — composant graphe -->
-<script src="js/gate.js"></script>             <!-- 10. Gate — registre visiteurs -->
+<script src="js/analytics_charts.js"></script>
+<script src="js/chart.js"></script>
+<script src="js/incidents.js"></script>
+<script src="js/gate.js"></script>
 
 </div>
 
