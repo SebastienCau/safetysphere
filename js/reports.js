@@ -1151,23 +1151,41 @@ async function archiveReport(meta, reportType, htmlContent) {
   return res.data;
 }
 
-// ── Afficher l'onglet Historique ──────────────────────────────
+// ── Afficher l'onglet Historique — Pipeline 3 colonnes ──────
 async function renderHistoriqueSection(role) {
   var container = document.getElementById(role + '-conform-historique');
   if (!container) return;
   container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement de l\'historique...</div></div>';
 
-  // Charger archive + corbeille
-  var archRes   = await sb.from('report_archive').select('*').eq('org_id', currentProfile.org_id).order('generated_at', { ascending: false });
-  var trashRes  = await sb.from('report_trash').select('*').eq('org_id', currentProfile.org_id).order('deleted_at', { ascending: false });
+  var archRes  = await sb.from('report_archive').select('*').eq('org_id', currentProfile.org_id).order('generated_at', { ascending: false });
+  var trashRes = await sb.from('report_trash').select('*').eq('org_id', currentProfile.org_id).order('deleted_at', { ascending: false });
+
+  // Charger les sig_requests associées aux archives
+  var sigReqRes = await sb.from('signature_requests')
+    .select('id, archive_id, workflow_mode, status, total_signers, signed_count, created_at, created_by, report_num, report_type')
+    .eq('org_id', currentProfile.org_id)
+    .order('created_at', { ascending: false });
+  var sigReqMap = {};
+  (sigReqRes.data || []).forEach(function(r) { if (r.archive_id) sigReqMap[r.archive_id] = r; });
+
+  // Charger les items pour les requests actives
+  var activeReqIds = Object.values(sigReqMap).map(function(r){ return r.id; }).filter(Boolean);
+  var sigItemsMap = {};
+  if (activeReqIds.length) {
+    var itemsRes = await sb.from('signature_request_items')
+      .select('*').in('request_id', activeReqIds).order('seq');
+    (itemsRes.data || []).forEach(function(it) {
+      if (!sigItemsMap[it.request_id]) sigItemsMap[it.request_id] = [];
+      sigItemsMap[it.request_id].push(it);
+    });
+  }
 
   var allArchives = archRes.data || [];
-  // Séparer parents et enfants (documents consolidés rattachés à un parent)
-  var archives  = allArchives.filter(function(a) { return !a.parent_id; });
-  var children  = allArchives.filter(function(a) { return !!a.parent_id; });
-  var trashed   = trashRes.data || [];
+  var archives = allArchives.filter(function(a) { return !a.parent_id; });
+  var children = allArchives.filter(function(a) { return !!a.parent_id; });
+  var trashed  = trashRes.data || [];
 
-  // Purger les éléments corbeille > 30j
+  // Purger > 30j
   var now30 = new Date(); now30.setDate(now30.getDate() - 30);
   var toPurge = trashed.filter(function(t) { return new Date(t.deleted_at) < now30; });
   if (toPurge.length) {
@@ -1183,13 +1201,34 @@ async function renderHistoriqueSection(role) {
     + '<button class="btn-sm btn-view" onclick="toggleHistTrash(\'' + role + '\')" style="padding:8px 16px">'
     + (trashed.length ? '🗑️ Corbeille (' + trashed.length + ')' : '🗑️ Corbeille')
     + '</button>'
-    + '<span style="margin-left:auto;font-size:11px;color:var(--muted)">Corbeille : 30 jours · ' + archives.length + ' rapport(s) · ' + children.length + ' consolidé(s)</span>'
+    + '<span style="margin-left:auto;font-size:11px;color:var(--muted)">' + archives.length + ' rapport(s)</span>'
     + '</div>';
 
+  // ── CSS pipeline (injecté une seule fois) ──
+  if (!document.getElementById('pipelineCSS')) {
+    var s = document.createElement('style');
+    s.id = 'pipelineCSS';
+    s.textContent = `
+      .pipeline-card{background:var(--card-bg,rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.08);border-radius:16px;margin-bottom:18px;overflow:hidden}
+      .pipeline-header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02)}
+      .pipeline-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:0}
+      .pipeline-col{padding:14px 16px;border-right:1px solid rgba(255,255,255,.06);min-width:0}
+      .pipeline-col:last-child{border-right:none}
+      .pipeline-col-title{font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+      .pcol-step{display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:11px}
+      .pcol-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+      .pipe-btn{display:block;width:100%;text-align:center;padding:7px 8px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid;margin-bottom:5px;transition:opacity .15s;box-sizing:border-box}
+      .pipe-btn:hover{opacity:.8}
+      .pipe-connector{display:flex;align-items:center;justify-content:center;font-size:16px;color:rgba(255,255,255,.2);padding:0 2px;margin-top:28px}
+      @media(max-width:680px){.pipeline-cols{grid-template-columns:1fr}.pipeline-col{border-right:none;border-bottom:1px solid rgba(255,255,255,.06)}.pipeline-col:last-child{border-bottom:none}}
+    `;
+    document.head.appendChild(s);
+  }
+
+  // ── Corbeille ──
   if (_histShowTrash) {
-    // ── Vue corbeille ──
     html += '<div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:12px;padding:16px;margin-bottom:20px">'
-      + '<div style="font-size:13px;font-weight:700;color:#FCA5A5;margin-bottom:12px">🗑️ Corbeille — éléments supprimés (restauration possible sous 30 jours)</div>';
+      + '<div style="font-size:13px;font-weight:700;color:#FCA5A5;margin-bottom:12px">🗑️ Corbeille</div>';
     if (!trashed.length) {
       html += '<div style="font-size:12px;color:var(--muted);padding:8px">La corbeille est vide.</div>';
     } else {
@@ -1199,33 +1238,27 @@ async function renderHistoriqueSection(role) {
         var daysLeft    = Math.ceil((purgeDateD - new Date()) / 86400000);
         html += '<div class="archive-card trashed" style="margin-bottom:10px">'
           + '<div class="archive-icon">' + typeIcon(t.report_type) + '</div>'
-          + '<div class="archive-meta">'
-          + '<div class="archive-ref">' + escapeHtml(t.report_num || '—') + '</div>'
+          + '<div class="archive-meta"><div class="archive-ref">' + escapeHtml(t.report_num || '—') + '</div>'
           + '<div class="archive-title">' + escapeHtml(t.label || t.report_type) + '</div>'
-          + '<div class="archive-sub">Supprimé le ' + deletedDate + ' · Purge dans ' + daysLeft + 'j</div>'
-          + '<div class="archive-sub">Par : ' + escapeHtml(t.responsable || '—') + '</div>'
-          + '</div>'
-          + '<span class="archive-badge trash">Corbeille</span>'
+          + '<div class="archive-sub">Supprimé le ' + deletedDate + ' · Purge dans ' + daysLeft + 'j</div></div>'
           + '<div class="archive-actions">'
           + '<button class="btn-sm btn-validate" style="padding:5px 12px;font-size:11px" onclick="restoreFromTrash(\'' + t.id + '\',\'' + role + '\')">↩ Restaurer</button>'
           + '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.3);color:#FCA5A5" onclick="purgeTrashItem(\'' + t.id + '\',\'' + role + '\')">✕ Supprimer définitivement</button>'
-          + '</div>'
-          + '</div>';
+          + '</div></div>';
       });
     }
     html += '</div>';
   }
 
-  // ── Vue archive principale ──
+  // ── Archives en pipeline ──
   if (!archives.length) {
     html += '<div class="empty-state"><div class="empty-state-icon">📭</div>'
-      + '<div class="empty-state-text">Aucun rapport archivé<br><small>Les rapports générés via SafetySphere apparaîtront automatiquement ici</small></div></div>';
+      + '<div class="empty-state-text">Aucun rapport archivé<br><small>Les rapports générés apparaîtront ici</small></div></div>';
   } else {
     // Grouper par mois
     var groups = {};
     archives.forEach(function(a) {
-      var d = new Date(a.generated_at);
-      var key = d.toLocaleDateString('fr-FR', { month:'long', year:'numeric' });
+      var key = new Date(a.generated_at).toLocaleDateString('fr-FR', { month:'long', year:'numeric' });
       if (!groups[key]) groups[key] = [];
       groups[key].push(a);
     });
@@ -1233,61 +1266,142 @@ async function renderHistoriqueSection(role) {
     Object.keys(groups).forEach(function(month) {
       html += '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin:18px 0 10px">'
         + month + ' <span style="font-weight:400">(' + groups[month].length + ')</span></div>';
-      groups[month].forEach(function(a) {
-        var genDate  = new Date(a.generated_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' });
-        var genTime  = new Date(a.generated_at).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
-        var isSS     = a.source === 'safetysphere';
 
-        // Trouver les documents enfants (consolidés multi-sig) rattachés à ce parent
+      groups[month].forEach(function(a) {
+        var genDate = new Date(a.generated_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' });
+        var genTime = new Date(a.generated_at).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
+        var isSS    = a.source === 'safetysphere';
+        var sigReq  = sigReqMap[a.id] || null;
+        var sigItems = sigReq ? (sigItemsMap[sigReq.id] || []) : [];
         var childDocs = children.filter(function(c) { return c.parent_id === a.id; });
 
-        html += '<div class="archive-card" style="margin-bottom:' + (childDocs.length ? '0' : '10px') + ';border-radius:' + (childDocs.length ? '14px 14px 0 0' : '14px') + '">'
-          + '<div class="archive-icon">' + typeIcon(a.report_type) + '</div>'
-          + '<div class="archive-meta">'
-          + '<div class="archive-ref">' + escapeHtml(a.report_num || '—') + '</div>'
-          + '<div class="archive-title">' + escapeHtml(a.label) + '</div>'
-          + '<div class="archive-sub">' + genDate + ' à ' + genTime + ' · Par : ' + escapeHtml(a.responsable || '—') + '</div>'
-          + (a.app_version ? '<div class="archive-sub" style="color:rgba(249,115,22,.7)">SafetySphere v' + escapeHtml(a.app_version) + '</div>' : '')
-          + (a.sig_status && a.sig_status !== 'none' ? '<div class="archive-sub" style="margin-top:4px">Signataires : ' + (a.sig_signed || 0) + '/' + (a.sig_total || '?') + '</div>' : '')
+        // ── Calculer l'état global du pipeline ──
+        var pipeState = 'generated'; // generated | pending | completed
+        if (sigReq) {
+          pipeState = sigReq.status === 'completed' ? 'completed' : 'pending';
+        } else if (a.signed_file_url) {
+          pipeState = 'completed';
+        }
+
+        // ── HEADER ──
+        var headerColor = pipeState === 'completed' ? '#4ADE80' : pipeState === 'pending' ? '#FCD34D' : 'var(--muted)';
+        var headerDot   = pipeState === 'completed' ? '✅' : pipeState === 'pending' ? '⏳' : '📄';
+
+        html += '<div class="pipeline-card">';
+
+        // En-tête
+        html += '<div class="pipeline-header">'
+          + '<span style="font-size:20px">' + typeIcon(a.report_type) + '</span>'
+          + '<div style="flex:1;min-width:0">'
+          + '<div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(a.report_num || a.label || '—') + '</div>'
+          + '<div style="font-size:11px;color:var(--muted)">' + genDate + ' · ' + escapeHtml(a.responsable || '—') + '</div>'
           + '</div>'
-          + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">'
-          + '<span class="archive-badge ' + (isSS ? 'ss' : 'ext') + '">' + (isSS ? '⬡ SafetySphere' : '📤 Externe') + '</span>'
-          + sigStatusBadge(a)
-          + '</div>'
-          + '<div class="archive-actions">'
-          + (a.file_url ? '<button class="btn-sm btn-view" style="padding:5px 12px;font-size:11px" onclick="openReportViewer(\'' + a.file_url + '\',\'' + escapeHtml(a.report_num||a.label) + '\',\'' + (a.source==='safetysphere'?'html':'ext') + '\',\'' + a.id + '\')">📄 Consulter</button>' : '<span style="font-size:11px;color:var(--muted)">Pas de fichier</span>')
-          + (a.signed_file_url ? '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#86EFAC" onclick="openReportViewer(\'' + a.signed_file_url + '\',\'Signé — ' + escapeHtml(a.report_num||a.label) + '\',\'ext\',\'' + a.id + '\')">🖊️ Signé</button>' : '')
-          + (!a.signed_file_url && (!a.sig_status || a.sig_status === 'none') ? '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.25);color:#A5B4FC" onclick="openUploadSignedScanModal(\'' + a.id + '\',\'' + escapeHtml(a.report_num||a.label) + '\')">📤 Scan signé</button>' : '')
-          + (!a.sig_status || a.sig_status === 'none' ? '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.25);color:#FCD34D" onclick="openSendForSignatureModal(\'' + a.id + '\',\'' + escapeHtml(a.report_num) + '\',\'' + escapeHtml(a.report_type) + '\',null,null)">✉️ Envoyer</button>' : '')
-          + '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.25);color:#FCA5A5" onclick="moveToTrash(\'' + a.id + '\',\'' + role + '\')">🗑️</button>'
-          + '</div>'
+          + '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;background:rgba(255,255,255,.06);color:' + headerColor + ';border:1px solid rgba(255,255,255,.1);white-space:nowrap">' + headerDot + ' ' + (pipeState === 'completed' ? 'Signé complet' : pipeState === 'pending' ? 'En cours' : 'Généré') + '</span>'
+          + '<button class="btn-sm" style="padding:4px 10px;font-size:11px;background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.2);color:#FCA5A5" onclick="moveToTrash(\'' + a.id + '\',\'' + role + '\')">🗑️</button>'
           + '</div>';
 
-        // ── Sous-cartes : documents enfants (consolidés signés) ──
-        if (childDocs.length) {
-          html += '<div style="margin-left:24px;margin-bottom:10px;border-left:3px solid rgba(249,115,22,.3)">';
-          childDocs.forEach(function(c, ci) {
-            var cDate = new Date(c.generated_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' });
-            var cTime = new Date(c.generated_at).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
-            var isLast = ci === childDocs.length - 1;
-            html += '<div class="archive-card" style="margin-bottom:' + (isLast ? '0' : '4px') + ';border-radius:' + (isLast ? '0 0 14px 14px' : '0') + ';border-top:none;background:rgba(34,197,94,.03);border-color:rgba(34,197,94,.2)">'
-              + '<div style="font-size:18px;flex-shrink:0">🖊️</div>'
-              + '<div class="archive-meta" style="flex:1">'
-              + '<div class="archive-ref" style="color:var(--success);font-size:11px">' + escapeHtml(c.report_num || '—') + '</div>'
-              + '<div class="archive-title" style="font-size:13px">' + escapeHtml(c.label || 'Document consolidé multi-signataires') + '</div>'
-              + '<div class="archive-sub">' + cDate + ' à ' + cTime + ' · Document final consolidé</div>'
+        // ── 3 COLONNES PIPELINE ──
+        html += '<div class="pipeline-cols">';
+
+        // ── COL 1 : Document généré ──
+        html += '<div class="pipeline-col">';
+        html += '<div class="pipeline-col-title" style="color:#F97316">① Document généré</div>';
+
+        // Miniature info
+        html += '<div style="background:rgba(249,115,22,.06);border:1px solid rgba(249,115,22,.15);border-radius:8px;padding:10px;margin-bottom:10px;font-size:11px">'
+          + '<div style="font-weight:700;color:var(--text);margin-bottom:2px">' + escapeHtml(a.label || a.report_type) + '</div>'
+          + '<div style="color:var(--muted)">' + genDate + ' à ' + genTime + '</div>'
+          + (a.app_version ? '<div style="color:rgba(249,115,22,.7);margin-top:2px">v' + escapeHtml(a.app_version) + '</div>' : '')
+          + '</div>';
+
+        // Boutons col 1
+        if (a.file_url) {
+          html += '<button class="pipe-btn" style="background:rgba(249,115,22,.12);border-color:rgba(249,115,22,.3);color:#FDBA74" '
+            + 'onclick="openReportViewer(\'' + a.file_url + '\',\'' + escapeHtml(a.report_num||a.label) + '\',\'' + (isSS?'html':'ext') + '\',\'' + a.id + '\')">📄 Consulter / Imprimer</button>';
+        }
+
+        if (!sigReq && !a.signed_file_url) {
+          html += '<button class="pipe-btn" style="background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.25);color:#A5B4FC" '
+            + 'onclick="openSendForSignatureModal(\'' + a.id + '\',\'' + escapeHtml(a.report_num) + '\',\'' + escapeHtml(a.report_type) + '\',null,null)">✉️ Envoyer pour signature</button>';
+          html += '<button class="pipe-btn" style="background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1);color:var(--muted)" '
+            + 'onclick="openUploadSignedScanModal(\'' + a.id + '\',\'' + escapeHtml(a.report_num||a.label) + '\')">📤 Upload scan signé</button>';
+        }
+        html += '</div>';
+
+        // ── COL 2 : Envoi & Signataires ──
+        html += '<div class="pipeline-col">';
+        html += '<div class="pipeline-col-title" style="color:#A5B4FC">② Envoyé pour signature</div>';
+
+        if (!sigReq && !a.signed_file_url) {
+          html += '<div style="text-align:center;padding:16px 0;color:var(--muted);font-size:11px">—<br>Pas encore envoyé</div>';
+        } else if (sigReq) {
+          // Mode workflow
+          var modeLabel = sigReq.workflow_mode === 'sequential' ? '🔗 Séquentiel' : '⚡ Parallèle';
+          var progressPct = sigReq.total_signers ? Math.round((sigReq.signed_count||0) / sigReq.total_signers * 100) : 0;
+          html += '<div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.15);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:11px">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+            + '<span style="color:#A5B4FC;font-weight:700">' + modeLabel + '</span>'
+            + '<span style="color:var(--muted)">' + (sigReq.signed_count||0) + '/' + (sigReq.total_signers||0) + '</span>'
+            + '</div>'
+            + '<div style="background:rgba(255,255,255,.06);border-radius:4px;height:5px;overflow:hidden;margin-bottom:6px">'
+            + '<div style="height:100%;border-radius:4px;background:' + (sigReq.status==='completed'?'#4ADE80':'#A5B4FC') + ';width:' + progressPct + '%;transition:width .4s"></div>'
+            + '</div>';
+
+          // Signataires
+          sigItems.forEach(function(item) {
+            var ico = item.status==='signed' ? '✅' : item.status==='refused' ? '❌' : '⏳';
+            var col = item.status==='signed' ? '#4ADE80' : item.status==='refused' ? '#FCA5A5' : '#FCD34D';
+            html += '<div class="pcol-step">'
+              + '<span style="font-size:13px">' + ico + '</span>'
+              + '<div style="flex:1;min-width:0">'
+              + '<div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:' + col + '">' + escapeHtml(item.signer_name||'—') + '</div>'
+              + '<div style="color:var(--muted);font-size:10px">' + escapeHtml(item.signer_role||'') + (item.status==='signed'&&item.method?' · '+(item.method==='otp_email'?'OTP 🔐':item.method==='presential_canvas'?'✍️ Dessin':item.method==='manuscrite_scannee'?'📎 Scan':'🖊️'):'') + '</div>'
               + '</div>'
-              + '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">'
-              + '<span class="archive-badge" style="background:rgba(34,197,94,.12);color:#86EFAC;border:1px solid rgba(34,197,94,.25)">✅ Signé complet</span>'
-              + '</div>'
-              + '<div class="archive-actions">'
-              + (c.file_url ? '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#86EFAC" onclick="openReportViewer(\'' + c.file_url + '\',\'Consolidé — ' + escapeHtml(c.report_num||'') + '\',\'ext\',\'' + c.parent_id + '\')">📄 Consulter</button>' : '')
-              + '<button class="btn-sm" style="padding:5px 12px;font-size:11px;background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.25);color:#FCA5A5" onclick="moveChildToTrash(\'' + c.id + '\',\'' + role + '\')">🗑️</button>'
-              + '</div>'
+              + (item.status==='pending' ? '<button onclick="viewerRelancerSignataire(\'' + escapeHtml(item.id) + '\',\'' + escapeHtml(item.signer_email) + '\',\'' + escapeHtml(item.signer_name||'') + '\',\'' + (window.location.origin+window.location.pathname+'?sign='+item.token) + '\',\'' + escapeHtml(sigReq.report_num||'') + '\')" style="background:none;border:none;color:#FCD34D;cursor:pointer;font-size:10px;padding:0 2px;white-space:nowrap">🔔</button>' : '')
+              + (item.status==='pending' ? '<button onclick="openPresentialSignModal(\'' + escapeHtml(item.id) + '\',\'' + escapeHtml(item.signer_name||'') + '\',\'' + escapeHtml(item.signer_role||'') + '\',\'' + escapeHtml(sigReq.report_num||'') + '\',\'' + escapeHtml(sigReq.id) + '\',\'' + escapeHtml(item.signer_email||'') + '\')" style="background:none;border:none;color:#2DD4BF;cursor:pointer;font-size:10px;padding:0 2px;white-space:nowrap" title="Signer ici">✍️</button>' : '')
               + '</div>';
           });
           html += '</div>';
+
+          if (sigReq.status === 'pending') {
+            html += '<button class="pipe-btn" style="background:rgba(249,115,22,.1);border-color:rgba(249,115,22,.25);color:#FDBA74" '
+              + 'onclick="viewerRelancerTous(\'' + sigReq.id + '\',\'' + escapeHtml(sigReq.report_num||'') + '\')">🔔 Relancer tous</button>';
+          }
+        } else if (a.signed_file_url) {
+          // Scan uploadé manuellement sans workflow
+          html += '<div style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.15);border-radius:8px;padding:10px;font-size:11px;color:#86EFAC">'
+            + '📎 Scan signé archivé manuellement</div>';
         }
+
+        html += '</div>';
+
+        // ── COL 3 : Document signé ──
+        html += '<div class="pipeline-col">';
+        html += '<div class="pipeline-col-title" style="color:#86EFAC">③ Document signé</div>';
+
+        var consolidatedDoc = childDocs.find(function(c) { return c.label && c.label.toLowerCase().includes('consol'); }) || childDocs[0];
+        var signedUrl = (consolidatedDoc && consolidatedDoc.file_url) || a.signed_file_url;
+
+        if (pipeState === 'completed' && signedUrl) {
+          html += '<div style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:10px;margin-bottom:10px;font-size:11px">'
+            + '<div style="color:#86EFAC;font-weight:700;margin-bottom:2px">✅ Signature(s) complète(s)</div>'
+            + '<div style="color:var(--muted)">' + (consolidatedDoc ? 'Document consolidé multi-signataires' : 'Document signé archivé') + '</div>'
+            + '</div>';
+          html += '<button class="pipe-btn" style="background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#86EFAC" '
+            + 'onclick="openReportViewer(\'' + signedUrl + '\',\'Signé — ' + escapeHtml(a.report_num||a.label) + '\',\'ext\',\'' + a.id + '\')">✅ Consulter / Imprimer</button>';
+          if (consolidatedDoc) {
+            html += '<button class="pipe-btn" style="background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1);color:var(--muted)" '
+              + 'onclick="moveChildToTrash(\'' + consolidatedDoc.id + '\',\'' + role + '\')">🗑️ Supprimer signé</button>';
+          }
+        } else if (pipeState === 'pending') {
+          html += '<div style="text-align:center;padding:16px 0;color:var(--muted);font-size:11px">⏳<br>En attente de toutes<br>les signatures</div>';
+        } else {
+          html += '<div style="text-align:center;padding:16px 0;color:var(--muted);font-size:11px">—<br>Disponible après<br>signature</div>';
+        }
+
+        html += '</div>';
+        html += '</div>'; // /pipeline-cols
+        html += '</div>'; // /pipeline-card
       });
     });
   }
