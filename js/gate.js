@@ -333,16 +333,24 @@ function renderGateFreqChart(visits) {
   var canvasId = 'gateFreqCanvas';
   var tipId    = 'gateFreqTip';
 
-  // ── Buckets par jour ──
+  // ── Buckets par jour (heure locale partout) ──
+  function localDateKey(date) {
+    // YYYY-MM-DD en heure locale (évite le décalage UTC)
+    var y = date.getFullYear();
+    var m = String(date.getMonth()+1).padStart(2,'0');
+    var d = String(date.getDate()).padStart(2,'0');
+    return y+'-'+m+'-'+d;
+  }
   var now   = new Date();
   var start = new Date(now); start.setDate(start.getDate() - (days-1)); start.setHours(0,0,0,0);
   var buckets = {};
   for (var d=0; d<days; d++) {
     var dt = new Date(start); dt.setDate(dt.getDate()+d);
-    buckets[dt.toISOString().slice(0,10)] = {total:0, signed:0, durs:[]};
+    buckets[localDateKey(dt)] = {total:0, signed:0, durs:[]};
   }
   (visits||[]).forEach(function(v) {
-    var k = (v.check_in||'').slice(0,10);
+    // check_in peut être ISO UTC — convertir en Date locale avant d'extraire la clé
+    var k = v.check_in ? localDateKey(new Date(v.check_in)) : '';
     if (!buckets[k]) return;
     buckets[k].total++;
     if (v.signed_at) buckets[k].signed++;
