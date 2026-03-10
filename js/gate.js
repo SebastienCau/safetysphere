@@ -283,20 +283,10 @@ function renderGate(role) {
 
   container.innerHTML = html;
 
-  // Initialiser SSChart après injection du DOM
+  // Dessiner le canvas graphe après injection DOM
   if (_gateSubView === 'registre') {
-    setTimeout(function() {
-      if (typeof SSChart !== 'undefined') {
-        SSChart.render('gateFreqChart', _gateVisits, {
-          period   : 'gateFreqChart_period' in window ? window.gateFreqChart_period : '7d',
-          type     : 'gateFreqChart_type'   in window ? window.gateFreqChart_type   : 'bar',
-          title    : 'Fréquentation',
-          subtitle : 'Analyse des visites · ' + ((_gateConfig && _gateConfig.site_name) || 'Site'),
-          onPeriodChange : function(p) { window.gateFreqChart_period = p; },
-          onTypeChange   : function(t) { window.gateFreqChart_type   = t; }
-        });
-      }
-    }, 0);
+    window._gateLastRole = role;
+    requestAnimationFrame(function() { drawGateCanvas(); });
   }
 }
 
@@ -326,6 +316,294 @@ function switchGateView(view, role) {
 //  ANALYTICS — Graphe fréquentation visiteurs
 // ══════════════════════════════════════════════════════════════
 
+
+// ══════════════════════════════════════════════════════════════
+//  Graphe fréquentation Gate — rendu inline, aucune dépendance
+// ══════════════════════════════════════════════════════════════
+
+var _gateChartPeriod = '7d';
+var _gateChartType   = 'bar';
+
+function renderGateFreqChart(visits) {
+  var period   = _gateChartPeriod;
+  var type     = _gateChartType;
+  var accent   = '#F97316';
+  var signCol  = '#4ADE80';
+  var days     = period === '30d' ? 30 : period === '90d' ? 90 : 7;
+  var canvasId = 'gateFreqCanvas';
+  var tipId    = 'gateFreqTip';
+
+  // ── Buckets par jour ──
+  var now   = new Date();
+  var start = new Date(now); start.setDate(start.getDate() - (days-1)); start.setHours(0,0,0,0);
+  var buckets = {};
+  for (var d=0; d<days; d++) {
+    var dt = new Date(start); dt.setDate(dt.getDate()+d);
+    buckets[dt.toISOString().slice(0,10)] = {total:0, signed:0, durs:[]};
+  }
+  (visits||[]).forEach(function(v) {
+    var k = (v.check_in||'').slice(0,10);
+    if (!buckets[k]) return;
+    buckets[k].total++;
+    if (v.signed_at) buckets[k].signed++;
+    if (v.check_out) {
+      var dur = (new Date(v.check_out)-new Date(v.check_in))/60000;
+      if (dur>0) buckets[k].durs.push(dur);
+    }
+  });
+  var keys    = Object.keys(buckets).sort();
+  var totals  = keys.map(function(k){return buckets[k].total;});
+  var signed  = keys.map(function(k){return buckets[k].signed;});
+  var maxVal  = Math.max.apply(null, totals.concat([1]));
+  var labels  = keys.map(function(k){
+    var dt = new Date(k+'T12:00:00');
+    if (days<=7)  return dt.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric'});
+    if (days<=30) return dt.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+    return dt.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+  });
+
+  // ── KPIs ──
+  var tot   = totals.reduce(function(a,b){return a+b;},0);
+  var sig   = signed.reduce(function(a,b){return a+b;},0);
+  var peak  = Math.max.apply(null,totals);
+  var avg   = tot>0?(tot/days).toFixed(1):'0';
+  var sigR  = tot>0?Math.round(sig/tot*100):0;
+  var allD  = []; keys.forEach(function(k){allD=allD.concat(buckets[k].durs);});
+  var avgDur= allD.length?Math.round(allD.reduce(function(a,b){return a+b;},0)/allD.length):0;
+  var peakDay=''; if (peak>0) {
+    var pi = totals.indexOf(peak);
+    peakDay = new Date(keys[pi]+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  }
+
+  // ── Thème live ──
+  var isLight  = document.body.classList.contains('theme-light');
+  var panelBg  = isLight ? 'rgba(248,250,252,.97)' : 'rgba(13,27,42,.97)';
+  var border   = isLight ? 'rgba(249,115,22,.2)'   : 'rgba(249,115,22,.12)';
+  var gridCol  = isLight ? 'rgba(0,0,0,.07)'        : 'rgba(255,255,255,.05)';
+  var baseCol  = isLight ? 'rgba(0,0,0,.15)'        : 'rgba(255,255,255,.1)';
+  var axisCol  = isLight ? '#64748B'                : '#6B7280';
+  var labelCol = isLight ? '#0F172A'                : '#F1F5F9';
+  var titleCol = isLight ? '#0F172A'                : '#F1F5F9';
+  var mutedCol = isLight ? '#64748B'                : '#6B7280';
+  var kpiBg    = isLight ? 'rgba(0,0,0,.03)'        : 'rgba(255,255,255,.02)';
+  var kpiBdr   = isLight ? 'rgba(0,0,0,.07)'        : 'rgba(255,255,255,.05)';
+  var btnBg    = isLight ? 'rgba(0,0,0,.04)'        : 'rgba(255,255,255,.04)';
+  var btnBdr   = isLight ? 'rgba(0,0,0,.1)'         : 'rgba(255,255,255,.07)';
+  var btnOff   = isLight ? '#94A3B8'                : '#4B5563';
+
+  // Zoom police
+  var rootZoom = parseFloat(document.documentElement.style.getPropertyValue('--ui-zoom')||'1')||1;
+  var appZoom  = parseFloat((document.getElementById('appContent')||{style:{zoom:'1'}}).style.zoom||'1')||1;
+  var fz = Math.max(0.8, Math.min(1.3, rootZoom * appZoom));
+
+  function btn(val, cur, action) {
+    var a = cur===val;
+    return '<button onclick="'+action+'" style="padding:5px 13px;font-size:'+Math.round(11*fz)+'px;'
+      +'font-weight:700;border:none;cursor:pointer;border-radius:7px;transition:all .15s;'
+      +'font-family:Barlow,sans-serif;'
+      +'background:'+(a?'rgba(249,115,22,.18)':'transparent')+';'
+      +'color:'+(a?accent:btnOff)+'">'+val+'</button>';
+  }
+
+  function kpiCell(dot, val, sub, col, last) {
+    return '<div style="padding:13px 8px;text-align:center;'+(last?'':('border-right:1px solid '+kpiBdr))+'">'
+      +'<div style="font-size:'+Math.round(8*fz)+'px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:'+mutedCol+';margin-bottom:4px;font-family:Barlow,sans-serif">'+dot+' '+sub+'</div>'
+      +'<div style="font-size:'+Math.round(18*fz)+'px;font-weight:900;color:'+col+';letter-spacing:-.5px;line-height:1;font-family:Barlow,sans-serif">'+val+'</div>'
+      +'</div>';
+  }
+
+  var html = '<div style="background:'+panelBg+';border:1px solid '+border+';border-radius:20px;overflow:hidden;margin-bottom:20px;box-shadow:0 4px 32px rgba(0,0,0,.2)">';
+
+  // Header
+  html += '<div style="padding:18px 20px 0;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap">';
+  html += '<div>';
+  html += '<div style="display:flex;align-items:center;gap:7px;margin-bottom:2px">';
+  html += '<div style="width:2px;height:14px;background:linear-gradient(180deg,'+accent+',transparent);border-radius:1px"></div>';
+  html += '<span style="font-size:'+Math.round(10*fz)+'px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:'+accent+';font-family:Barlow,sans-serif">Fréquentation</span>';
+  html += '</div>';
+  html += '<div style="font-size:'+Math.round(18*fz)+'px;font-weight:900;color:'+titleCol+';letter-spacing:-.3px;padding-left:9px;font-family:Barlow,sans-serif">Analyse des visites</div>';
+  html += '</div>';
+
+  // Toolbar
+  html += '<div style="display:flex;gap:5px;align-items:center;flex-shrink:0">';
+  html += '<div style="display:flex;background:'+btnBg+';border:1px solid '+btnBdr+';border-radius:9px;overflow:hidden;padding:2px;gap:2px">';
+  html += btn('bar', type, 'switchGateChart(\'type\',\'bar\')');
+  html += btn('∿',   type==='line'?'∿':'bar', 'switchGateChart(\'type\',\'line\')');
+  html += '</div>';
+  html += '<div style="display:flex;background:'+btnBg+';border:1px solid '+btnBdr+';border-radius:9px;overflow:hidden;padding:2px;gap:2px">';
+  html += btn('7d',  period, 'switchGateChart(\'period\',\'7d\')');
+  html += btn('30d', period, 'switchGateChart(\'period\',\'30d\')');
+  html += btn('90d', period, 'switchGateChart(\'period\',\'90d\')');
+  html += '</div>';
+  html += '</div>';
+  html += '</div>'; // header
+
+  // KPIs
+  html += '<div style="display:grid;grid-template-columns:repeat(5,1fr);margin:14px 20px 0;background:'+kpiBg+';border:1px solid '+kpiBdr+';border-radius:12px;overflow:hidden">';
+  html += kpiCell('●', tot,               'Visites',       accent,    false);
+  html += kpiCell('◆', avg,               'Moy/jour',      '#FCD34D', false);
+  html += kpiCell('▲', peak||'—',         'Pic',           '#A5B4FC', false);
+  html += kpiCell('✓', sigR+'%',          'Signé',         signCol,   false);
+  html += kpiCell('◷', avgDur?avgDur+'m':'—', 'Durée moy', '#38BDF8', true);
+  html += '</div>';
+
+  // Canvas
+  html += '<div style="padding:14px 20px 4px;position:relative">';
+  html += '<canvas id="'+canvasId+'" style="width:100%;height:180px;display:block;cursor:crosshair"></canvas>';
+  html += '<div id="'+tipId+'" style="position:absolute;pointer-events:none;display:none;'
+    +'background:rgba(8,16,28,.95);border:1px solid rgba(249,115,22,.25);border-radius:10px;'
+    +'padding:8px 12px;font-size:11px;color:#fff;white-space:nowrap;z-index:99;'
+    +'box-shadow:0 8px 24px rgba(0,0,0,.5)"></div>';
+  html += '</div>';
+
+  // Légende
+  html += '<div style="padding:2px 20px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap">';
+  html += '<div style="display:flex;align-items:center;gap:5px"><div style="width:14px;height:3px;background:'+accent+';border-radius:2px"></div><span style="font-size:'+Math.round(10*fz)+'px;color:'+mutedCol+';font-family:Barlow,sans-serif">Visites</span></div>';
+  html += '<div style="display:flex;align-items:center;gap:5px"><div style="width:14px;height:2px;background:'+signCol+';border-radius:2px;opacity:.6"></div><span style="font-size:'+Math.round(10*fz)+'px;color:'+mutedCol+';font-family:Barlow,sans-serif">Signées</span></div>';
+  if (peakDay) html += '<span style="font-size:'+Math.round(10*fz)+'px;color:'+mutedCol+';margin-left:auto;font-family:Barlow,sans-serif">Pic · <b style="color:#FCD34D">'+peakDay+'</b></span>';
+  else         html += '<span style="font-size:'+Math.round(10*fz)+'px;color:'+mutedCol+';margin-left:auto;font-style:italic;font-family:Barlow,sans-serif">Aucune donnée</span>';
+  html += '</div>';
+
+  html += '</div>'; // panel
+
+  // ── Données pour drawGateCanvas ──
+  window._gateChartData = { labels:labels, totals:totals, signed:signed, maxVal:maxVal,
+    type:type, canvasId:canvasId, tipId:tipId,
+    accent:accent, signCol:signCol, gridCol:gridCol, baseCol:baseCol,
+    axisCol:axisCol, labelCol:labelCol, fz:fz };
+
+  return html;
+}
+
+function switchGateChart(key, val) {
+  if (key === 'period') _gateChartPeriod = val;
+  if (key === 'type')   _gateChartType   = val;
+  // Re-rendre uniquement le graphe
+  var outer = document.querySelector('[data-gate-chart]');
+  if (outer) {
+    outer.outerHTML = renderGateFreqChart(_gateVisits);
+    drawGateCanvas();
+  } else {
+    // fallback : re-rendre tout le registre
+    var role = window._gateLastRole || 'HSE';
+    renderGate(role);
+  }
+  drawGateCanvas();
+}
+
+function drawGateCanvas() {
+  var D = window._gateChartData;
+  if (!D) return;
+  var canvas = document.getElementById(D.canvasId);
+  if (!canvas) { setTimeout(drawGateCanvas, 50); return; }
+  if (!canvas.offsetWidth) { setTimeout(drawGateCanvas, 50); return; }
+
+  var tip = document.getElementById(D.tipId);
+  var ctx = canvas.getContext('2d');
+  var dpr = window.devicePixelRatio || 1;
+  var W   = canvas.offsetWidth;
+  var H   = 180;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  ctx.scale(dpr, dpr);
+
+  var n      = D.labels.length;
+  var maxY   = Math.max(D.maxVal, 1);
+  var pad    = {l:30, r:10, t:14, b:34};
+  var gw     = W - pad.l - pad.r;
+  var gh     = H - pad.t - pad.b;
+  var fz     = D.fz || 1;
+  var accent = D.accent;
+  var signC  = D.signCol;
+  var totals = D.totals;
+  var signed = D.signed;
+  var labels = D.labels;
+
+  function hexRgb(h) {
+    return parseInt(h.slice(1,3),16)+','+parseInt(h.slice(3,5),16)+','+parseInt(h.slice(5,7),16);
+  }
+  var aRgb = hexRgb(accent), sRgb = hexRgb(signC);
+  function vX(i) { return pad.l + i/(n-1||1)*gw; }
+  function vY(v) { return pad.t + gh*(1 - v/maxY); }
+
+  // Grille
+  var step = maxY<=5?1:maxY<=10?2:maxY<=20?5:Math.ceil(maxY/4);
+  for (var yv=0; yv<=maxY; yv+=step) {
+    ctx.beginPath(); ctx.moveTo(pad.l,vY(yv)); ctx.lineTo(pad.l+gw,vY(yv));
+    ctx.strokeStyle=D.gridCol; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle=D.axisCol; ctx.font=Math.round(8*fz)+'px Barlow,sans-serif';
+    ctx.textAlign='right'; ctx.fillText(yv, pad.l-4, vY(yv)+3);
+  }
+  ctx.beginPath(); ctx.moveTo(pad.l,pad.t+gh); ctx.lineTo(pad.l+gw,pad.t+gh);
+  ctx.strokeStyle=D.baseCol; ctx.lineWidth=1; ctx.stroke();
+
+  // Labels X
+  var skip = n<=7?1:n<=30?Math.ceil(n/7):Math.ceil(n/8);
+  labels.forEach(function(lbl,i) {
+    if (i%skip!==0 && i!==n-1) return;
+    var x = D.type==='bar' ? pad.l+(i+.5)*gw/n : vX(i);
+    ctx.fillStyle=D.axisCol; ctx.font=Math.round(9*fz)+'px Barlow,sans-serif';
+    ctx.textAlign='center'; ctx.fillText(lbl, x, H-6);
+  });
+
+  if (D.type === 'bar') {
+    var bw = gw/n*.72;
+    totals.forEach(function(v,i) {
+      var x = pad.l + i*gw/n + gw/n*.14;
+      if (v===0) { ctx.fillStyle=D.gridCol; ctx.beginPath(); ctx.roundRect(x,pad.t+gh-2,bw,2,1); ctx.fill(); return; }
+      var y=vY(v), bh=gh-(y-pad.t);
+      var grd=ctx.createLinearGradient(x,y,x,pad.t+gh);
+      grd.addColorStop(0,'rgba('+aRgb+',.9)'); grd.addColorStop(1,'rgba('+aRgb+',.08)');
+      ctx.fillStyle=grd; ctx.beginPath(); ctx.roundRect(x,y,bw,bh,4); ctx.fill();
+      ctx.fillStyle='rgba('+aRgb+',.3)'; ctx.beginPath(); ctx.roundRect(x,y,bw,3,2); ctx.fill();
+      if (signed[i]>0) {
+        var sy=vY(signed[i]), sbh=gh-(sy-pad.t);
+        var g2=ctx.createLinearGradient(x,sy,x,pad.t+gh);
+        g2.addColorStop(0,'rgba('+sRgb+',.45)'); g2.addColorStop(1,'rgba('+sRgb+',.02)');
+        ctx.fillStyle=g2; ctx.beginPath(); ctx.roundRect(x,sy,bw,sbh,4); ctx.fill();
+      }
+      if (bh>16) { ctx.fillStyle=D.labelCol; ctx.font='bold '+Math.round(9*fz)+'px Barlow,sans-serif'; ctx.textAlign='center'; ctx.fillText(v,x+bw/2,y+11); }
+    });
+  } else {
+    function smooth(pts,close,fg,stroke,sw,dash) {
+      if (!pts.length) return;
+      ctx.beginPath();
+      pts.forEach(function(p,i) {
+        if (i===0){ctx.moveTo(p[0],p[1]);return;}
+        var pr=pts[i-1],cx=(pr[0]+p[0])/2;
+        ctx.bezierCurveTo(cx,pr[1],cx,p[1],p[0],p[1]);
+      });
+      if (close) { ctx.lineTo(pts[pts.length-1][0],pad.t+gh); ctx.lineTo(pts[0][0],pad.t+gh); ctx.closePath(); ctx.fillStyle=fg; ctx.fill(); }
+      else { if(dash)ctx.setLineDash(dash); ctx.strokeStyle=stroke; ctx.lineWidth=sw; ctx.lineJoin='round'; ctx.stroke(); ctx.setLineDash([]); }
+    }
+    var tP=totals.map(function(v,i){return[vX(i),vY(v)];}), sP=signed.map(function(v,i){return[vX(i),vY(v)];});
+    var fg=ctx.createLinearGradient(0,pad.t,0,pad.t+gh); fg.addColorStop(0,'rgba('+aRgb+',.22)'); fg.addColorStop(1,'rgba('+aRgb+',0)');
+    var sg=ctx.createLinearGradient(0,pad.t,0,pad.t+gh); sg.addColorStop(0,'rgba('+sRgb+',.12)'); sg.addColorStop(1,'rgba('+sRgb+',0)');
+    smooth(tP,true,fg); smooth(sP,true,sg);
+    smooth(tP,false,null,accent,2.5); smooth(sP,false,null,'rgba('+sRgb+',.6)',1.5,[4,3]);
+    totals.forEach(function(v,i){if(!v)return; ctx.beginPath();ctx.arc(vX(i),vY(v),3.5,0,Math.PI*2); ctx.fillStyle=accent;ctx.fill(); ctx.strokeStyle='rgba(8,16,28,.8)';ctx.lineWidth=1.5;ctx.stroke();});
+  }
+
+  // Tooltip
+  if (canvas._tipBound) return;
+  canvas._tipBound = true;
+  canvas.addEventListener('mousemove', function(e) {
+    var r=canvas.getBoundingClientRect(), mx=e.clientX-r.left;
+    var idx=-1;
+    if (D.type==='bar') idx=Math.floor((mx-pad.l)/(gw/n));
+    else { var md=9999; totals.forEach(function(_,i){var dx=Math.abs(vX(i)-mx);if(dx<md){md=dx;idx=i;}});}
+    if (idx<0||idx>=n) { if(tip)tip.style.display='none'; return; }
+    var v=totals[idx],s=signed[idx];
+    if (tip) {
+      tip.innerHTML='<div style="font-weight:700;color:'+accent+';margin-bottom:4px;font-size:12px">'+labels[idx]+'</div>'
+        +'<div style="color:#9CA3AF;line-height:1.8">👥 <b style="color:#F1F5F9">'+v+'</b> visite'+(v!==1?'s':'')+'<br>✅ <b style="color:'+signC+'">'+s+'</b> signée'+(s!==1?'s':'')+' · '+(v?Math.round(s/v*100):0)+'%</div>';
+      var cx=mx+14; if(cx+140>W)cx=mx-150;
+      tip.style.left=cx+'px'; tip.style.top=(e.clientY-r.top-48)+'px'; tip.style.display='block';
+    }
+  });
+  canvas.addEventListener('mouseleave', function(){if(tip)tip.style.display='none';});
+}
+
 function renderGateRegistre(role) {
   if (!_gateConfig) {
     return '<div class="empty-state" style="padding:40px">'
@@ -342,12 +620,8 @@ function renderGateRegistre(role) {
   var present     = todayVisits.filter(function(v) { return !v.check_out; });
   var departed    = todayVisits.filter(function(v) { return !!v.check_out; });
 
-  // ── Graphe fréquentation (SSChart) ──
-  // Conteneur dédié — SSChart injecte et exécute lui-même le canvas
-  var CHART_ID = 'gateFreqChart';
-
   var html = '';
-  html += '<div id="' + CHART_ID + '" style="margin-bottom:20px"></div>';
+  html += renderGateFreqChart(_gateVisits);
 
   // ── Stats du jour ──
   html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">'
