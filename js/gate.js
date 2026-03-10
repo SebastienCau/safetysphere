@@ -971,39 +971,80 @@ function gatePublicFormHTML(cfg, orgId) {
     + '</div>'
     + '</div>'
 
-    + '<script>'
-    // Scroll tracker sur les consignes
-    + 'var _gateScrolled=false;'
-    + 'document.getElementById("gateConsignes").addEventListener("scroll",function(){'
-    + '  var el=this;var pct=Math.min(100,Math.round((el.scrollTop+el.clientHeight)/el.scrollHeight*100));'
-    + '  document.getElementById("gateReadProgress").textContent="Défilement : "+pct+"%";'
-    + '  if(pct>=80&&!_gateScrolled){'
-    + '    _gateScrolled=true;'
-    + '    var chk=document.getElementById("gateSigned");'
-    + '    var lbl=document.getElementById("gateSignLabel");'
-    + '    chk.disabled=false;lbl.className="sign-gate unlocked";'
-    + '    document.getElementById("gateReadProgress").textContent="✅ Lu complet";'
-    + '    chk.addEventListener("change",function(){updateGateSubmitBtn();});'
-    + '  }'
-    + '});'
-    + 'function updateGateSubmitBtn(){'
-    + '  var ok=document.getElementById("gateSigned").checked'
-    + '    && document.getElementById("pub_name").value.trim()'
-    + '    && document.getElementById("pub_host").value.trim();'
-    + '  var btn=document.getElementById("gateSubmitBtn");'
-    + '  btn.disabled=!ok;btn.style.opacity=ok?"1":"0.5";'
-    + '}'
-    + '["pub_name","pub_host"].forEach(function(id){document.getElementById(id).addEventListener("input",updateGateSubmitBtn);});'
-    // Stocker visit_id pour le badge
-    + 'var _gateVisitId=null;var _gateVisitData=null;'
-    + '<\/script>'
     + '</body></html>';
+  // Attacher les événements APRÈS que le HTML soit dans le DOM
+  setTimeout(setupGatePublicScroll, 50);
 }
 
 function pubField(label, type, id, placeholder, required) {
   return '<div class="field"><label>' + label + '</label>'
     + '<input type="' + type + '" id="' + id + '" placeholder="' + escapeHtml(placeholder) + '" class="input"'
     + (required ? ' required' : '') + '></div>';
+}
+
+// ── Scroll tracker page publique visiteur (attaché après rendu DOM) ──
+var _gateScrolled = false;
+
+function setupGatePublicScroll() {
+  _gateScrolled = false;
+  window._gateVisitId   = null;
+  window._gateVisitData = null;
+
+  var consignes = document.getElementById('gateConsignes');
+  var progress  = document.getElementById('gateReadProgress');
+  var chk       = document.getElementById('gateSigned');
+  var lbl       = document.getElementById('gateSignLabel');
+  var submitBtn = document.getElementById('gateSubmitBtn');
+
+  if (!consignes) return;
+
+  // Vérifier si le contenu est assez court pour ne pas nécessiter de scroll
+  function checkScrollNeeded() {
+    if (consignes.scrollHeight <= consignes.clientHeight + 10) {
+      // Pas assez de contenu pour scroller — débloquer directement
+      unlockSignature();
+    }
+  }
+
+  function unlockSignature() {
+    if (_gateScrolled) return;
+    _gateScrolled = true;
+    if (progress) progress.textContent = '✅ Lu complet';
+    if (chk) {
+      chk.disabled = false;
+      chk.addEventListener('change', updateGateSubmitBtn);
+    }
+    if (lbl) lbl.className = 'sign-gate unlocked';
+  }
+
+  function updateGateSubmitBtn() {
+    var ok = chk && chk.checked
+      && (document.getElementById('pub_name')  || {value:''}).value.trim()
+      && (document.getElementById('pub_host')  || {value:''}).value.trim();
+    if (submitBtn) {
+      submitBtn.disabled    = !ok;
+      submitBtn.style.opacity = ok ? '1' : '0.5';
+    }
+  }
+
+  window.updateGateSubmitBtn = updateGateSubmitBtn;
+
+  consignes.addEventListener('scroll', function() {
+    var pct = Math.min(100, Math.round(
+      (consignes.scrollTop + consignes.clientHeight) / consignes.scrollHeight * 100
+    ));
+    if (progress) progress.textContent = 'Défilement : ' + pct + '%';
+    if (pct >= 80) unlockSignature();
+  });
+
+  // Attacher les inputs nom + hôte
+  ['pub_name', 'pub_host'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('input', updateGateSubmitBtn);
+  });
+
+  // Vérifier immédiatement si scroll nécessaire
+  checkScrollNeeded();
 }
 
 async function submitPublicGate(orgId) {
