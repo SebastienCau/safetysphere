@@ -108,14 +108,23 @@ async function checkIncidentsActivation() {
 }
 
 function updateIncidentsTabVisibility(visible) {
+  // Onglet TOUJOURS visible — même logique que Gate
+  // Dot coloré : rouge = actif, gris = inactif
   document.querySelectorAll('.nav-tab').forEach(function(tab) {
     var oc = tab.getAttribute('onclick') || '';
     if (oc.includes("'incidents'") || oc.includes('"incidents"')) {
-      tab.style.display = visible ? '' : 'none';
+      tab.style.display = '';
+      var dot = tab.querySelector('.inc-status-dot');
+      if (!dot) {
+        dot = document.createElement('span');
+        dot.className = 'inc-status-dot';
+        dot.style.cssText = 'display:inline-block;width:6px;height:6px;border-radius:50%;margin-left:5px;vertical-align:middle;flex-shrink:0';
+        tab.appendChild(dot);
+      }
+      dot.style.background = visible ? '#F87171' : '#475569';
+      dot.title = visible ? 'Module actif' : 'Module inactif — activez-le dans Admin';
     }
   });
-  var kpi = document.getElementById('hse-incidents-kpi');
-  if (kpi) kpi.style.display = visible ? '' : 'none';
 }
 
 // ════════════════════════════════════════════════════════════════════════════
