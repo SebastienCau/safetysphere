@@ -1701,68 +1701,61 @@ async function openReportViewer(url, title, sourceType, archiveId) {
 
 function _loadHtmlInFrame(frame, html, fallbackUrl) {
   try {
-    var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    var blob    = new Blob([html], { type: 'text/html;charset=utf-8' });
     var blobUrl = URL.createObjectURL(blob);
+    if (frame._blobUrl) { try { URL.revokeObjectURL(frame._blobUrl); } catch(e){} }
+    frame._blobUrl = blobUrl;
     frame.src = blobUrl;
-    frame.onload = function() { setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 60000); };
+    frame.onload = function() {
+      setTimeout(function() { URL.revokeObjectURL(blobUrl); frame._blobUrl = null; }, 60000);
+    };
   } catch(e) {
-    if (fallbackUrl) frame.src = fallbackUrl;
-    else showViewerFallback(frame, fallbackUrl);
+    showViewerFallback(frame, fallbackUrl);
   }
 }
 
 async function _loadStorageFileInFrame(frame, signedUrl, archiveId, sourceType) {
+  // Montrer un loader
+  _loadHtmlInFrame(frame, '<html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#F9FAFB;color:#6B7280;font-size:14px"><div style="text-align:center"><div style="font-size:32px;margin-bottom:12px">⏳</div>Chargement du document...</div></body></html>', signedUrl);
+
   try {
-    // Extraire le path relatif depuis l'URL signée Supabase
-    // Format: .../object/sign/rapport-archives/ORG_ID/NOM.html?token=...
+    // Extraire le path depuis l'URL signée Supabase
     var match = signedUrl.match(/\/object\/(?:sign|public)\/rapport-archives\/(.+?)(?:\?|$)/);
-    if (match && match[1]) {
-      var filePath = decodeURIComponent(match[1]);
-      // Télécharger via le SDK (authentifié, retourne un Blob correct)
-      var dlRes = await sb.storage.from('rapport-archives').download(filePath);
-      if (!dlRes.error && dlRes.data) {
-        var fileBlob = dlRes.data;
-        // Forcer text/html pour les fichiers HTML
-        if (!fileBlob.type || fileBlob.type === 'application/octet-stream') {
-          fileBlob = new Blob([fileBlob], { type: 'text/html;charset=utf-8' });
-        }
-        if (fileBlob.type.includes('html')) {
-          // Lire et injecter comme blob URL avec bon Content-Type
-          var reader = new FileReader();
-          reader.onload = function(e) {
-            var htmlText = e.target.result;
-            // Sauvegarder en cache pour les prochaines ouvertures
-            if (archiveId && window._archiveCache && window._archiveCache[archiveId]) {
-              window._archiveCache[archiveId].report_html = htmlText;
-              // Sauvegarder aussi en base si c'est un rapport SafetySphere
-              if (sourceType === 'html') {
-                sb.from('report_archive').update({ report_html: htmlText }).eq('id', archiveId).then(function(){});
-              }
-            }
-            _loadHtmlInFrame(frame, htmlText, signedUrl);
-          };
-          reader.onerror = function() { showViewerFallback(frame, signedUrl); };
-          reader.readAsText(fileBlob);
-          return;
-        } else {
-          // PDF ou autre binaire → blob URL direct
-          var blobUrl = URL.createObjectURL(fileBlob);
-          frame.src = blobUrl;
-          return;
-        }
-      }
+    if (!match || !match[1]) throw new Error('path_not_found');
+
+    var filePath = decodeURIComponent(match[1]);
+    var dlRes = await sb.storage.from('rapport-archives').download(filePath);
+
+    if (dlRes.error || !dlRes.data) throw new Error(dlRes.error ? dlRes.error.message : 'download_empty');
+
+    var rawBlob = dlRes.data;
+    var isPdf   = rawBlob.type.includes('pdf') || filePath.toLowerCase().endsWith('.pdf');
+
+    if (isPdf) {
+      var pdfUrl = URL.createObjectURL(rawBlob);
+      frame.src  = pdfUrl;
+      return;
     }
-    // Fallback si extraction du path échoue : src direct
-    frame.src = signedUrl;
-    var _t = setTimeout(function() {
-      try {
-        var fd = frame.contentDocument || frame.contentWindow.document;
-        if (!fd || !fd.body || !(fd.body.innerText||'').trim()) showViewerFallback(frame, signedUrl);
-      } catch(e) { showViewerFallback(frame, signedUrl); }
-    }, 5000);
-    frame.onload = function() { clearTimeout(_t); };
+
+    // Fichier HTML — décoder proprement en UTF-8 via ArrayBuffer + TextDecoder
+    var buffer  = await rawBlob.arrayBuffer();
+    var decoder = new TextDecoder('utf-8');
+    var htmlText = decoder.decode(buffer);
+
+    // Mettre en cache pour prochaines ouvertures
+    if (archiveId && window._archiveCache && window._archiveCache[archiveId]) {
+      window._archiveCache[archiveId].report_html = htmlText;
+    }
+    // Persister en base (silent) — évite de re-télécharger la prochaine fois
+    if (archiveId) {
+      sb.from('report_archive').update({ report_html: htmlText }).eq('id', archiveId)
+        .then(function(){}).catch(function(){});
+    }
+
+    _loadHtmlInFrame(frame, htmlText, signedUrl);
+
   } catch(err) {
-    console.error('[Viewer] Erreur chargement fichier :', err);
+    console.error('[Viewer] Erreur chargement storage :', err.message);
     showViewerFallback(frame, signedUrl);
   }
 }
@@ -2441,7 +2434,7 @@ async function renderInlineReportHistory(reportType, role, containerId) {
     var consultUrl  = a.signed_file_url || a.file_url;
     var consultType = a.signed_file_url ? 'ext' : 'ext';
     var consultBtn  = consultUrl
-      ? '<button class="btn-sm btn-view" style="padding:5px 12px;font-size:11px" onclick="openReportViewer(\'' + consultUrl + '\',\'' + escapeHtml((a.report_num||'') + (a.report_num?' — ':'') + typeFullName(a.report_type)) + '\',\'ext\',\'' + a.id + '\')">📄 Consulter</button>'
+      ? '<button class="btn-sm btn-view" style="padding:5px 12px;font-size:11px" onclick="viewArchiveDoc(\'' + a.id + '\')">📄 Consulter</button>'
       : '<span style="font-size:11px;color:var(--muted)">Pas de fichier</span>';
 
     // Bouton envoi signature — seulement si pas encore envoyé
@@ -2458,6 +2451,8 @@ async function renderInlineReportHistory(reportType, role, containerId) {
         + 'onclick="openReportViewer(\'' + (consultUrl || '') + '\',\'' + escapeHtml(a.report_num || typeLabel) + '\',\'ext\',\'' + a.id + '\')">👥 Signataires</button>';
     }
 
+    window._archiveCache = window._archiveCache || {};
+    window._archiveCache[a.id] = a;
     html += '<div class="archive-card" style="margin-bottom:8px">'
       + '<div style="font-size:22px;flex-shrink:0">' + typeIco + '</div>'
       + '<div class="archive-meta" style="flex:1;min-width:0">'
