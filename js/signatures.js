@@ -1328,89 +1328,259 @@ function showPublicSignError(msg) {
 function openPublicSignPage(item, req, token) {
   // Remplacer le contenu de la page par la page de signature
   document.body.innerHTML = publicSignPageHTML(item, req, token);
+
+  // Initialiser la lecture du document (si HTML disponible)
+  if (req.report_html) {
+    var blob = new Blob([req.report_html], { type: 'text/html;charset=utf-8' });
+    var blobUrl = URL.createObjectURL(blob);
+    setTimeout(function() {
+      var initFn = (document.getElementById('docFrame') && document.getElementById('docFrame').contentWindow && document.getElementById('docFrame').contentWindow.initDocReader);
+      // initDocReader est dans le <script> du HTML injecté, pas dans le contexte parent
+      // On appelle directement via l'iframe parent
+      if (typeof window.initDocReader === 'function') {
+        window.initDocReader(blobUrl);
+      } else {
+        // Charger l'iframe directement
+        var frame = document.getElementById('docFrame');
+        if (frame) {
+          fetch(blobUrl).then(function(r){ return r.text(); }).then(function(html){
+            var b2 = new Blob([html],{type:'text/html;charset=utf-8'});
+            frame.src = URL.createObjectURL(b2);
+            setupDocScrollTracker(frame);
+          }).catch(function(){ enableSignStep(); });
+        }
+      }
+    }, 200);
+  } else {
+    // Pas de HTML disponible — activer directement la signature
+    setTimeout(function() { enableSignStep(); }, 100);
+  }
 }
 
 function publicSignPageHTML(item, req, token) {
-  return '<!DOCTYPE html>'
-    + '<div style="min-height:100vh;background:#0D1B2A;font-family:\'Segoe UI\',sans-serif;display:flex;flex-direction:column">'
-    // Bandeau
-    + '<div style="background:linear-gradient(135deg,#0D1B2A,#1E3A5F);border-bottom:3px solid #F97316;padding:12px 24px;display:flex;align-items:center;gap:14px">'
-    + '<div style="width:34px;height:34px;background:#F97316;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:14px">S</div>'
-    + '<div><div style="font-weight:900;color:#fff;font-size:14px">Safety<span style="color:#F97316">Sphere</span></div><div style="font-size:10px;color:#94A3B8">Demande de signature électronique</div></div>'
-    + '<div style="margin-left:auto;font-size:12px;color:#94A3B8">Réf. ' + escapeHtml(req.report_num || '') + '</div>'
+  var typeIco = req.report_type === 'DUER' ? '📋' : req.report_type === 'VGP' ? '🔧' : req.report_type === 'PDP' ? '📄' : '📎';
+  return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+    + '<title>SafetySphere — Signature ' + escapeHtml(req.report_num||'') + '</title>'
+    + '<style>'
+    + '*{box-sizing:border-box;margin:0;padding:0}'
+    + 'body{font-family:"Segoe UI",sans-serif;background:#0D1B2A;color:#E2E8F0;min-height:100vh}'
+    + '.ss-header{background:linear-gradient(135deg,#0D1B2A,#1E3A5F);border-bottom:3px solid #F97316;padding:12px 20px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100}'
+    + '.ss-logo{width:32px;height:32px;background:#F97316;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:13px;flex-shrink:0}'
+    + '.ss-wrap{max-width:720px;margin:0 auto;padding:24px 16px}'
+    + '.doc-reader{background:#fff;border-radius:12px;overflow:hidden;margin-bottom:20px;box-shadow:0 4px 32px rgba(0,0,0,.4)}'
+    + '.doc-reader-bar{background:#1E3A5F;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #F97316}'
+    + '.doc-reader-frame{width:100%;height:520px;border:none;display:block}'
+    + '.read-gate{background:rgba(249,115,22,.08);border:2px solid rgba(249,115,22,.3);border-radius:14px;padding:18px;margin-bottom:20px;transition:border-color .3s}'
+    + '.read-gate.unlocked{border-color:rgba(34,197,94,.4);background:rgba(34,197,94,.06)}'
+    + '.scroll-hint{display:flex;align-items:center;gap:8px;font-size:12px;color:#94A3B8;margin-bottom:12px}'
+    + '.sign-card{background:rgba(30,58,95,.5);border:1px solid rgba(99,162,241,.2);border-radius:14px;padding:20px;margin-bottom:16px}'
+    + '.mode-btn{background:none;border:2px solid rgba(255,255,255,.12);border-radius:12px;padding:16px;cursor:pointer;color:#fff;text-align:center;width:100%;transition:all .2s;font-family:"Segoe UI",sans-serif}'
+    + '.mode-btn:hover{border-color:#F97316}'
+    + '.otp-input{width:38px;height:46px;background:rgba(30,58,95,.7);border:2px solid rgba(99,162,241,.3);border-radius:8px;color:#fff;font-size:20px;font-weight:700;text-align:center;font-family:"Segoe UI",sans-serif}'
+    + '.btn-primary{width:100%;padding:13px;background:#F97316;border:none;border-radius:10px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:"Segoe UI",sans-serif}'
+    + '.btn-secondary{width:100%;padding:11px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:10px;color:#A5B4FC;font-weight:700;font-size:13px;cursor:pointer;font-family:"Segoe UI",sans-serif;margin-bottom:10px}'
+    + '.btn-link{background:none;border:none;color:#94A3B8;font-size:12px;cursor:pointer;text-decoration:underline;font-family:"Segoe UI",sans-serif}'
+    + '.step-hidden{display:none}'
+    + '.drop-zone{border:2px dashed rgba(99,102,241,.3);border-radius:10px;padding:20px;text-align:center;cursor:pointer;color:#A5B4FC;font-size:13px;margin-bottom:12px}'
+    + '.progress-bar-bg{background:rgba(255,255,255,.06);border-radius:4px;height:6px;overflow:hidden}'
+    + '.progress-bar-fill{height:100%;border-radius:4px;background:#F97316;transition:width .4s}'
+    + '</style></head><body>'
+
+    // ── Header ──
+    + '<div class="ss-header">'
+    + '<div class="ss-logo">S</div>'
+    + '<div style="flex:1"><div style="font-weight:900;color:#fff;font-size:14px">Safety<span style="color:#F97316">Sphere</span></div><div style="font-size:10px;color:#94A3B8">Demande de signature électronique</div></div>'
+    + '<div style="font-size:12px;color:#94A3B8">' + escapeHtml(req.report_num||'') + '</div>'
     + '</div>'
-    // Corps
-    + '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 16px">'
-    + '<div style="max-width:520px;width:100%">'
-    // Info signataire
-    + '<div style="background:rgba(30,58,95,.5);border:1px solid rgba(99,162,241,.2);border-radius:16px;padding:24px;margin-bottom:24px">'
-    + '<div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px">Bonjour, ' + escapeHtml(item.signer_name) + ' 👋</div>'
-    + '<div style="font-size:13px;color:#94A3B8;margin-bottom:16px">Vous êtes invité(e) à signer le document suivant :</div>'
-    + '<div style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px">'
-    + '<div style="font-size:28px">' + (req.report_type === 'DUER' ? '📋' : req.report_type === 'VGP' ? '🔧' : '📄') + '</div>'
+
+    + '<div class="ss-wrap">'
+
+    // ── Info signataire ──
+    + '<div class="sign-card" style="margin-bottom:16px">'
+    + '<div style="font-size:20px;font-weight:900;color:#fff;margin-bottom:4px">Bonjour, ' + escapeHtml(item.signer_name) + ' 👋</div>'
+    + '<div style="font-size:12px;color:#94A3B8;margin-bottom:12px">Vous êtes invité(e) à prendre connaissance du document ci-dessous puis à le signer.</div>'
+    + '<div style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:12px">'
+    + '<div style="font-size:24px">' + typeIco + '</div>'
     + '<div><div style="font-size:13px;font-weight:700;color:#fff">' + escapeHtml(req.report_type) + ' — ' + escapeHtml(req.report_num) + '</div>'
-    + '<div style="font-size:11px;color:#94A3B8">Votre rôle : ' + escapeHtml(item.signer_role) + '</div>'
-    + (req.workflow_mode === 'sequential' ? '<div style="font-size:11px;color:#FCD34D;margin-top:2px">🔗 Workflow séquentiel — position ' + (item.seq+1) + '/' + req.total_signers + '</div>' : '')
+    + '<div style="font-size:11px;color:#94A3B8">Votre rôle : <strong style="color:#fff">' + escapeHtml(item.signer_role) + '</strong></div>'
+    + (req.workflow_mode==='sequential' ? '<div style="font-size:11px;color:#FCD34D;margin-top:2px">🔗 Séquentiel · position ' + (item.seq+1) + '/' + req.total_signers + '</div>' : '')
     + '</div></div>'
     + '</div>'
-    // Choix mode signature
-    + '<div id="pubSignStep0">'
+
+    // ── Lecture du document (obligatoire) ──
+    + '<div class="doc-reader">'
+    + '<div class="doc-reader-bar">'
+    + '<div style="font-size:12px;font-weight:700;color:#fff">📄 Document à lire avant de signer</div>'
+    + '<div id="readProgress" style="font-size:11px;color:#FCD34D;font-weight:600">Défilement : 0%</div>'
+    + '</div>'
+    + '<iframe id="docFrame" class="doc-reader-frame" src="about:blank" sandbox="allow-same-origin allow-scripts"></iframe>'
+    + '</div>'
+
+    // ── Gate : case à cocher ──
+    + '<div class="read-gate" id="readGate">'
+    + '<div class="scroll-hint"><span style="font-size:18px">👇</span> Faites défiler le document jusqu\'à la fin pour activer la signature.</div>'
+    + '<label id="readCheckLabel" style="display:flex;align-items:flex-start;gap:12px;cursor:not-allowed;opacity:.5">'
+    + '<input type="checkbox" id="readCheck" disabled style="margin-top:3px;width:18px;height:18px;accent-color:#F97316;cursor:not-allowed;flex-shrink:0">'
+    + '<span style="font-size:13px;line-height:1.5;color:#E2E8F0">J\'ai <strong>lu et pris connaissance</strong> du document dans son intégralité et j\'en comprends le contenu.</span>'
+    + '</label>'
+    + '</div>'
+
+    // ── Choix mode signature (masqué tant que pas lu) ──
+    + '<div id="pubSignStep0" class="step-hidden">'
     + '<div style="font-size:13px;color:#94A3B8;margin-bottom:14px;text-align:center">Choisissez votre mode de signature :</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">'
-    + '<button onclick="pubSignChoose(\'otp\',\'' + escapeHtml(token) + '\')" style="background:rgba(249,115,22,.08);border:2px solid rgba(249,115,22,.3);border-radius:14px;padding:20px;cursor:pointer;color:#fff;text-align:center" onmouseover="this.style.borderColor=\'#F97316\'" onmouseout="this.style.borderColor=\'rgba(249,115,22,.3)\'">'
-    + '<div style="font-size:28px;margin-bottom:8px">📧</div><div style="font-size:13px;font-weight:700;margin-bottom:4px">Signature numérique</div><div style="font-size:11px;color:#94A3B8">Code OTP · eIDAS Niveau 1</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">'
+    + '<button class="mode-btn" onclick="pubSignChoose(\'otp\',\'' + escapeHtml(token) + '\')">'
+    + '<div style="font-size:26px;margin-bottom:8px">📧</div><div style="font-size:13px;font-weight:700;margin-bottom:3px">Signature numérique</div><div style="font-size:11px;color:#94A3B8">Code OTP · eIDAS Niv.1</div>'
     + '</button>'
-    + '<button onclick="pubSignChoose(\'manual\',\'' + escapeHtml(token) + '\')" style="background:rgba(99,102,241,.08);border:2px solid rgba(99,102,241,.3);border-radius:14px;padding:20px;cursor:pointer;color:#fff;text-align:center" onmouseover="this.style.borderColor=\'#818CF8\'" onmouseout="this.style.borderColor=\'rgba(99,102,241,.3)\'">'
-    + '<div style="font-size:28px;margin-bottom:8px">🖊️</div><div style="font-size:13px;font-weight:700;margin-bottom:4px">Signature manuscrite</div><div style="font-size:11px;color:#94A3B8">Imprimer · signer · scanner</div>'
+    + '<button class="mode-btn" onclick="pubSignChoose(\'manual\',\'' + escapeHtml(token) + '\')">'
+    + '<div style="font-size:26px;margin-bottom:8px">🖊️</div><div style="font-size:13px;font-weight:700;margin-bottom:3px">Signature manuscrite</div><div style="font-size:11px;color:#94A3B8">Imprimer · signer · scanner</div>'
     + '</button>'
     + '</div>'
-    + '<button onclick="pubSignRefuse(\'' + escapeHtml(token) + '\')" style="background:none;border:none;color:#94A3B8;font-size:12px;cursor:pointer;text-decoration:underline;display:block;margin:0 auto">Refuser de signer</button>'
+    + '<div style="text-align:center"><button class="btn-link" onclick="pubSignRefuse(\'' + escapeHtml(token) + '\')">Refuser de signer</button></div>'
     + '</div>'
-    // OTP steps (cachés)
-    + '<div id="pubSignStepOtp" style="display:none">'
-    + '<div style="background:rgba(30,58,95,.5);border:1px solid rgba(99,162,241,.2);border-radius:12px;padding:20px;margin-bottom:16px;text-align:center">'
-    + '<div style="font-size:13px;color:#94A3B8;margin-bottom:6px">Code de vérification envoyé à</div>'
-    + '<div style="font-size:15px;font-weight:700;color:#fff" id="pubSignEmailDisplay">' + escapeHtml(item.signer_email) + '</div>'
-    + '</div>'
+
+    // ── OTP step ──
+    + '<div id="pubSignStepOtp" class="step-hidden">'
+    + '<div class="sign-card">'
+    + '<div style="font-size:13px;color:#94A3B8;margin-bottom:6px;text-align:center">Code de vérification envoyé à</div>'
+    + '<div style="font-size:15px;font-weight:700;color:#fff;text-align:center;margin-bottom:16px" id="pubSignEmailDisplay">' + escapeHtml(item.signer_email) + '</div>'
     + '<div style="font-size:12px;color:#94A3B8;text-align:center;margin-bottom:16px">Saisissez le code à 8 chiffres reçu par email.</div>'
-    + '<div style="display:flex;gap:6px;justify-content:center;margin-bottom:20px">'
+    + '<div style="display:flex;gap:5px;justify-content:center;margin-bottom:20px">'
     + [1,2,3,4,5,6,7,8].map(function(n) {
         var prev = n>1 ? 'pubD'+(n-1) : null;
         var next = n<8 ? 'pubD'+(n+1) : null;
-        return '<input type="text" id="pubD' + n + '" maxlength="1" style="width:36px;height:44px;background:rgba(30,58,95,.7);border:2px solid rgba(99,162,241,.3);border-radius:8px;color:#fff;font-size:20px;font-weight:700;text-align:center" oninput="otpDigitInput(this,\'' + (next||'') + '\')" onkeydown="otpDigitBack(event,this,\'' + (prev||'') + '\')">';
+        return '<input type="text" id="pubD' + n + '" maxlength="1" class="otp-input" inputmode="numeric" oninput="otpDigitInput(this,\'' + (next||'') + '\')" onkeydown="otpDigitBack(event,this,\'' + (prev||'') + '\')">';
       }).join('')
     + '</div>'
-    + '<button onclick="pubSignVerifyOtp(\'' + escapeHtml(token) + '\')" style="width:100%;padding:13px;background:#F97316;border:none;border-radius:10px;color:#fff;font-weight:700;font-size:14px;cursor:pointer">✓ Confirmer la signature</button>'
-    + '<button onclick="pubSignSendOtp(\'' + escapeHtml(item.signer_email) + '\')" style="background:none;border:none;color:#94A3B8;font-size:12px;cursor:pointer;text-decoration:underline;display:block;margin:12px auto 0">↩ Renvoyer le code</button>'
+    + '<button class="btn-primary" onclick="pubSignVerifyOtp(\'' + escapeHtml(token) + '\')">✓ Confirmer la signature</button>'
+    + '<div style="text-align:center;margin-top:10px"><button class="btn-link" onclick="pubSignSendOtp(\'' + escapeHtml(item.signer_email) + '\')">↩ Renvoyer un code</button></div>'
     + '</div>'
-    // Manuscrit step
-    + '<div id="pubSignStepManual" style="display:none">'
-    + '<div style="background:rgba(30,58,95,.5);border:1px solid rgba(99,162,241,.2);border-radius:12px;padding:20px;margin-bottom:16px">'
-    + '<div style="font-size:12px;color:#94A3B8;margin-bottom:12px">Procédure :</div>'
+    + '<div style="text-align:center;margin-top:8px"><button class="btn-link" onclick="document.getElementById(\'pubSignStep0\').style.display=\'\';document.getElementById(\'pubSignStepOtp\').style.display=\'none\'">← Retour</button></div>'
+    + '</div>'
+
+    // ── Manuscrit step ──
+    + '<div id="pubSignStepManual" class="step-hidden">'
+    + '<div class="sign-card" style="margin-bottom:14px">'
+    + '<div style="font-size:12px;color:#94A3B8;margin-bottom:12px;font-weight:700">Procédure de signature manuscrite :</div>'
     + '<div style="display:flex;flex-direction:column;gap:8px">'
     + '<div style="display:flex;gap:10px;align-items:flex-start"><div style="min-width:22px;height:22px;background:#6366F1;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">1</div><span style="font-size:12px;color:#CBD5E1">Téléchargez et imprimez le document</span></div>'
     + '<div style="display:flex;gap:10px;align-items:flex-start"><div style="min-width:22px;height:22px;background:#6366F1;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">2</div><span style="font-size:12px;color:#CBD5E1">Apposez votre signature manuscrite</span></div>'
     + '<div style="display:flex;gap:10px;align-items:flex-start"><div style="min-width:22px;height:22px;background:#6366F1;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700">3</div><span style="font-size:12px;color:#CBD5E1">Scannez et téléversez ci-dessous</span></div>'
     + '</div>'
     + '</div>'
-    + '<button onclick="pubSignDownloadDoc()" style="width:100%;padding:11px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:8px;color:#A5B4FC;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px">🖨️ Télécharger le document</button>'
+    + '<button class="btn-secondary" onclick="pubSignDownloadDoc()">🖨️ Télécharger le document</button>'
     + '<input type="file" id="pubScanFile" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="pubScanFileChange(this)">'
-    + '<div onclick="document.getElementById(\'pubScanFile\').click()" style="border:2px dashed rgba(99,102,241,.3);border-radius:10px;padding:18px;text-align:center;cursor:pointer;color:#A5B4FC;font-size:13px;margin-bottom:12px" id="pubScanDropZone">📎 Cliquez pour sélectionner le scan signé</div>'
-    + '<button onclick="pubSignUploadScan(\'' + escapeHtml(token) + '\')" id="pubScanBtn" style="width:100%;padding:13px;background:#6366F1;border:none;border-radius:10px;color:#fff;font-weight:700;font-size:14px;cursor:pointer" disabled>📤 Soumettre le scan signé</button>'
+    + '<div class="drop-zone" onclick="document.getElementById(\'pubScanFile\').click()" id="pubScanDropZone">📎 Cliquez pour sélectionner le scan signé</div>'
+    + '<button class="btn-primary" onclick="pubSignUploadScan(\'' + escapeHtml(token) + '\')" id="pubScanBtn" disabled>📤 Soumettre le scan signé</button>'
+    + '<div style="text-align:center;margin-top:10px"><button class="btn-link" onclick="document.getElementById(\'pubSignStep0\').style.display=\'\';document.getElementById(\'pubSignStepManual\').style.display=\'none\'">← Retour</button></div>'
     + '</div>'
-    // Succès
-    + '<div id="pubSignSuccess" style="display:none;text-align:center">'
+
+    // ── Succès ──
+    + '<div id="pubSignSuccess" class="step-hidden" style="text-align:center;padding:32px 0">'
     + '<div style="font-size:60px;margin-bottom:16px">✅</div>'
     + '<div style="font-size:20px;font-weight:900;color:#fff;margin-bottom:8px">Signature enregistrée !</div>'
     + '<div style="font-size:13px;color:#94A3B8" id="pubSignSuccessDetail">—</div>'
     + '</div>'
-    + '</div></div></div>';
+
+    // ── Scripts ──
+    + '<script>'
+    + 'var _pubDocScrolled = false;'
+    + 'var _pubDocUrl = null;'
+    + 'function initDocReader(url) {'
+    + '  _pubDocUrl = url;'
+    + '  var frame = document.getElementById("docFrame");'
+    + '  if (!url) { showSignStep(); return; }'
+    + '  fetch(url).then(function(r){ return r.text(); }).then(function(html){'
+    + '    var blob = new Blob([html],{type:"text/html;charset=utf-8"});'
+    + '    frame.src = URL.createObjectURL(blob);'
+    + '    frame.onload = function(){'
+    + '      try {'
+    + '        var fdoc = frame.contentDocument || frame.contentWindow.document;'
+    + '        var fwin = frame.contentWindow;'
+    + '        fwin.addEventListener("scroll", function(){'
+    + '          var scrolled = fwin.scrollY + fwin.innerHeight;'
+    + '          var total    = fdoc.documentElement.scrollHeight;'
+    + '          var pct = Math.min(100, Math.round(scrolled / total * 100));'
+    + '          document.getElementById("readProgress").textContent = "Défilement : " + pct + "%";'
+    + '          var bar = document.getElementById("readGate");'
+    + '          if (pct >= 85 && !_pubDocScrolled) {'
+    + '            _pubDocScrolled = true;'
+    + '            var chk = document.getElementById("readCheck");'
+    + '            var lbl = document.getElementById("readCheckLabel");'
+    + '            chk.disabled = false; chk.style.cursor = "pointer"; lbl.style.cursor = "pointer"; lbl.style.opacity = "1";'
+    + '            bar.classList.add("unlocked");'
+    + '            document.querySelector(".scroll-hint").innerHTML = "✅ Vous pouvez maintenant cocher et choisir votre mode de signature.";'
+    + '            chk.addEventListener("change", function(){ if(this.checked) showSignStep(); });'
+    + '          }'
+    + '        });'
+    + '      } catch(e) { showSignStep(); }'
+    + '    };'
+    + '  }).catch(function(){ showSignStep(); });'
+    + '}'
+    + 'function showSignStep() {'
+    + '  _pubDocScrolled = true;'
+    + '  var chk = document.getElementById("readCheck");'
+    + '  var lbl = document.getElementById("readCheckLabel");'
+    + '  if (chk) { chk.disabled = false; chk.style.cursor = "pointer"; }'
+    + '  if (lbl) { lbl.style.cursor = "pointer"; lbl.style.opacity = "1"; }'
+    + '  var gate = document.getElementById("readGate"); if (gate) gate.classList.add("unlocked");'
+    + '  var hint = document.querySelector(".scroll-hint"); if (hint) hint.innerHTML = "✅ Cochez pour activer la signature.";'
+    + '  if (chk && !chk.hasEventListener) { chk.addEventListener("change", function(){ if(this.checked) { document.getElementById("pubSignStep0").style.display=""; } }); chk.hasEventListener=true; }'
+    + '}'
+    + 'function pubSignDownloadDoc() {'
+    + '  if (_pubDocUrl) { var a=document.createElement("a"); a.href=_pubDocUrl; a.download="document.html"; a.click(); }'
+    + '}'
+    + '<\/script>'
+
+    + '</div></body></html>';
 }
 
 // ── Fonctions côté page publique ─────────────────────────────────────────────
 var _pubSignToken   = null;
 var _pubSignReqHtml = null;
 var _pubScanFile    = null;
+
+// ── Tracking scroll lecture document (page publique) ────────────────────────
+function setupDocScrollTracker(frame) {
+  var _scrolled = false;
+  frame.onload = function() {
+    try {
+      var fdoc = frame.contentDocument || frame.contentWindow.document;
+      var fwin = frame.contentWindow;
+      fwin.addEventListener('scroll', function() {
+        var pct = Math.min(100, Math.round((fwin.scrollY + fwin.innerHeight) / fdoc.documentElement.scrollHeight * 100));
+        var el = document.getElementById('readProgress');
+        if (el) el.textContent = 'Défilement : ' + pct + '%';
+        if (pct >= 85 && !_scrolled) {
+          _scrolled = true;
+          enableSignStep();
+        }
+      });
+    } catch(e) {
+      enableSignStep();
+    }
+  };
+}
+
+function enableSignStep() {
+  var chk  = document.getElementById('readCheck');
+  var lbl  = document.getElementById('readCheckLabel');
+  var gate = document.getElementById('readGate');
+  var hint = document.querySelector('.scroll-hint');
+  if (chk) { chk.disabled = false; chk.style.cursor = 'pointer'; }
+  if (lbl) { lbl.style.cursor = 'pointer'; lbl.style.opacity = '1'; }
+  if (gate) gate.classList.add('unlocked');
+  if (hint) hint.innerHTML = '✅ Cochez pour activer la signature.';
+  if (chk && !chk._listenerSet) {
+    chk._listenerSet = true;
+    chk.addEventListener('change', function() {
+      if (this.checked) {
+        var s0 = document.getElementById('pubSignStep0');
+        if (s0) s0.style.display = '';
+      }
+    });
+  }
+}
 
 async function pubSignChoose(mode, token) {
   _pubSignToken = token;
