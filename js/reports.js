@@ -1574,12 +1574,32 @@ async function loadViewerSigPanel(archiveId) {
 
   var items = itemsRes.data || [];
 
+  // Charger les sociétés des signataires (via profiles → org_id → organizations)
+  var _signerOrgMap = {};
+  var signerEmails = items.map(function(it) { return it.signer_email; }).filter(Boolean);
+  if (signerEmails.length) {
+    var profRes = await sb.from('profiles').select('email, org_id').in('email', signerEmails);
+    var profList = profRes.data || [];
+    var orgIds   = [...new Set(profList.map(function(p) { return p.org_id; }).filter(Boolean))];
+    if (orgIds.length) {
+      var orgRes = await sb.from('organizations').select('id, name').in('id', orgIds);
+      var orgMap = {};
+      (orgRes.data || []).forEach(function(o) { orgMap[o.id] = o.name; });
+      profList.forEach(function(p) {
+        if (p.org_id && orgMap[p.org_id]) _signerOrgMap[p.email] = orgMap[p.org_id];
+      });
+    }
+  }
+
   // Ouvrir le panneau automatiquement s'il y a un workflow actif
   var panel = document.getElementById('viewerSigPanel');
-  if (panel && req.status !== 'completed') {
-    panel.style.display = '';
-    panel.dataset.open = '1';
-    panel.dataset.loaded = '1';
+  if (panel) {
+    panel.dataset.archiveId = archiveId;
+    if (req.status !== 'completed') {
+      panel.style.display = '';
+      panel.dataset.open = '1';
+      panel.dataset.loaded = '1';
+    }
   }
 
   var modeLabel = req.workflow_mode === 'sequential' ? '🔗 Séquentiel' : '⚡ Parallèle';
@@ -1643,12 +1663,18 @@ async function loadViewerSigPanel(archiveId) {
     actionBtns += '<a href="mailto:' + escapeHtml(item.signer_email) + '?subject=' + encodeURIComponent('Document ' + (req.report_num || '') + ' — SafetySphere') + '" '
       + 'style="flex:1;display:flex;align-items:center;justify-content:center;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);color:#A5B4FC;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:700;text-decoration:none">✉️ Email</a>';
 
+    var signerOrg = _signerOrgMap[item.signer_email] || '';
+    var canSignPresential = (currentProfile != null);
+    var presentialBtn = (item.status === 'pending' && canSignPresential)
+      ? '<button onclick="openPresentialSignModal(\'' + escapeHtml(item.id) + '\',\'' + escapeHtml(item.signer_name || '') + '\',\'' + escapeHtml(item.signer_role || '') + '\',\'' + escapeHtml(req.report_num || '') + '\',\'' + escapeHtml(req.id) + '\',\'' + escapeHtml(item.signer_email || '') + '\')" '      + 'style="flex:1;background:rgba(20,184,166,.15);border:1px solid rgba(20,184,166,.3);color:#2DD4BF;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:700;cursor:pointer">✍️ Signer ici</button>'      : '';
+
     html += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:10px 12px;margin-bottom:8px">'
       // En-tête signataire
       + '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px">'
       + '<span style="font-size:18px;flex-shrink:0;line-height:1.2">' + statusIcon + '</span>'
       + '<div style="flex:1;min-width:0">'
       + '<div style="font-size:13px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(item.signer_name || '—') + '</div>'
+      + (signerOrg ? '<div style="font-size:11px;color:#FCD34D;font-weight:600;margin-bottom:1px">🏢 ' + escapeHtml(signerOrg) + '</div>' : '')
       + '<div style="font-size:11px;color:#A5B4FC;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(item.signer_email || '') + '</div>'
       + '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + escapeHtml(item.signer_role || '') + (req.workflow_mode === 'sequential' ? ' · étape ' + (idx + 1) : '') + '</div>'
       + '</div>'
@@ -1660,7 +1686,7 @@ async function loadViewerSigPanel(archiveId) {
       + '</div>'
       + sigIdBadge
       // Actions
-      + (actionBtns ? '<div style="display:flex;gap:6px;margin-top:8px">' + actionBtns + '</div>' : '')
+      + ((actionBtns || presentialBtn) ? '<div style="display:flex;gap:6px;margin-top:8px">' + (presentialBtn || '') + actionBtns + '</div>' : '')
       + '</div>';
   });
 
@@ -1673,6 +1699,386 @@ async function loadViewerSigPanel(archiveId) {
   }
 
   content.innerHTML = html;
+}
+
+// ── Modale signature présentielle ────────────────────────────────────────────
+async function openPresentialSignModal(itemId, signerName, signerRole, reportNum, requestId, signerEmail) {
+  signerEmail = signerEmail || '';
+  // Créer/réinitialiser la modale
+  var existing = document.getElementById('presentialSignModal');
+  if (existing) existing.remove();
+
+  var modal = document.createElement('div');
+  modal.id = 'presentialSignModal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px';
+  // Charger la config source société (admin setting)
+  var signerOrgSource = 'auto'; // défaut : Supabase auto
+  try {
+    var cfgRes = await sb.from('signature_settings').select('enabled').eq('scope','global').eq('scope_id','signer_org_source_manual').maybeSingle();
+    if (cfgRes.data && cfgRes.data.enabled === true) signerOrgSource = 'manual';
+  } catch(e) {}
+
+  // Charger la société auto du signataire
+  var signerOrgAuto = '';
+  try {
+    var profR = await sb.from('profiles').select('org_id').eq('email', signerEmail).maybeSingle();
+    if (profR.data && profR.data.org_id) {
+      var orgR = await sb.from('organizations').select('name').eq('id', profR.data.org_id).maybeSingle();
+      if (orgR.data) signerOrgAuto = orgR.data.name;
+    }
+  } catch(e) {}
+
+  var orgFieldHtml = signerOrgSource === 'manual'
+    ? '<div style="margin-bottom:14px"><label style="font-size:11px;color:var(--muted);font-weight:600;display:block;margin-bottom:4px">🏢 Société du signataire</label>'
+      + '<input id="presSignerOrg" type="text" placeholder="Nom de la société…" value="' + escapeHtml(signerOrgAuto) + '" '
+      + 'style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;border-radius:8px;padding:8px 12px;font-size:13px;box-sizing:border-box"></div>'
+    : (signerOrgAuto
+        ? '<div style="font-size:11px;color:#FCD34D;font-weight:600;margin-bottom:14px">🏢 ' + escapeHtml(signerOrgAuto) + ' <span style="font-size:10px;color:var(--muted);font-weight:400">(depuis le profil)</span></div>'
+        : '<div style="font-size:11px;color:var(--muted);margin-bottom:14px">🏢 Société non renseignée dans le profil</div>');
+
+  modal.innerHTML = `
+    <div style="background:var(--bg2,#1B3A5C);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:24px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#fff">✍️ Signature présentielle</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">${escapeHtml(signerName)} · ${escapeHtml(signerRole)}</div>
+          <div style="font-size:11px;color:#F97316;margin-top:1px">${escapeHtml(reportNum)}</div>
+        </div>
+        <button onclick="document.getElementById('presentialSignModal').remove()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:4px">✕</button>
+      </div>
+
+      ${orgFieldHtml}
+
+      <!-- Onglets -->
+      <div style="display:flex;gap:4px;background:rgba(255,255,255,.05);border-radius:10px;padding:4px;margin-bottom:18px">
+        <button id="presTabCanvas" onclick="switchPresTab('canvas')"
+          style="flex:1;padding:7px 4px;border-radius:7px;border:none;background:rgba(249,115,22,.2);color:#F97316;font-weight:700;font-size:11px;cursor:pointer">
+          ✍️ Dessin
+        </button>
+        <button id="presTabScan" onclick="switchPresTab('scan')"
+          style="flex:1;padding:7px 4px;border-radius:7px;border:none;background:none;color:var(--muted);font-weight:600;font-size:11px;cursor:pointer">
+          📎 Scan
+        </button>
+        <button id="presTabOtp" onclick="switchPresTab('otp')"
+          style="flex:1;padding:7px 4px;border-radius:7px;border:none;background:none;color:var(--muted);font-weight:600;font-size:11px;cursor:pointer">
+          🔐 OTP email
+        </button>
+      </div>
+
+      <!-- Onglet Canvas -->
+      <div id="presContentCanvas">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Signez dans le cadre ci-dessous (tactile ou souris) :</div>
+        <canvas id="presSignCanvas" width="452" height="160"
+          style="width:100%;height:160px;background:#fff;border-radius:8px;cursor:crosshair;touch-action:none;display:block"></canvas>
+        <button onclick="clearPresCanvas()" style="width:100%;margin-top:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:var(--muted);border-radius:8px;padding:7px;font-size:12px;cursor:pointer">🗑️ Effacer</button>
+      </div>
+
+      <!-- Onglet Scan -->
+      <div id="presContentScan" style="display:none">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Photo ou scan de la signature manuscrite :</div>
+        <label style="display:block;border:2px dashed rgba(255,255,255,.15);border-radius:10px;padding:20px;text-align:center;cursor:pointer"
+          onmouseover="this.style.borderColor='rgba(249,115,22,.5)'" onmouseout="this.style.borderColor='rgba(255,255,255,.15)'">
+          <div style="font-size:26px;margin-bottom:6px">📎</div>
+          <div style="font-size:13px;font-weight:600;color:#fff">Glisser ou cliquer</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">JPG, PNG, PDF — max 5 Mo</div>
+          <input type="file" id="presScanFile" accept="image/*,.pdf" style="display:none" onchange="previewPresScan(this)">
+        </label>
+        <div id="presScanPreview" style="margin-top:12px;display:none;text-align:center">
+          <img id="presScanImg" style="max-width:100%;max-height:160px;border-radius:8px;border:1px solid rgba(255,255,255,.12)" src="">
+          <div id="presScanName" style="font-size:11px;color:var(--muted);margin-top:6px"></div>
+        </div>
+      </div>
+
+      <!-- Onglet OTP email -->
+      <div id="presContentOtp" style="display:none">
+        <div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);border-radius:10px;padding:14px;margin-bottom:12px">
+          <div style="font-size:12px;font-weight:700;color:#A5B4FC;margin-bottom:6px">🔐 Signature OTP par email</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5">
+            Un code à 8 chiffres sera envoyé à <strong style="color:#fff">${escapeHtml(signerEmail)}</strong>.<br>
+            Le signataire le saisit ici — aucun accès au téléphone requis après réception.
+          </div>
+        </div>
+        <div id="presOtpStatus" style="font-size:12px;color:var(--muted);text-align:center;min-height:20px"></div>
+        <div id="presOtpCodeRow" style="display:none;margin-top:12px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-align:center">Entrez le code reçu par email :</div>
+          <div style="display:flex;gap:6px;justify-content:center">
+            ${[1,2,3,4,5,6,7,8].map(function(n){ return '<input id="presOtpD'+n+'" maxlength="1" type="text" inputmode="numeric" style="width:36px;height:42px;text-align:center;font-size:20px;font-weight:700;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.12);border-radius:8px;color:#fff">'; }).join('')}
+          </div>
+          <button onclick="verifyPresOtp('${itemId}')"
+            style="width:100%;margin-top:12px;background:rgba(99,102,241,.35);border:1px solid rgba(99,102,241,.5);color:#C7D2FE;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">
+            🔍 Vérifier le code
+          </button>
+        </div>
+        <button id="presOtpSendBtn" onclick="sendPresOtp('${escapeHtml(signerEmail)}')"
+          style="width:100%;margin-top:14px;background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.3);color:#A5B4FC;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">
+          📧 Envoyer le code OTP
+        </button>
+      </div>
+
+      <!-- Bouton valider -->
+      <button id="presValidateBtn" onclick="validatePresentialSign('${itemId}','${requestId}','${escapeHtml(signerEmail)}')"
+        style="width:100%;margin-top:20px;background:linear-gradient(135deg,#14B8A6,#0D9488);border:none;color:#fff;border-radius:10px;padding:13px;font-size:14px;font-weight:800;cursor:pointer;letter-spacing:.3px">
+        ✅ Valider la signature présentielle
+      </button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  window._presSignerEmail = signerEmail || '';
+
+  // Init canvas
+  setTimeout(function() { initPresCanvas(); }, 50);
+}
+
+function switchPresTab(tab) {
+  var tabs = ['canvas','scan','otp'];
+  tabs.forEach(function(t) {
+    var content = document.getElementById('presContent' + t.charAt(0).toUpperCase() + t.slice(1));
+    var btn     = document.getElementById('presTab' + t.charAt(0).toUpperCase() + t.slice(1));
+    if (content) content.style.display = (t === tab) ? '' : 'none';
+    if (btn) {
+      btn.style.background = (t === tab) ? 'rgba(249,115,22,.2)' : 'none';
+      btn.style.color      = (t === tab) ? '#F97316' : 'var(--muted)';
+      btn.style.fontWeight = (t === tab) ? '700' : '600';
+    }
+  });
+}
+
+var _presIsDrawing = false, _presLastX = 0, _presLastY = 0;
+
+function initPresCanvas() {
+  var canvas = document.getElementById('presSignCanvas');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  ctx.strokeStyle = '#1E3A5F';
+  ctx.lineWidth   = 2.5;
+  ctx.lineCap     = 'round';
+  ctx.lineJoin    = 'round';
+
+  function getPos(e, canvas) {
+    var rect = canvas.getBoundingClientRect();
+    var scaleX = canvas.width / rect.width;
+    var scaleY = canvas.height / rect.height;
+    var src = e.touches ? e.touches[0] : e;
+    return { x: (src.clientX - rect.left) * scaleX, y: (src.clientY - rect.top) * scaleY };
+  }
+
+  canvas.addEventListener('mousedown',  function(e) { _presIsDrawing = true; var p = getPos(e, canvas); _presLastX = p.x; _presLastY = p.y; });
+  canvas.addEventListener('mousemove',  function(e) {
+    if (!_presIsDrawing) return;
+    var p = getPos(e, canvas);
+    ctx.beginPath(); ctx.moveTo(_presLastX, _presLastY); ctx.lineTo(p.x, p.y); ctx.stroke();
+    _presLastX = p.x; _presLastY = p.y;
+  });
+  canvas.addEventListener('mouseup',   function() { _presIsDrawing = false; });
+  canvas.addEventListener('mouseleave',function() { _presIsDrawing = false; });
+  canvas.addEventListener('touchstart', function(e) { e.preventDefault(); _presIsDrawing = true; var p = getPos(e, canvas); _presLastX = p.x; _presLastY = p.y; }, { passive: false });
+  canvas.addEventListener('touchmove',  function(e) {
+    e.preventDefault();
+    if (!_presIsDrawing) return;
+    var p = getPos(e, canvas);
+    ctx.beginPath(); ctx.moveTo(_presLastX, _presLastY); ctx.lineTo(p.x, p.y); ctx.stroke();
+    _presLastX = p.x; _presLastY = p.y;
+  }, { passive: false });
+  canvas.addEventListener('touchend',  function() { _presIsDrawing = false; });
+}
+
+function clearPresCanvas() {
+  var canvas = document.getElementById('presSignCanvas');
+  if (!canvas) return;
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function previewPresScan(input) {
+  var file = input.files && input.files[0];
+  if (!file) return;
+  var preview = document.getElementById('presScanPreview');
+  var img     = document.getElementById('presScanImg');
+  var name    = document.getElementById('presScanName');
+  preview.style.display = '';
+  name.textContent = file.name + ' (' + (file.size / 1024).toFixed(0) + ' Ko)';
+  if (file.type.startsWith('image/')) {
+    var reader = new FileReader();
+    reader.onload = function(e) { img.src = e.target.result; img.style.display = ''; };
+    reader.readAsDataURL(file);
+  } else {
+    img.style.display = 'none';
+  }
+}
+
+// ── OTP présentiel ───────────────────────────────────────────────────────────
+async function sendPresOtp(email) {
+  var btn = document.getElementById('presOtpSendBtn');
+  var status = document.getElementById('presOtpStatus');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Envoi…'; }
+  if (status) status.textContent = '';
+  try {
+    await sb.auth.signInWithOtp({ email: email, options: { shouldCreateUser: false } });
+    if (status) { status.textContent = '✅ Code envoyé à ' + email; status.style.color = '#4ADE80'; }
+    var codeRow = document.getElementById('presOtpCodeRow');
+    if (codeRow) {
+      codeRow.style.display = '';
+      // Auto-focus + auto-avance entre les chiffres
+      setTimeout(function() {
+        var d1 = document.getElementById('presOtpD1');
+        if (d1) d1.focus();
+        [1,2,3,4,5,6,7,8].forEach(function(n) {
+          var el = document.getElementById('presOtpD' + n);
+          if (!el) return;
+          el.addEventListener('input', function() {
+            el.value = el.value.replace(/\D/g,'').slice(-1);
+            if (el.value && n < 8) { var next = document.getElementById('presOtpD' + (n+1)); if (next) next.focus(); }
+          });
+          el.addEventListener('keydown', function(e) {
+            if (e.key === 'Backspace' && !el.value && n > 1) { var prev = document.getElementById('presOtpD' + (n-1)); if (prev) prev.focus(); }
+          });
+        });
+      }, 100);
+    }
+  } catch(e) {
+    if (status) { status.textContent = '❌ Erreur : ' + e.message; status.style.color = '#FCA5A5'; }
+  }
+  if (btn) { btn.disabled = false; btn.textContent = '🔄 Renvoyer le code'; }
+}
+
+async function verifyPresOtp(itemId) {
+  var code = [1,2,3,4,5,6,7,8].map(function(n) {
+    var el = document.getElementById('presOtpD' + n);
+    return el ? el.value : '';
+  }).join('');
+  if (code.length < 8) { showToast('Code incomplet (8 chiffres requis)', 'error'); return; }
+  var status = document.getElementById('presOtpStatus');
+  if (status) { status.textContent = '⏳ Vérification…'; status.style.color = 'var(--muted)'; }
+  try {
+    var signerEmailEl = document.querySelector('#presentialSignModal strong');
+    // Récupérer email depuis l'input ou le texte affiché
+    var email = window._presSignerEmail || '';
+    var res = await sb.auth.verifyOtp({ email: email, token: code, type: 'email' });
+    if (res.error) throw res.error;
+    window._presOtpValidated = itemId;
+    if (status) { status.textContent = '✅ Code validé — cliquez sur Valider'; status.style.color = '#4ADE80'; }
+    var btn = document.getElementById('presValidateBtn');
+    if (btn) { btn.style.background = 'linear-gradient(135deg,#22C55E,#16A34A)'; }
+  } catch(e) {
+    if (status) { status.textContent = '❌ Code incorrect ou expiré'; status.style.color = '#FCA5A5'; }
+    window._presOtpValidated = null;
+  }
+}
+
+async function validatePresentialSign(itemId, requestId, signerEmail) {
+  var btn = document.getElementById('presValidateBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Enregistrement…'; }
+
+  var activeTab = 'canvas';
+  if (document.getElementById('presContentScan') && document.getElementById('presContentScan').style.display !== 'none') activeTab = 'scan';
+  if (document.getElementById('presContentOtp') && document.getElementById('presContentOtp').style.display !== 'none') activeTab = 'otp';
+
+  // Récupérer la société (saisie manuelle ou auto depuis l'affichage)
+  var signerOrgOverride = '';
+  var orgInput = document.getElementById('presSignerOrg');
+  if (orgInput) signerOrgOverride = orgInput.value.trim();
+  var fileUrl = null;
+
+  try {
+    if (activeTab === 'otp') {
+      // Vérifier que l'OTP a été validé (présence de presOtpValidated)
+      if (!window._presOtpValidated || window._presOtpValidated !== itemId) {
+        showToast('Code OTP non vérifié — veuillez saisir et vérifier le code reçu', 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '✅ Valider la signature présentielle'; }
+        return;
+      }
+      // OTP validé — pas de fichier à uploader
+      window._presOtpValidated = null;
+    } else if (activeTab === 'canvas') {
+      // Vérifier que le canvas n'est pas vide
+      var canvas = document.getElementById('presSignCanvas');
+      var ctx    = canvas.getContext('2d');
+      var px     = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      var hasData = false;
+      for (var i = 3; i < px.length; i += 4) { if (px[i] > 0) { hasData = true; break; } }
+      if (!hasData) { showToast('Veuillez signer dans le cadre avant de valider', 'error'); if (btn) { btn.disabled = false; btn.textContent = '✅ Valider la signature présentielle'; } return; }
+
+      // Convertir en blob PNG et uploader
+      var blob = await new Promise(function(resolve) { canvas.toBlob(resolve, 'image/png'); });
+      var path  = currentProfile.org_id + '/presential/' + itemId + '-' + Date.now() + '.png';
+      var upRes = await sb.storage.from('rapport-archives').upload(path, blob, { upsert: true });
+      if (!upRes.error) {
+        var signed = await sb.storage.from('rapport-archives').createSignedUrl(path, 60*60*24*365);
+        if (!signed.error) fileUrl = signed.data.signedUrl;
+      }
+    } else {
+      var scanFile = document.getElementById('presScanFile').files[0];
+      if (!scanFile) { showToast('Veuillez choisir un fichier', 'error'); if (btn) { btn.disabled = false; btn.textContent = '✅ Valider la signature présentielle'; } return; }
+      var ext  = scanFile.name.split('.').pop();
+      var path = currentProfile.org_id + '/presential/' + itemId + '-' + Date.now() + '.' + ext;
+      var upRes = await sb.storage.from('rapport-archives').upload(path, scanFile, { upsert: true });
+      if (!upRes.error) {
+        var signed = await sb.storage.from('rapport-archives').createSignedUrl(path, 60*60*24*365);
+        if (!signed.error) fileUrl = signed.data.signedUrl;
+      }
+    }
+
+    // Marquer l'item comme signé
+    var sigId  = 'PRES-' + itemId.slice(-6).toUpperCase() + '-' + Date.now().toString(36).toUpperCase();
+    var updateRes = await sb.from('signature_request_items').update({
+      status   : 'signed',
+      signed_at: new Date().toISOString(),
+      method   : activeTab === 'canvas' ? 'presential_canvas' : activeTab === 'otp' ? 'otp_email' : 'manuscrite_scannee',
+      sig_id   : sigId,
+      file_url : fileUrl,
+    }).eq('id', itemId);
+
+    if (updateRes.error) throw new Error(updateRes.error.message);
+
+    // Mettre à jour le compteur de signatures
+    var reqRes = await sb.from('signature_requests')
+      .select('signed_count, total_signers, workflow_mode, org_id, archive_id, report_html, report_type, report_num')
+      .eq('id', requestId).single();
+
+    if (!reqRes.error && reqRes.data) {
+      var req      = reqRes.data;
+      var newCount = (req.signed_count || 0) + 1;
+      var allDone  = newCount >= (req.total_signers || 0);
+      await sb.from('signature_requests').update({
+        signed_count: newCount,
+        status: allDone ? 'completed' : 'pending'
+      }).eq('id', requestId);
+
+      // Si séquentiel, débloquer le suivant
+      if (!allDone && req.workflow_mode === 'sequential') {
+        var nextRes = await sb.from('signature_request_items')
+          .select('id').eq('request_id', requestId).eq('status', 'waiting').order('seq').limit(1).single();
+        if (!nextRes.error && nextRes.data) {
+          await sb.from('signature_request_items').update({ status: 'pending' }).eq('id', nextRes.data.id);
+        }
+      }
+
+      // Générer consolidé si tout le monde a signé
+      if (allDone && typeof generateConsolidatedDocument === 'function') {
+        await generateConsolidatedDocument(requestId, req);
+      }
+    }
+
+    document.getElementById('presentialSignModal').remove();
+    showToast('✅ Signature présentielle enregistrée', 'success');
+
+    // Recharger le panneau signataires
+    var archiveId = document.getElementById('viewerSigPanel') && document.getElementById('viewerSigPanel').dataset.archiveId;
+    if (archiveId) loadViewerSigPanel(archiveId);
+
+  } catch(err) {
+    console.error('Erreur signature présentielle :', err);
+    showToast('Erreur : ' + err.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Valider la signature présentielle'; }
+  }
+}
+
+async function setSigOrgSource(source) {
+  await sb.from('signature_settings').upsert(
+    { scope: 'global', scope_id: 'signer_org_source_manual', enabled: source === 'manual' },
+    { onConflict: 'scope,scope_id' }
+  );
+  showToast('Source société : ' + (source === 'manual' ? 'saisie manuelle' : 'Supabase auto'), 'success');
+  loadAdminSignatures();
 }
 
 // Relancer un signataire individuel
