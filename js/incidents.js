@@ -696,6 +696,7 @@ async function _saveIncident(role) {
 
   var payload = {
     org_id          : currentProfile.org_id,
+    reported_by     : currentProfile.id,
     created_by      : currentProfile.id,
     type            : typeEl.value,
     gravity         : gravityEl.value,
