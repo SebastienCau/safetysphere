@@ -99,6 +99,28 @@ async function loadAdminModules() {
 }
 
 async function toggleOrgModule(orgId, moduleId, enabled, toggleId) {
+  // Pour Gate : écrire dans gate_config.active (pas signature_settings — RLS)
+  if (moduleId === 'gate') {
+    var mod = AVAILABLE_MODULES.find(function(m) { return m.id === 'gate'; });
+    var color = mod ? mod.color : '#4ADE80';
+    var track = document.getElementById(toggleId + '_track');
+    var thumb = document.getElementById(toggleId + '_thumb');
+    var label = document.getElementById(toggleId + '_label');
+    if (track) track.style.background = enabled ? color : 'rgba(255,255,255,.1)';
+    if (thumb) thumb.style.left = enabled ? '20px' : '3px';
+    if (label) { label.textContent = enabled ? '✅ Actif' : '○ Inactif'; label.style.color = enabled ? color : 'var(--muted)'; }
+    var ex = await sb.from('gate_config').select('id').eq('org_id', orgId).maybeSingle();
+    var res;
+    if (ex.data) {
+      res = await sb.from('gate_config').update({ active: enabled }).eq('id', ex.data.id);
+    } else {
+      res = await sb.from('gate_config').insert({ org_id: orgId, site_name: 'Site principal', active: enabled, zones: ['Accueil'] });
+    }
+    if (res.error) { showToast('Erreur : ' + res.error.message, 'error'); return; }
+    showToast((enabled ? '✅ Gate activé' : '○ Gate désactivé') + ' pour cette organisation', 'success');
+    if (currentProfile && currentProfile.org_id === orgId) updateGateTabVisibility(enabled);
+    return;
+  }
   var mod = AVAILABLE_MODULES.find(function(m) { return m.id === moduleId; });
   var color = mod ? mod.color : '#4ADE80';
 
@@ -162,16 +184,15 @@ function updateGateTabVisibility(visible) {
 async function checkGateActivation() {
   if (!currentProfile || !currentProfile.org_id) return;
 
-  var res = await sb.from('signature_settings')
-    .select('enabled')
-    .eq('scope', 'org_module')
-    .eq('scope_id', currentProfile.org_id + '_gate')
+  // Lire gate_config.active — pas de signature_settings (problème RLS)
+  var res = await sb.from('gate_config')
+    .select('active')
+    .eq('org_id', currentProfile.org_id)
     .maybeSingle();
 
-  // Par défaut Gate est DÉSACTIVÉ sauf si explicitement activé
-  var enabled = res.data ? res.data.enabled : false;
+  var enabled = res.data ? (res.data.active === true) : false;
   _gateActivated = enabled;
-  updateGateTabVisibility(enabled); // met à jour le dot coloré, n'affiche/masque plus l'onglet
+  updateGateTabVisibility(enabled);
   return enabled;
 }
 
@@ -203,14 +224,13 @@ async function loadGate(role) {
   if (!container) return;
   container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement Gate...</div></div>';
 
-  // Vérifier que Gate est activé pour cette org
-  var activRes = await sb.from('signature_settings')
-    .select('enabled')
-    .eq('scope', 'org_module')
-    .eq('scope_id', currentProfile.org_id + '_gate')
+  // Vérifier que Gate est activé via gate_config.active
+  var activRes = await sb.from('gate_config')
+    .select('active')
+    .eq('org_id', currentProfile.org_id)
     .maybeSingle();
 
-  var gateEnabled = activRes.data ? activRes.data.enabled : false;
+  var gateEnabled = activRes.data ? (activRes.data.active === true) : false;
   if (!gateEnabled) {
     // Gate inactif : afficher l'écran d'activation directement accessible
     _gateSubView = 'config';
@@ -505,8 +525,9 @@ async function gateCheckOut(visitId, role) {
 
 // ── Bloc activation Gate pour HSE/Company admin ───────────────
 function renderGateActivationToggle(role) {
-  // Lire l'état courant depuis _gateActivated (chargé au boot)
-  var active = (typeof _gateActivated !== 'undefined') ? _gateActivated : false;
+  // Priorité : gate_config.active (chargé par loadGate) > _gateActivated (boot)
+  var active = (_gateConfig && _gateConfig.active === true) ? true
+             : (typeof _gateActivated !== 'undefined') ? _gateActivated : false;
 
   return '<div class="section-card" style="border-color:rgba(' + (active ? '74,222,128' : '249,115,22') + ',.25)">'
     + '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">'
@@ -537,11 +558,23 @@ async function toggleGateActivation(role, enabled) {
   if (track) track.style.background = enabled ? '#4ADE80' : 'rgba(255,255,255,.1)';
   if (thumb) thumb.style.left = enabled ? '26px' : '4px';
 
-  var scopeId = currentProfile.org_id + '_gate';
-  var res = await sb.from('signature_settings').upsert(
-    { scope: 'org_module', scope_id: scopeId, enabled: enabled },
-    { onConflict: 'scope,scope_id' }
-  );
+  // Récupérer la config existante en base
+  var existingRes = await sb.from('gate_config').select('id').eq('org_id', currentProfile.org_id).maybeSingle();
+  var existingId  = existingRes.data ? existingRes.data.id : null;
+
+  var res;
+  if (existingId) {
+    // Mettre à jour active dans gate_config
+    res = await sb.from('gate_config').update({ active: enabled, updated_at: new Date().toISOString() }).eq('id', existingId);
+  } else {
+    // Créer une config minimale
+    res = await sb.from('gate_config').insert({
+      org_id    : currentProfile.org_id,
+      site_name : currentProfile.company_name || 'Site principal',
+      active    : enabled,
+      zones     : ['Accueil', 'Atelier', 'Bureau', 'Entrepôt']
+    });
+  }
 
   if (res.error) {
     showToast('Erreur : ' + res.error.message, 'error');
@@ -554,8 +587,8 @@ async function toggleGateActivation(role, enabled) {
   updateGateTabVisibility(enabled);
   showToast(enabled ? '✅ Gate activé pour votre organisation' : '○ Gate désactivé', enabled ? 'success' : 'info');
 
-  // Recharger Gate complètement pour récupérer la config existante
-  _gateSubView = enabled ? 'config' : 'registre';
+  // Recharger Gate complètement
+  _gateSubView = 'config';
   _gateConfig  = null;
   _gateVisits  = [];
   loadGate(role);
