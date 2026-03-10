@@ -655,9 +655,19 @@ async function saveGateConfig(role) {
     updated_at           : new Date().toISOString()
   };
 
-  var res = await sb.from('gate_config')
-    .upsert(payload, { onConflict: 'org_id' })
-    .select().single();
+  // Récupérer l'id existant si _gateConfig non chargé (ex: activation en cours de session)
+  if (!_gateConfig) {
+    var existing = await sb.from('gate_config').select('id').eq('org_id', currentProfile.org_id).maybeSingle();
+    if (existing.data) _gateConfig = existing.data;
+  }
+
+  // Update si on a un id, insert sinon
+  var res;
+  if (_gateConfig && _gateConfig.id) {
+    res = await sb.from('gate_config').update(payload).eq('id', _gateConfig.id).select().single();
+  } else {
+    res = await sb.from('gate_config').insert(payload).select().single();
+  }
 
   if (res.error) { showToast('Erreur : ' + res.error.message, 'error'); return; }
 
