@@ -1130,6 +1130,7 @@ async function archiveReport(meta, reportType, htmlContent) {
     app_version   : meta.appVersion  || null,
     generated_at  : meta.isoDate     || new Date().toISOString(),
     file_url      : fileUrl,
+    report_html   : htmlContent || null,
   };
 
   var res = await sb.from('report_archive').insert(entry).select().single();
@@ -1649,7 +1650,6 @@ async function openReportViewer(url, title, sourceType, archiveId) {
   titleEl.textContent = title || 'Rapport';
   frame.src = 'about:blank';
 
-  // Panneau signataires : masquer au départ, afficher le bouton si on a un archiveId
   var sigPanel  = document.getElementById('viewerSigPanel');
   var sigToggle = document.getElementById('viewerSigPanelToggle');
   if (sigPanel)  { sigPanel.style.display = 'none'; sigPanel.dataset.open = '0'; }
@@ -1657,40 +1657,49 @@ async function openReportViewer(url, title, sourceType, archiveId) {
 
   modal.classList.add('open');
 
-  // Charger et injecter le contenu — toujours via fetch+blob pour éviter
-  // les problèmes de Content-Type et de CSP (valable pour HTML et signed URLs S3)
-  var loadViaFetch = (sourceType === 'html') || (url && url.includes('supabase'));
-  if (loadViaFetch) {
+  // Stratégie de chargement :
+  // 1. Si report_html dispo en cache → blob URL (pas de CORS)
+  // 2. Sinon → iframe src direct (Supabase signed URL, CORS géré par le navigateur)
+  var cachedArchive = archiveId ? (window._archiveCache || {})[archiveId] : null;
+  var reportHtml = cachedArchive && cachedArchive.report_html ? cachedArchive.report_html : null;
+
+  // Si pas en cache mémoire, essayer de charger depuis la base
+  if (!reportHtml && archiveId && sourceType === 'html') {
     try {
-      var resp = await fetch(url);
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      var contentType = resp.headers.get('content-type') || '';
-      var isPdf = contentType.includes('pdf') || url.includes('.pdf');
-      if (isPdf) {
-        // PDF : afficher directement
-        frame.src = url;
-      } else {
-        var html = await resp.text();
-        var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        var blobUrl = URL.createObjectURL(blob);
-        frame.src = blobUrl;
-        frame._blobUrl = blobUrl;
-        frame.onload = function() { setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 15000); };
-      }
-    } catch(e) {
-      var errHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'
-        + 'body{font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;background:#F9FAFB;color:#374151}'
-        + 'h2{color:#EF4444}.sub{font-size:13px;color:#6B7280;margin-top:8px;text-align:center}'
-        + '</style></head><body>'
-        + '<h2>⚠️ Impossible de charger le document</h2>'
-        + '<p class="sub">Le lien a peut-être expiré ou le fichier est introuvable.</p>'
-        + '<a href="' + escapeHtml(url) + '" target="_blank" style="margin-top:16px;padding:10px 24px;background:#F97316;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">↗ Ouvrir dans un nouvel onglet</a>'
-        + '</body></html>';
-      var eb = new Blob([errHtml], { type:'text/html' });
-      frame.src = URL.createObjectURL(eb);
+      var dbRes = await sb.from('report_archive').select('report_html').eq('id', archiveId).maybeSingle();
+      if (dbRes.data && dbRes.data.report_html) reportHtml = dbRes.data.report_html;
+    } catch(e) { /* ignore */ }
+  }
+
+  if (reportHtml) {
+    // Chemin 1 : HTML brut disponible → blob (meilleure fiabilité)
+    var blob = new Blob([reportHtml], { type: 'text/html;charset=utf-8' });
+    var blobUrl = URL.createObjectURL(blob);
+    frame.src = blobUrl;
+    frame.onload = function() { setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 30000); };
+  } else if (url) {
+    var isPdf = url.includes('.pdf');
+    if (isPdf) {
+      // PDF : src direct
+      frame.src = url;
+    } else {
+      // Chemin 2 : URL signée Supabase → src direct dans l'iframe (pas de fetch cross-origin)
+      // On ajoute un timestamp pour forcer le rechargement si nécessaire
+      frame.src = url;
+      // Timeout de détection page blanche — si l'iframe reste vide après 4s, proposer ouverture onglet
+      var _blankTimer = setTimeout(function() {
+        try {
+          var fdoc = frame.contentDocument || frame.contentWindow.document;
+          var bodyText = fdoc && fdoc.body ? (fdoc.body.innerText || '').trim() : '';
+          if (!bodyText && (!fdoc || fdoc.readyState === 'complete')) {
+            showViewerFallback(frame, url);
+          }
+        } catch(e) { showViewerFallback(frame, url); }
+      }, 4000);
+      frame.onload = function() { clearTimeout(_blankTimer); };
     }
   } else {
-    frame.src = url;
+    showViewerFallback(frame, null);
   }
 
   // Si on a un archiveId → charger le panneau signataires en arrière-plan
@@ -1705,6 +1714,21 @@ async function openReportViewer(url, title, sourceType, archiveId) {
   }
 }
 
+function showViewerFallback(frame, url) {
+  var fallbackHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>'
+    + 'body{font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;background:#F9FAFB;color:#374151;text-align:center;padding:24px}'
+    + 'h2{color:#EF4444;margin-bottom:12px}.sub{font-size:13px;color:#6B7280;margin-bottom:20px}'
+    + 'a{display:inline-block;padding:10px 24px;background:#F97316;color:#fff;border-radius:8px;text-decoration:none;font-weight:700}'
+    + '</style></head><body>'
+    + '<h2>⚠️ Impossible d\'afficher le document</h2>'
+    + '<p class=\"sub\">Le fichier ne peut pas être affiché directement dans la visionneuse.<br>Cliquez ci-dessous pour l\'ouvrir dans un nouvel onglet.</p>'
+    + (url ? '<a href="' + url + '" target="_blank">↗ Ouvrir dans un nouvel onglet</a>' : '<p style="color:#9CA3AF">Aucun fichier disponible.</p>')
+    + '</body></html>';
+  var b = new Blob([fallbackHtml], { type: 'text/html' });
+  frame.src = URL.createObjectURL(b);
+}
+
+// Aussi stocker report_html à l'archivage si disponible
 function closeReportViewer() {
   var modal     = document.getElementById('reportViewerModal');
   var btnSig    = document.getElementById('viewerSendSigBtn');
