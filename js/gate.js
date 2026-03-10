@@ -325,6 +325,8 @@ var _gateChartPeriod = '7d';
 var _gateChartType   = 'bar';
 
 function renderGateFreqChart(visits) {
+  console.log('[Gate Chart] visits reçues:', (visits||[]).length, visits && visits[0] ? visits[0] : 'aucune');
+  console.log('[Gate Chart] période:', _gateChartPeriod, '| type:', _gateChartType);
   var period   = _gateChartPeriod;
   var type     = _gateChartType;
   var accent   = '#F97316';
@@ -351,6 +353,7 @@ function renderGateFreqChart(visits) {
   (visits||[]).forEach(function(v) {
     // check_in peut être ISO UTC — convertir en Date locale avant d'extraire la clé
     var k = v.check_in ? localDateKey(new Date(v.check_in)) : '';
+    console.log('[Gate Chart] visite:', v.id, '| check_in brut:', v.check_in, '| clé locale:', k, '| bucket existe:', !!buckets[k]);
     if (!buckets[k]) return;
     buckets[k].total++;
     if (v.signed_at) buckets[k].signed++;
