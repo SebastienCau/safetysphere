@@ -554,13 +554,11 @@ async function toggleGateActivation(role, enabled) {
   updateGateTabVisibility(enabled);
   showToast(enabled ? '✅ Gate activé pour votre organisation' : '○ Gate désactivé', enabled ? 'success' : 'info');
 
-  // Réafficher la config avec le nouvel état
-  renderGate(role);
-  if (_gateSubView === 'config') {
-    // Reste sur config, re-render
-    var container = document.getElementById(role + '-gate-content') || document.getElementById(role + '-gate');
-    if (container) container.innerHTML = renderGate(role);
-  }
+  // Recharger Gate complètement pour récupérer la config existante
+  _gateSubView = enabled ? 'config' : 'registre';
+  _gateConfig  = null;
+  _gateVisits  = [];
+  loadGate(role);
 }
 
 function renderGateConfig(role) {
@@ -628,21 +626,28 @@ function defaultSafetyInstructions() {
 }
 
 async function saveGateConfig(role) {
-  var siteName     = (document.getElementById('gcfg_site')         || {}).value || '';
-  var notifyEmail  = (document.getElementById('gcfg_email')        || {}).value || '';
-  var welcome      = (document.getElementById('gcfg_welcome')      || {}).value || '';
+  var siteName     = '';
+  var notifyEmail  = '';
+  var welcome      = '';
   var zonesRaw     = (document.getElementById('gcfg_zones')        || {}).value || '';
   var instructions = (document.getElementById('gcfg_instructions') || {}).value || '';
 
-  // Récupérer le vrai champ site_name (on a mis un div fantôme — corriger)
-  var siteInput = document.querySelector('input[placeholder="Ex : Site de production Nord"]');
-  if (siteInput) siteName = siteInput.value;
+  // Récupérer les champs par placeholder (les IDs étaient en conflit)
+  var siteInput    = document.querySelector('input[placeholder="Ex : Site de production Nord"]');
   var welcomeInput = document.querySelector('input[placeholder*="Bienvenue"]');
-  if (welcomeInput) welcome = welcomeInput.value;
-  var emailInput = document.querySelector('input[placeholder="accueil@entreprise.fr"]');
-  if (emailInput) notifyEmail = emailInput.value;
+  var emailInput   = document.querySelector('input[placeholder="accueil@entreprise.fr"]');
+  if (siteInput)    siteName    = siteInput.value;
+  if (welcomeInput) welcome     = welcomeInput.value;
+  if (emailInput)   notifyEmail = emailInput.value;
 
   var zones = zonesRaw.split('\n').map(function(z){ return z.trim(); }).filter(Boolean);
+
+  // Toujours récupérer la config existante en base avant d'écrire
+  var existingRes = await sb.from('gate_config').select('id').eq('org_id', currentProfile.org_id).maybeSingle();
+  var existingId  = existingRes.data ? existingRes.data.id : null;
+  if (existingId && (!_gateConfig || !_gateConfig.id)) {
+    _gateConfig = { id: existingId };
+  }
 
   var payload = {
     org_id               : currentProfile.org_id,
@@ -655,13 +660,6 @@ async function saveGateConfig(role) {
     updated_at           : new Date().toISOString()
   };
 
-  // Récupérer l'id existant si _gateConfig non chargé (ex: activation en cours de session)
-  if (!_gateConfig) {
-    var existing = await sb.from('gate_config').select('id').eq('org_id', currentProfile.org_id).maybeSingle();
-    if (existing.data) _gateConfig = existing.data;
-  }
-
-  // Update si on a un id, insert sinon
   var res;
   if (_gateConfig && _gateConfig.id) {
     res = await sb.from('gate_config').update(payload).eq('id', _gateConfig.id).select().single();
@@ -672,7 +670,7 @@ async function saveGateConfig(role) {
   if (res.error) { showToast('Erreur : ' + res.error.message, 'error'); return; }
 
   _gateConfig = res.data;
-  showToast('✅ Configuration Gate enregistrée', 'success');
+  showToast('\u2705 Configuration Gate enregistrée', 'success');
   _gateSubView = 'registre';
   renderGate(role);
 }
