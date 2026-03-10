@@ -1064,6 +1064,14 @@ function openSendForSignatureModal(archiveId, reportNum, reportType, reportHtml,
     reportHtml : reportHtml,
     meta       : meta
   };
+
+  // Si reportHtml non fourni, le charger depuis report_archive (nécessaire pour le doc consolidé)
+  if (!reportHtml && archiveId) {
+    sb.from('report_archive').select('report_html').eq('id', archiveId).single().then(function(res) {
+      if (res.data && res.data.report_html) _sigReqContext.reportHtml = res.data.report_html;
+    });
+  }
+
   _sigReqSigners = [];
 
   // Pré-remplir émetteur
