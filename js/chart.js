@@ -322,11 +322,9 @@ var SSChart = (function() {
     html += '</div>'; // z-index wrapper
     html += '</div>'; // panel
 
-    // uid et chartData stockés en attribut data pour _execScripts
-    var chartJson = JSON.stringify(chartData);
-    // btoa(unescape(encodeURIComponent(...))) = base64 UTF-8 safe
-    var chartB64 = btoa(unescape(encodeURIComponent(chartJson)));
-    html += '<div class="sschart-data" data-uid="' + uid + '" data-chart="' + chartB64 + '" style="display:none"></div>';
+    // Stocker chartData dans le registre JS interne (évite tout pb d'encodage HTML)
+    _chartDataStore[uid] = chartData;
+    html += '<div class="sschart-data" data-uid="' + uid + '" style="display:none"></div>';
 
     return html;
   }
@@ -341,19 +339,13 @@ var SSChart = (function() {
 
   // ── Exécuter les scripts canvas après innerHTML ───────────────
   function _execScripts(container) {
-    var nodes = container.querySelectorAll('.sschart-data[data-chart]');
-    if (!nodes.length) {
-      console.warn('[SSChart] Aucun nœud sschart-data trouvé dans', container.id || container);
-      return;
-    }
+    var nodes = container.querySelectorAll('.sschart-data[data-uid]');
     nodes.forEach(function(node) {
-      try {
-        var raw = node.getAttribute('data-chart');
-        if (!raw) { console.warn('[SSChart] data-chart vide'); return; }
-        var D = JSON.parse(decodeURIComponent(escape(atob(raw))));
-        // Délai minimal pour que le canvas soit dans le layout
-        setTimeout(function() { _drawCanvas(D); }, 0);
-      } catch(e) { console.warn('[SSChart] parse erreur:', e); }
+      var uid = node.getAttribute('data-uid');
+      var D   = _chartDataStore[uid];
+      if (!D) { console.warn('[SSChart] Pas de chartData pour uid:', uid); return; }
+      // Délai minimal pour que le DOM soit dans le layout
+      setTimeout(function() { _drawCanvas(D); }, 0);
     });
   }
 
@@ -588,6 +580,9 @@ var SSChart = (function() {
      * Supprime l'instance et vide le container.
      */
     destroy: function(containerId) {
+      // Nettoyer le store canvas
+      var inst = _instances[containerId];
+      if (inst && inst._uid) delete _chartDataStore[inst._uid];
       delete _instances[containerId];
       var container = document.getElementById(containerId);
       if (container) container.innerHTML = '';
