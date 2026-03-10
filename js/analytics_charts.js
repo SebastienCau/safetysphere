@@ -500,36 +500,44 @@ var DashCharts = (function () {
   }
 
   function init() {
-    // Prefs au chargement initial
-    var _origLoad = window.loadDisplayPrefs;
-    window.loadDisplayPrefs = function () {
-      if (_origLoad) _origLoad.apply(this, arguments);
-      loadPrefs();
-    };
+    // Les patches sont appliqués après DOMContentLoaded pour garantir
+    // que workers.js, reports.js etc. sont déjà parsés et leurs fonctions définies
+    function _applyPatches() {
+      var _origLoad = window.loadDisplayPrefs;
+      window.loadDisplayPrefs = function () {
+        if (_origLoad) _origLoad.apply(this, arguments);
+        loadPrefs();
+      };
 
-    // Graphes greffés sur les fonctions stats existantes
-    _patch('loadWorkerStats',  function () { return _render('worker'); });
-    _patch('loadCompanyStats', function () { return _render('company'); });
-    _patch('loadHSEStats',     function () { return _render('hse'); });
-    _patch('loadSTStats',      function () { return _render('subcontractor'); });
+      _patch('loadWorkerStats',  function () { return _render('worker'); });
+      _patch('loadCompanyStats', function () { return _render('company'); });
+      _patch('loadHSEStats',     function () { return _render('hse'); });
+      _patch('loadSTStats',      function () { return _render('subcontractor'); });
 
-    // Panneau Admin
-    var _origAdmin = window.loadAdminOverview;
-    window.loadAdminOverview = async function () {
-      if (_origAdmin) await _origAdmin.apply(this, arguments);
-      var target = document.getElementById('adminDashChartsSection');
-      if (!target) {
-        var cards = document.querySelectorAll('#Admin-compliance .section-card');
-        var anchor = cards.length ? cards[cards.length - 1] : null;
-        if (!anchor) anchor = document.querySelector('#Admin-overview .stats-grid');
-        if (anchor) {
-          target = document.createElement('div');
-          target.id = 'adminDashChartsSection';
-          anchor.parentNode.insertBefore(target, anchor.nextSibling);
+      var _origAdmin = window.loadAdminOverview;
+      window.loadAdminOverview = async function () {
+        if (_origAdmin) await _origAdmin.apply(this, arguments);
+        var target = document.getElementById('adminDashChartsSection');
+        if (!target) {
+          var cards = document.querySelectorAll('#Admin-compliance .section-card');
+          var anchor = cards.length ? cards[cards.length - 1] : null;
+          if (!anchor) anchor = document.querySelector('#Admin-overview .stats-grid');
+          if (anchor) {
+            target = document.createElement('div');
+            target.id = 'adminDashChartsSection';
+            anchor.parentNode.insertBefore(target, anchor.nextSibling);
+          }
         }
-      }
-      if (target) target.innerHTML = renderAdminSection();
-    };
+        if (target) target.innerHTML = renderAdminSection();
+      };
+    }
+
+    // Les scripts sont en bas de <body> — DOMContentLoaded est peut-être déjà passé
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', _applyPatches);
+    } else {
+      _applyPatches();
+    }
   }
 
   return {
