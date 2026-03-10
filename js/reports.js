@@ -1161,6 +1161,9 @@ async function renderHistoriqueSection(role) {
   var trashRes = await sb.from('report_trash').select('*').eq('org_id', currentProfile.org_id).order('deleted_at', { ascending: false });
 
   // Charger les sig_requests associées aux archives
+  // Cache global des archives pour les onclick (évite les pb d'échappement des URLs signées)
+  window._archiveCache = {};
+
   var sigReqRes = await sb.from('signature_requests')
     .select('id, archive_id, workflow_mode, status, total_signers, signed_count, created_at, created_by, report_num, report_type')
     .eq('org_id', currentProfile.org_id)
@@ -1274,6 +1277,8 @@ async function renderHistoriqueSection(role) {
         var sigReq  = sigReqMap[a.id] || null;
         var sigItems = sigReq ? (sigItemsMap[sigReq.id] || []) : [];
         var childDocs = children.filter(function(c) { return c.parent_id === a.id; });
+        window._archiveCache[a.id] = a;
+        childDocs.forEach(function(c) { window._archiveCache[c.id] = c; });
 
         // ── Calculer l'état global du pipeline ──
         var pipeState = 'generated'; // generated | pending | completed
@@ -1318,7 +1323,7 @@ async function renderHistoriqueSection(role) {
         // Boutons col 1
         if (a.file_url) {
           html += '<button class="pipe-btn" style="background:rgba(249,115,22,.12);border-color:rgba(249,115,22,.3);color:#FDBA74" '
-            + 'onclick="openReportViewer(\'' + a.file_url + '\',\'' + escapeHtml((a.report_num||'') + (a.report_num ? ' — ' : '') + typeFullName(a.report_type)) + '\',\'' + (isSS?'html':'ext') + '\',\'' + a.id + '\')">📄 Consulter / Imprimer</button>';
+            + 'onclick="viewArchiveDoc(\'' + a.id + '\')">📄 Consulter / Imprimer</button>';
         }
 
         if (!sigReq && !a.signed_file_url) {
@@ -1389,7 +1394,7 @@ async function renderHistoriqueSection(role) {
             + '<div style="color:var(--muted)">' + (consolidatedDoc ? 'Document consolidé multi-signataires' : 'Document signé archivé') + '</div>'
             + '</div>';
           html += '<button class="pipe-btn" style="background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#86EFAC" '
-            + 'onclick="openReportViewer(\'' + signedUrl + '\',\'✅ ' + escapeHtml((a.report_num||'') + (a.report_num?' — ':'') + typeFullName(a.report_type)) + '\',\'ext\',\'' + a.id + '\')">✅ Consulter / Imprimer</button>';
+            + 'onclick="viewSignedDoc(\'' + a.id + '\')">✅ Consulter / Imprimer</button>';
           if (consolidatedDoc) {
             html += '<button class="pipe-btn" style="background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1);color:var(--muted)" '
               + 'onclick="moveChildToTrash(\'' + consolidatedDoc.id + '\',\'' + role + '\')">🗑️ Supprimer signé</button>';
@@ -1592,6 +1597,48 @@ async function saveExternalReport() {
 // archiveId optionnel : si fourni, charge le panneau signataires
 
 // ── REPORT VIEWER ──────────────────────────────────────
+
+// ── Helpers viewer — évite l'échappement des URLs signées dans onclick ───────
+async function viewArchiveDoc(archiveId) {
+  var a = (window._archiveCache || {})[archiveId];
+  if (!a || !a.file_url) return;
+  // Rafraîchir l'URL signée si elle semble expirée (> 23h)
+  var url = a.file_url;
+  try {
+    var parsedUrl = new URL(url);
+    var exp = parsedUrl.searchParams.get('X-Amz-Expires') || parsedUrl.searchParams.get('expiresIn');
+    var issued = parsedUrl.searchParams.get('X-Amz-Date');
+    if (issued) {
+      var issuedTs = new Date(
+        issued.substring(0,4)+'-'+issued.substring(4,6)+'-'+issued.substring(6,8)+'T'+
+        issued.substring(9,11)+':'+issued.substring(11,13)+':'+issued.substring(13,15)+'Z'
+      ).getTime();
+      var maxAge = (parseInt(exp)||86400) * 1000;
+      if (Date.now() - issuedTs > maxAge - 60000) {
+        // Regénérer une URL fraîche depuis le storage path
+        var path = parsedUrl.pathname.split('/object/sign/rapport-archives/')[1];
+        if (path) {
+          var fresh = await sb.storage.from('rapport-archives').createSignedUrl(decodeURIComponent(path), 60 * 60 * 24);
+          if (fresh.data && fresh.data.signedUrl) url = fresh.data.signedUrl;
+        }
+      }
+    }
+  } catch(e) { /* URL non signée ou autre format — utiliser telle quelle */ }
+  var sourceType = a.source === 'safetysphere' ? 'html' : 'ext';
+  var title = (a.report_num || '') + (a.report_num ? ' — ' : '') + typeFullName(a.report_type);
+  openReportViewer(url, title, sourceType, archiveId);
+}
+
+async function viewSignedDoc(archiveId) {
+  var a = (window._archiveCache || {})[archiveId];
+  if (!a) return;
+  var children = Object.values(window._archiveCache || {}).filter(function(c) { return c.parent_id === archiveId; });
+  var consolidatedDoc = children.find(function(c) { return c.label && c.label.toLowerCase().includes('consol'); }) || children[0];
+  var url = (consolidatedDoc && consolidatedDoc.file_url) || a.signed_file_url;
+  if (!url) return;
+  var title = '✅ ' + (a.report_num || '') + (a.report_num ? ' — ' : '') + typeFullName(a.report_type);
+  openReportViewer(url, title, 'ext', archiveId);
+}
 
 async function openReportViewer(url, title, sourceType, archiveId) {
   var modal   = document.getElementById('reportViewerModal');
