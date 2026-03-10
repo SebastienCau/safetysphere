@@ -3,56 +3,53 @@
 //  Gestion des formations & habilitations
 // ════════════════════════════════════════════════════════════════════════════
 //
-//  PATTERN : identique à incidents.js
-//  TABLES   : formations, formation_participants
-//  ROLES    : hse (gestion complète), company (gestion complète), worker (lecture)
-//  ACTIVATION : org_modules { module_id: 'formations' }
-//
-//  ORDRE DE CHARGEMENT :
-//  ... -> analytics_charts -> chart -> incidents -> formations -> gate
+//  ORDRE DE CHARGEMENT dans index.html :
+//  core → analytics → workers → signatures → reports → conformite →
+//  analytics_charts → chart → incidents → formations → gate
 //
 // ════════════════════════════════════════════════════════════════════════════
 
-// ── État ─────────────────────────────────────────────────────────────────────
-var _formations        = [];
-var _formParticipants  = [];
-var _formView          = 'liste';
-var _formEditId        = null;
-var _formPeriod        = '90';
+var _frmSubView     = 'catalogue';
+var _frmList        = [];
+var _frmParticipants = [];
+var _frmEditId      = null;
 
-// ── Constantes ────────────────────────────────────────────────────────────────
-var FORM_TYPES = [
-  { id: 'habilitation',    label: 'Habilitation électrique', icon: '⚡', color: '#F59E0B' },
-  { id: 'caces',           label: 'CACES',                   icon: '🚜', color: '#60A5FA' },
-  { id: 'sst',             label: 'SST / Secourisme',        icon: '🩺', color: '#34D399' },
-  { id: 'incendie',        label: 'Lutte incendie',          icon: '🔥', color: '#F97316' },
-  { id: 'travail_hauteur', label: 'Travail en hauteur',      icon: '🪜', color: '#A78BFA' },
-  { id: 'chimique',        label: 'Risque chimique',         icon: '⚗️', color: '#F87171' },
-  { id: 'autre',           label: 'Autre formation',         icon: '📚', color: '#94A3B8' }
+// ── Constantes ───────────────────────────────────────────────────────────────
+var FRM_TYPES = [
+  { id: 'securite',     label: 'Sécurité',               icon: '🦺', color: '#F87171' },
+  { id: 'habilitation', label: 'Habilitation électrique', icon: '⚡', color: '#FCD34D' },
+  { id: 'caces',        label: 'CACES / Engins',          icon: '🏗️', color: '#F97316' },
+  { id: 'incendie',     label: 'Incendie / SST',          icon: '🔥', color: '#EF4444' },
+  { id: 'chimique',     label: 'Risque chimique',         icon: '⚗️', color: '#A78BFA' },
+  { id: 'travaux_haut', label: 'Travail en hauteur',      icon: '🧗', color: '#60A5FA' },
+  { id: 'premiers_sec', label: 'Premiers secours',        icon: '🩺', color: '#34D399' },
+  { id: 'autre',        label: 'Autre',                   icon: '📚', color: '#94A3B8' }
 ];
 
-var FORM_STATUS = [
+var FRM_STATUS = [
   { id: 'planifiee', label: 'Planifiée',  color: '#60A5FA' },
-  { id: 'en_cours',  label: 'En cours',   color: '#F59E0B' },
-  { id: 'realisee',  label: 'Réalisée',   color: '#4ADE80' },
+  { id: 'en_cours',  label: 'En cours',   color: '#F97316' },
+  { id: 'terminee',  label: 'Terminée',   color: '#4ADE80' },
   { id: 'annulee',   label: 'Annulée',    color: '#64748B' }
 ];
 
-var FORM_RESULTS = [
-  { id: 'en_attente', label: 'En attente', color: '#F59E0B' },
-  { id: 'obtenu',     label: 'Obtenu',     color: '#4ADE80' },
-  { id: 'recale',     label: 'Recalé',     color: '#EF4444' }
+var FRM_RESULT = [
+  { id: 'en_attente', label: 'En attente', color: '#F97316' },
+  { id: 'reussi',     label: 'Réussi',     color: '#4ADE80' },
+  { id: 'echoue',     label: 'Échoué',    color: '#EF4444' },
+  { id: 'absent',     label: 'Absent',     color: '#64748B' }
 ];
 
-// ── Activation ────────────────────────────────────────────────────────────────
+// ── Activation ───────────────────────────────────────────────────────────────
 async function checkFormationsActivation() {
-  if (!currentProfile || !currentProfile.org_id) return false;
+  if (!currentProfile || !currentProfile.org_id) { updateFormationsTabVisibility(true); return true; }
   var res = await sb.from('org_modules')
     .select('enabled')
     .eq('org_id', currentProfile.org_id)
     .eq('module_id', 'formations')
     .maybeSingle();
-  var enabled = res.data ? res.data.enabled : false;
+  // Par defaut actif si aucun enregistrement
+  var enabled = (res.data === null) ? true : res.data.enabled;
   updateFormationsTabVisibility(enabled);
   return enabled;
 }
@@ -62,55 +59,44 @@ function updateFormationsTabVisibility(visible) {
     var oc = tab.getAttribute('onclick') || '';
     if (oc.includes("'formations'") || oc.includes('"formations"')) {
       tab.style.display = '';
-      var dot = tab.querySelector('.form-status-dot');
+      var dot = tab.querySelector('.frm-dot');
       if (!dot) {
         dot = document.createElement('span');
-        dot.className = 'form-status-dot';
-        dot.style.cssText = 'display:inline-block;width:6px;height:6px;border-radius:50%;margin-left:5px;vertical-align:middle;flex-shrink:0';
+        dot.className = 'frm-dot';
+        dot.style.cssText = 'display:inline-block;width:6px;height:6px;border-radius:50%;margin-left:5px;vertical-align:middle';
         tab.appendChild(dot);
       }
-      dot.style.background = visible ? '#34D399' : '#475569';
-      dot.title = visible ? 'Module actif' : 'Module inactif';
+      dot.style.background = visible ? '#818CF8' : '#475569';
     }
   });
 }
 
-// ── Chargement ────────────────────────────────────────────────────────────────
+// ── Chargement ───────────────────────────────────────────────────────────────
 async function loadFormations(role) {
-  var dash = role === 'hse' ? 'HSE' : 'Company';
+  var dash = role === 'hse' ? 'HSE' : role === 'company' ? 'Company' : null;
+  if (!dash) return;
   var container = document.getElementById(dash + '-formations-content');
   if (!container) return;
 
   if (!currentProfile || !currentProfile.org_id) {
-    container.innerHTML = _formEmptyState('⚠️', 'Profil non chargé');
+    container.innerHTML = _frmEmpty('⚠️', 'Session expirée — veuillez vous reconnecter');
     return;
   }
 
-  container.innerHTML = _formEmptyState('⏳', 'Chargement…');
+  container.innerHTML = _frmEmpty('⏳', 'Chargement…');
 
   try {
     var orgId = currentProfile.org_id;
-
-    var fRes = await sb.from('formations')
-      .select('*, formation_participants(id, status, result)')
-      .eq('org_id', orgId)
-      .order('date_debut', { ascending: false });
-    if (fRes.error) throw fRes.error;
-    _formations = fRes.data || [];
-
-    var ids = _formations.map(function(f) { return f.id; });
-    if (ids.length > 0) {
-      var pRes = await sb.from('formation_participants')
-        .select('*')
-        .in('formation_id', ids);
-      _formParticipants = pRes.data || [];
-    } else {
-      _formParticipants = [];
-    }
-
+    var [frmRes, partRes] = await Promise.all([
+      sb.from('formations').select('*').eq('org_id', orgId).order('date_debut', { ascending: false }).limit(200),
+      sb.from('formation_participants').select('*').eq('org_id', orgId).order('created_at', { ascending: false })
+    ]);
+    if (frmRes.error) throw frmRes.error;
+    _frmList         = frmRes.data  || [];
+    _frmParticipants = partRes.data || [];
     renderFormations(role);
   } catch(e) {
-    container.innerHTML = _formEmptyState('⚠️', 'Erreur : ' + (e.message || e));
+    container.innerHTML = _frmEmpty('⚠️', 'Erreur : ' + (e.message || e));
   }
 }
 
@@ -120,593 +106,587 @@ function renderFormations(role) {
   var container = document.getElementById(dash + '-formations-content');
   if (!container) return;
 
-  if (_formView === 'saisie') {
-    container.innerHTML = renderFormationForm(role);
-    return;
-  }
-  if (_formView === 'detail' && _formEditId) {
-    var f = _formations.find(function(x) { return x.id === _formEditId; });
-    if (f) { container.innerHTML = renderFormationDetail(f, role); return; }
-  }
+  var total      = _frmList.length;
+  var planifiees = _frmList.filter(function(f){ return f.status === 'planifiee'; }).length;
+  var expiring   = _frmExpirantsCount();
 
-  container.innerHTML = _renderFormHeader(role)
-    + _renderFormKPI()
-    + _renderFormChart()
-    + _renderFormList(role);
+  var html = '';
 
-  setTimeout(function() { _drawFormCanvas(); }, 0);
-}
+  // Nav
+  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:20px;flex-wrap:wrap">';
+  html += _frmNavBtn('catalogue',     '📋 Catalogue',      role);
+  html += _frmNavBtn('nouvelle',      '➕ Nouvelle',        role);
+  html += _frmNavBtn('habilitations', '🏅 Habilitations',  role, expiring);
+  html += _frmNavBtn('stats',         '📈 Statistiques',   role);
+  html += '<div style="margin-left:auto;display:flex;gap:10px;align-items:center">';
+  if (planifiees) html += '<span style="font-size:11px;color:#60A5FA;font-weight:700">' + planifiees + ' planifiée' + (planifiees > 1 ? 's' : '') + '</span>';
+  if (total > 0)  html += '<button onclick="exportFormationsCSV(\'' + role + '\')" style="padding:5px 12px;background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.25);border-radius:8px;color:#818CF8;font-size:11px;font-weight:700;cursor:pointer">⬇ CSV</button>';
+  html += '</div></div>';
 
-// ── En-tête ───────────────────────────────────────────────────────────────────
-function _renderFormHeader(role) {
-  var expiresSoon = _formations.filter(function(f) {
-    if (!f.date_expiration || f.status === 'annulee') return false;
-    var diff = (new Date(f.date_expiration) - new Date()) / 86400000;
-    return diff >= 0 && diff <= 60;
-  }).length;
+  if (_frmSubView === 'catalogue')     html += _frmRenderCatalogue(role);
+  if (_frmSubView === 'nouvelle')      html += _frmRenderForm(role, _frmEditId ? _frmList.find(function(f){ return f.id === _frmEditId; }) : null);
+  if (_frmSubView === 'habilitations') html += _frmRenderHabilitations(role);
+  if (_frmSubView === 'stats')         html += _frmRenderStats(role);
 
-  return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">'
-    + '<div>'
-    + '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">'
-    + '<div style="width:3px;height:22px;background:linear-gradient(180deg,#34D399,#60A5FA);border-radius:2px"></div>'
-    + '<span style="font-size:22px;font-weight:900;color:var(--text)">Formations & Habilitations</span>'
-    + '</div>'
-    + '<div style="font-size:12px;color:var(--muted);margin-left:13px">'
-    + _formations.length + ' formation(s)'
-    + (expiresSoon ? ' · <span style="color:#F59E0B;font-weight:700">⚠️ ' + expiresSoon + ' expirent dans 60j</span>' : '')
-    + '</div></div>'
-    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-    + '<button onclick="_formView=\'saisie\';_formEditId=null;renderFormations(\'' + role + '\')" '
-    + 'class="btn-primary" style="padding:9px 18px;font-size:13px;font-weight:700">+ Nouvelle formation</button>'
-    + '<button onclick="_exportFormationsCSV()" '
-    + 'style="padding:9px 16px;font-size:12px;font-weight:600;background:rgba(255,255,255,.06);'
-    + 'border:1px solid rgba(255,255,255,.12);border-radius:10px;color:var(--muted);cursor:pointer">📥 Export CSV</button>'
-    + '</div></div>';
-}
-
-// ── KPI ───────────────────────────────────────────────────────────────────────
-function _renderFormKPI() {
-  var total     = _formations.length;
-  var planif    = _formations.filter(function(f) { return f.status === 'planifiee'; }).length;
-  var realisees = _formations.filter(function(f) { return f.status === 'realisee'; }).length;
-  var expires   = _formations.filter(function(f) {
-    if (!f.date_expiration) return false;
-    var diff = (new Date(f.date_expiration) - new Date()) / 86400000;
-    return diff >= 0 && diff <= 60;
-  }).length;
-  var nbPart  = _formParticipants.length;
-  var obtenus = _formParticipants.filter(function(p) { return p.result === 'obtenu'; }).length;
-  var taux    = nbPart > 0 ? Math.round(obtenus / nbPart * 100) : 0;
-
-  var kpis = [
-    { icon: '📚', val: total,      label: 'Total formations',   color: '#60A5FA' },
-    { icon: '📅', val: planif,     label: 'Planifiées',         color: '#F59E0B' },
-    { icon: '✅', val: realisees,  label: 'Réalisées',          color: '#4ADE80' },
-    { icon: '⚠️', val: expires,    label: 'Expirent < 60j',     color: '#F97316' },
-    { icon: '👥', val: nbPart,     label: 'Participants',        color: '#A78BFA' },
-    { icon: '🎯', val: taux + '%', label: 'Taux de réussite',   color: '#34D399' }
-  ];
-
-  var html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:24px">';
-  kpis.forEach(function(k) {
-    html += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);'
-      + 'border-left:3px solid ' + k.color + ';border-radius:12px;padding:14px 16px">'
-      + '<div style="font-size:20px;margin-bottom:4px">' + k.icon + '</div>'
-      + '<div style="font-size:24px;font-weight:900;color:' + k.color + ';letter-spacing:-.5px">' + k.val + '</div>'
-      + '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-top:2px">' + k.label + '</div>'
-      + '</div>';
-  });
-  return html + '</div>';
-}
-
-// ── Graphe ────────────────────────────────────────────────────────────────────
-function _renderFormChart() {
-  var btns = ['30', '60', '90', '180'].map(function(v) {
-    var active = _formPeriod === v;
-    return '<button onclick="_formPeriod=\'' + v + '\';_drawFormCanvas()" '
-      + 'style="padding:4px 10px;font-size:11px;font-weight:700;border-radius:6px;cursor:pointer;border:1px solid;'
-      + (active
-        ? 'background:rgba(52,211,153,.2);border-color:rgba(52,211,153,.4);color:#34D399'
-        : 'background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.1);color:var(--muted)')
-      + '">' + v + 'j</button>';
-  }).join('');
-
-  return '<div style="background:linear-gradient(135deg,rgba(13,27,42,.95),rgba(15,23,42,.98));'
-    + 'border:1px solid rgba(52,211,153,.15);border-radius:20px;overflow:hidden;margin-bottom:24px">'
-    + '<div style="padding:18px 22px 10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">'
-    + '<div>'
-    + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">'
-    + '<div style="width:3px;height:18px;background:linear-gradient(180deg,#34D399,#60A5FA);border-radius:2px"></div>'
-    + '<span style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#34D399">Tendance</span>'
-    + '</div>'
-    + '<div style="font-size:17px;font-weight:900;color:#fff">Formations sur la période</div>'
-    + '</div>'
-    + '<div style="display:flex;gap:6px">' + btns + '</div>'
-    + '</div>'
-    + '<div style="padding:0 22px 8px"><canvas id="formChart" height="140" style="width:100%;height:140px;display:block"></canvas></div>'
-    + '<div style="padding:0 22px 16px;display:flex;gap:16px">'
-    + '<div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#34D399"></div><span style="font-size:10px;color:#64748B">Réalisées</span></div>'
-    + '<div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:#60A5FA"></div><span style="font-size:10px;color:#64748B">Planifiées</span></div>'
-    + '</div></div>';
-}
-
-function _drawFormCanvas() {
-  var canvas = document.getElementById('formChart');
-  if (!canvas || canvas.offsetWidth === 0) { setTimeout(_drawFormCanvas, 60); return; }
-
-  var days = parseInt(_formPeriod, 10);
-  var now  = new Date();
-  var step = days <= 30 ? 1 : days <= 90 ? 7 : 14;
-  var buckets = [];
-  for (var i = days; i >= 0; i -= step) {
-    var d = new Date(now); d.setDate(d.getDate() - i);
-    buckets.push({
-      date: d,
-      label: d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }),
-      realise: 0, planifie: 0
-    });
+  try { container.innerHTML = html; } catch(e) {
+    container.innerHTML = _frmEmpty('⚠️', 'Erreur : ' + e.message); return;
   }
 
-  _formations.forEach(function(f) {
-    var fd = new Date(f.date_debut);
-    var cutoff = new Date(now); cutoff.setDate(cutoff.getDate() - days);
-    if (fd < cutoff) return;
-    var best = null, bestDiff = Infinity;
-    buckets.forEach(function(b) {
-      var diff = Math.abs(fd - b.date);
-      if (diff < bestDiff) { bestDiff = diff; best = b; }
-    });
-    if (!best) return;
-    if (f.status === 'realisee') best.realise++;
-    else if (f.status === 'planifiee' || f.status === 'en_cours') best.planifie++;
-  });
-
-  var maxVal = Math.max.apply(null, buckets.map(function(b) { return b.realise + b.planifie; }).concat([1]));
-  var dpr = window.devicePixelRatio || 1;
-  var W = canvas.offsetWidth, H = 140;
-  canvas.width = W * dpr; canvas.height = H * dpr;
-  var ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
-
-  var pad = { l: 28, r: 8, t: 12, b: 28 };
-  var gw = W - pad.l - pad.r;
-  var gh = H - pad.t - pad.b;
-  var n  = buckets.length;
-  var bw = Math.max(4, gw / n * 0.55);
-
-  ctx.strokeStyle = 'rgba(255,255,255,.04)'; ctx.lineWidth = 1;
-  for (var yi = 0; yi <= maxVal; yi += Math.max(1, Math.ceil(maxVal / 4))) {
-    var yy = pad.t + gh * (1 - yi / maxVal);
-    ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(pad.l + gw, yy); ctx.stroke();
-    ctx.fillStyle = '#475569'; ctx.font = '9px Barlow,sans-serif'; ctx.textAlign = 'right';
-    ctx.fillText(yi, pad.l - 4, yy + 3);
-  }
-
-  buckets.forEach(function(b, i) {
-    var x = pad.l + i * gw / n + (gw / n - bw) / 2;
-    if (b.realise > 0) {
-      var yr = pad.t + gh * (1 - b.realise / maxVal);
-      var g1 = ctx.createLinearGradient(0, pad.t, 0, pad.t + gh);
-      g1.addColorStop(0, 'rgba(52,211,153,.9)'); g1.addColorStop(1, 'rgba(52,211,153,.1)');
-      ctx.fillStyle = g1;
-      ctx.beginPath(); ctx.roundRect(x, yr, bw / 2 - 1, gh - (yr - pad.t), 2); ctx.fill();
-    }
-    if (b.planifie > 0) {
-      var yp = pad.t + gh * (1 - b.planifie / maxVal);
-      var g2 = ctx.createLinearGradient(0, pad.t, 0, pad.t + gh);
-      g2.addColorStop(0, 'rgba(96,165,250,.9)'); g2.addColorStop(1, 'rgba(96,165,250,.1)');
-      ctx.fillStyle = g2;
-      ctx.beginPath(); ctx.roundRect(x + bw / 2 + 1, yp, bw / 2 - 1, gh - (yp - pad.t), 2); ctx.fill();
-    }
-    if (n <= 14 || i % 2 === 0) {
-      ctx.fillStyle = '#475569'; ctx.font = '8px Barlow,sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(b.label, x + bw / 2, H - 6);
-    }
-  });
+  if (_frmSubView === 'stats') requestAnimationFrame(_drawFrmChart);
 }
 
-// ── Liste ─────────────────────────────────────────────────────────────────────
-function _renderFormList(role) {
-  var html = '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">';
+// ── Catalogue ─────────────────────────────────────────────────────────────────
+function _frmRenderCatalogue(role) {
+  if (_frmList.length === 0) {
+    return _frmEmpty('🎓', 'Aucune formation enregistrée')
+      + '<div style="text-align:center;margin-top:-20px"><button onclick="_frmGo(\'nouvelle\',\'' + role + '\')" style="padding:10px 24px;background:rgba(129,140,248,.15);border:1px solid rgba(129,140,248,.3);border-radius:10px;color:#818CF8;font-weight:700;cursor:pointer">➕ Créer la première</button></div>';
+  }
 
-  html += '<select id="formFilterType" onchange="_filterForm(\'' + role + '\')" '
-    + 'style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 10px;color:var(--text);font-size:12px">'
-    + '<option value="">Tous types</option>'
-    + FORM_TYPES.map(function(t) { return '<option value="' + t.id + '">' + t.icon + ' ' + t.label + '</option>'; }).join('')
-    + '</select>';
-
-  html += '<select id="formFilterStatus" onchange="_filterForm(\'' + role + '\')" '
-    + 'style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 10px;color:var(--text);font-size:12px">'
-    + '<option value="">Tous statuts</option>'
-    + FORM_STATUS.map(function(s) { return '<option value="' + s.id + '">' + s.label + '</option>'; }).join('')
-    + '</select>';
-
-  html += '<input type="text" id="formFilterSearch" oninput="_filterForm(\'' + role + '\')" placeholder="🔍 Intitulé, organisme…" '
-    + 'style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 10px;color:var(--text);font-size:12px;min-width:160px">';
-
-  html += '</div><div id="formListContainer">' + _buildFormTable(_formations, role) + '</div>';
+  var html = '<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">';
+  html += '<select id="frmFType" onchange="filterFormations(\'' + role + '\')" style="' + _frmSel() + '"><option value="">Tous types</option>';
+  FRM_TYPES.forEach(function(t){ html += '<option value="' + t.id + '">' + t.icon + ' ' + t.label + '</option>'; });
+  html += '</select>';
+  html += '<select id="frmFStatus" onchange="filterFormations(\'' + role + '\')" style="' + _frmSel() + '"><option value="">Tous statuts</option>';
+  FRM_STATUS.forEach(function(s){ html += '<option value="' + s.id + '">' + s.label + '</option>'; });
+  html += '</select>';
+  html += '<input type="month" id="frmFMonth" onchange="filterFormations(\'' + role + '\')" style="' + _frmSel() + '">';
+  html += '</div>';
+  html += '<div id="frmTable">' + _frmBuildTable(_frmList, role) + '</div>';
   return html;
 }
 
-function _buildFormTable(list, role) {
-  if (list.length === 0) {
-    return '<div style="text-align:center;padding:48px 0;color:var(--muted)">'
-      + '<div style="font-size:40px;margin-bottom:12px">🎓</div>'
-      + '<div style="font-size:14px;font-weight:600">Aucune formation enregistrée</div>'
-      + '<div style="font-size:12px;margin-top:4px">Cliquez sur "+ Nouvelle formation" pour commencer</div>'
-      + '</div>';
-  }
-
+function _frmBuildTable(list, role) {
+  if (!list.length) return _frmEmpty('🔍', 'Aucun résultat');
   var html = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">';
   html += '<thead><tr style="border-bottom:1px solid rgba(255,255,255,.08)">';
-  ['Type', 'Intitulé', 'Organisme', 'Date début', 'Expiration', 'Participants', 'Statut', 'Actions'].forEach(function(h) {
-    html += '<th style="padding:10px 12px;text-align:left;font-size:10px;font-weight:700;'
-      + 'letter-spacing:1px;text-transform:uppercase;color:var(--muted);white-space:nowrap">' + h + '</th>';
+  ['Intitulé','Type','Date','Durée','Organisme','Participants','Validité','Statut',''].forEach(function(h){
+    html += '<th style="padding:9px 11px;text-align:left;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);white-space:nowrap">' + h + '</th>';
   });
   html += '</tr></thead><tbody>';
 
   list.forEach(function(f) {
-    var T   = FORM_TYPES.find(function(t) { return t.id === f.type; }) || FORM_TYPES[FORM_TYPES.length - 1];
-    var S   = FORM_STATUS.find(function(s) { return s.id === f.status; }) || FORM_STATUS[0];
-    var dD  = f.date_debut ? new Date(f.date_debut).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-    var dE  = f.date_expiration ? new Date(f.date_expiration) : null;
-    var dEs = dE ? dE.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-    var diff = dE ? (dE - new Date()) / 86400000 : null;
-    var expColor = diff !== null ? (diff < 0 ? '#EF4444' : diff < 30 ? '#F97316' : diff < 60 ? '#F59E0B' : 'var(--muted)') : 'var(--muted)';
-    var nbP = f.formation_participants ? f.formation_participants.length : 0;
+    var type   = FRM_TYPES.find(function(t){ return t.id === f.type; }) || FRM_TYPES[FRM_TYPES.length-1];
+    var status = FRM_STATUS.find(function(s){ return s.id === f.status; }) || FRM_STATUS[0];
+    var dateD  = f.date_debut ? new Date(f.date_debut).toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric'}) : '—';
+    var nb     = _frmParticipants.filter(function(p){ return p.formation_id === f.id; }).length;
 
-    html += '<tr style="border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s" '
-      + 'onmouseover="this.style.background=\'rgba(255,255,255,.03)\'" onmouseout="this.style.background=\'\'">';
+    var expTxt = '—'; var expWarn = '';
+    if (f.echeance_mois && f.date_fin) {
+      var exp = new Date(f.date_fin); exp.setMonth(exp.getMonth() + parseInt(f.echeance_mois));
+      var days = Math.round((exp - new Date()) / 86400000);
+      expTxt = f.echeance_mois + ' mois';
+      if (days < 0)       expWarn = '<span style="color:#EF4444;font-size:10px;font-weight:700"> ⚠ Exp.</span>';
+      else if (days < 60) expWarn = '<span style="color:#F97316;font-size:10px;font-weight:700"> J-' + days + '</span>';
+    }
 
-    html += '<td style="padding:10px 12px"><span style="font-size:18px" title="' + T.label + '">' + T.icon + '</span></td>';
-    html += '<td style="padding:10px 12px;font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _esc(f.intitule || '—') + '</td>';
-    html += '<td style="padding:10px 12px;color:var(--muted);font-size:12px">' + _esc(f.organisme || '—') + '</td>';
-    html += '<td style="padding:10px 12px;color:var(--muted);font-size:12px;white-space:nowrap">' + dD + '</td>';
-    html += '<td style="padding:10px 12px;font-size:12px;white-space:nowrap;color:' + expColor + ';font-weight:' + (diff !== null && diff < 60 ? '700' : '400') + '">'
-      + dEs + (diff !== null && diff < 0 ? ' ⚠️' : '') + '</td>';
-    html += '<td style="padding:10px 12px;text-align:center">'
-      + '<span style="background:rgba(167,139,250,.12);color:#A78BFA;padding:3px 8px;border-radius:6px;font-size:12px;font-weight:700">' + nbP + '</span></td>';
-    html += '<td style="padding:10px 12px">'
-      + '<span style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;background:' + S.color + '22;color:' + S.color + '">' + S.label + '</span></td>';
-    html += '<td style="padding:10px 12px"><div style="display:flex;gap:6px">'
-      + '<button onclick="_formView=\'detail\';_formEditId=\'' + f.id + '\';renderFormations(\'' + role + '\')" '
-      + 'style="padding:4px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:var(--text);font-size:11px;cursor:pointer">👁 Voir</button>'
-      + '<button onclick="_formView=\'saisie\';_formEditId=\'' + f.id + '\';renderFormations(\'' + role + '\')" '
-      + 'style="padding:4px 10px;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.2);border-radius:6px;color:#34D399;font-size:11px;cursor:pointer">✏️</button>'
-      + '</div></td>';
-    html += '</tr>';
+    html += '<tr style="border-bottom:1px solid rgba(255,255,255,.04)" onmouseover="this.style.background=\'rgba(255,255,255,.03)\'" onmouseout="this.style.background=\'\'">';
+    html += '<td style="padding:9px 11px;font-weight:600">' + _esc(f.intitule) + '</td>';
+    html += '<td style="padding:9px 11px"><span style="padding:2px 7px;border-radius:5px;background:' + type.color + '18;color:' + type.color + ';font-size:11px;font-weight:700">' + type.icon + ' ' + type.label + '</span></td>';
+    html += '<td style="padding:9px 11px;color:var(--muted);font-size:12px;white-space:nowrap">' + dateD + '</td>';
+    html += '<td style="padding:9px 11px;color:var(--muted);font-size:12px">' + (f.duree_heures ? f.duree_heures + 'h' : '—') + '</td>';
+    html += '<td style="padding:9px 11px;color:var(--muted);font-size:12px">' + _esc(f.organisme || f.formateur_externe || '—') + '</td>';
+    html += '<td style="padding:9px 11px"><span style="padding:2px 7px;border-radius:5px;background:rgba(129,140,248,.12);color:#818CF8;font-size:12px;font-weight:700">' + nb + '</span></td>';
+    html += '<td style="padding:9px 11px;font-size:12px">' + expTxt + expWarn + '</td>';
+    html += '<td style="padding:9px 11px"><span style="padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700;background:' + status.color + '22;color:' + status.color + '">' + status.label + '</span></td>';
+    html += '<td style="padding:9px 11px"><div style="display:flex;gap:5px">';
+    html += '<button onclick="openFrmDetail(\'' + f.id + '\',\'' + role + '\')" style="padding:3px 9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:5px;font-size:11px;cursor:pointer">👁</button>';
+    if (role !== 'worker') html += '<button onclick="openFrmEdit(\'' + f.id + '\',\'' + role + '\')" style="padding:3px 9px;background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.2);border-radius:5px;color:#818CF8;font-size:11px;cursor:pointer">✏️</button>';
+    html += '</div></td></tr>';
   });
 
   html += '</tbody></table></div>';
   return html;
 }
 
-function _filterForm(role) {
-  var type   = (document.getElementById('formFilterType')   || {}).value || '';
-  var status = (document.getElementById('formFilterStatus') || {}).value || '';
-  var search = ((document.getElementById('formFilterSearch') || {}).value || '').toLowerCase();
-  var filtered = _formations.filter(function(f) {
-    if (type   && f.type   !== type)   return false;
-    if (status && f.status !== status) return false;
-    if (search && !((f.intitule || '').toLowerCase().includes(search) || (f.organisme || '').toLowerCase().includes(search))) return false;
-    return true;
-  });
-  var c = document.getElementById('formListContainer');
-  if (c) c.innerHTML = _buildFormTable(filtered, role);
-}
-
 // ── Formulaire ────────────────────────────────────────────────────────────────
-function renderFormationForm(role) {
-  var isEdit = !!_formEditId;
-  var f = isEdit ? (_formations.find(function(x) { return x.id === _formEditId; }) || {}) : {};
+function _frmRenderForm(role, d) {
+  d = d || {};
+  var isEdit = !!d.id;
+  var html = '<div style="max-width:740px"><div style="background:linear-gradient(135deg,rgba(129,140,248,.08),rgba(99,102,241,.04));border:1px solid rgba(129,140,248,.15);border-radius:20px;padding:28px">';
+  html += '<div style="font-size:18px;font-weight:800;margin-bottom:20px">' + (isEdit ? '✏️ Modifier la formation' : '🎓 Nouvelle formation') + '</div>';
 
-  var html = '<div style="max-width:680px">';
-  html += '<button onclick="_formView=\'liste\';renderFormations(\'' + role + '\')" '
-    + 'style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);'
-    + 'border-radius:8px;padding:7px 14px;color:var(--muted);font-size:12px;cursor:pointer;margin-bottom:20px">← Retour</button>';
+  html += '<div style="margin-bottom:14px"><label style="' + _frmLbl() + '">Intitulé *</label><input type="text" id="frmIntitule" placeholder="Ex : CACES R489 cat.3, Habilitation B1V…" value="' + _esc(d.intitule) + '" style="' + _frmInp() + '"></div>';
 
-  html += '<div style="background:linear-gradient(135deg,rgba(52,211,153,.06),rgba(96,165,250,.03));'
-    + 'border:1px solid rgba(52,211,153,.15);border-radius:20px;padding:28px">';
-  html += '<div style="font-size:18px;font-weight:800;color:var(--text);margin-bottom:4px">'
-    + (isEdit ? '✏️ Modifier la formation' : '🎓 Nouvelle formation') + '</div>';
-  html += '<div style="font-size:12px;color:var(--muted);margin-bottom:22px">Champs * obligatoires</div>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">';
+  html += '<div><label style="' + _frmLbl() + '">Type *</label><select id="frmType" style="' + _frmInp() + '">' + FRM_TYPES.map(function(t){ return '<option value="' + t.id + '"' + (d.type===t.id?' selected':'') + '>' + t.icon + ' ' + t.label + '</option>'; }).join('') + '</select></div>';
+  html += '<div><label style="' + _frmLbl() + '">Statut</label><select id="frmStatus" style="' + _frmInp() + '">' + FRM_STATUS.map(function(s){ return '<option value="' + s.id + '"' + ((d.status||'planifiee')===s.id?' selected':'') + '>' + s.label + '</option>'; }).join('') + '</select></div>';
+  html += '</div>';
 
-  // Type
-  html += '<div style="margin-bottom:18px"><label style="' + _formLabelStyle() + '">Type *</label><div style="display:flex;flex-wrap:wrap;gap:8px">';
-  FORM_TYPES.forEach(function(t) {
-    var sel = f.type === t.id;
-    html += '<label style="display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:8px;cursor:pointer;'
-      + 'background:' + (sel ? t.color + '22' : 'rgba(255,255,255,.04)') + ';'
-      + 'border:1px solid ' + (sel ? t.color + '55' : 'rgba(255,255,255,.1)') + ';transition:.15s" '
-      + 'onclick="_pickFormType(this,\'' + t.id + '\',\'' + t.color + '\')">'
-      + '<input type="radio" name="form_type" value="' + t.id + '"' + (sel ? ' checked' : '') + ' style="display:none">'
-      + '<span>' + t.icon + '</span><span style="font-size:12px;font-weight:600;color:var(--text)">' + t.label + '</span></label>';
-  });
-  html += '</div></div>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px">';
+  html += '<div><label style="' + _frmLbl() + '">Date début *</label><input type="date" id="frmDateDebut" value="' + _esc(d.date_debut ? d.date_debut.slice(0,10) : '') + '" style="' + _frmInp() + '"></div>';
+  html += '<div><label style="' + _frmLbl() + '">Date fin</label><input type="date" id="frmDateFin" value="' + _esc(d.date_fin ? d.date_fin.slice(0,10) : '') + '" style="' + _frmInp() + '"></div>';
+  html += '<div><label style="' + _frmLbl() + '">Durée (heures)</label><input type="number" id="frmDuree" min="0" step="0.5" placeholder="Ex : 7" value="' + _esc(d.duree_heures) + '" style="' + _frmInp() + '"></div>';
+  html += '</div>';
 
-  // Intitulé
-  html += '<div style="margin-bottom:16px"><label style="' + _formLabelStyle() + '">Intitulé *</label>'
-    + '<input type="text" id="formIntitule" value="' + _esc(f.intitule || '') + '" '
-    + 'placeholder="Ex : Habilitation B1V, CACES R489…" style="' + _formInputStyle() + '"></div>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">';
+  html += '<div><label style="' + _frmLbl() + '">Formateur / Organisme</label><input type="text" id="frmOrganisme" placeholder="Nom ou organisme" value="' + _esc(d.organisme || d.formateur_externe) + '" style="' + _frmInp() + '"></div>';
+  html += '<div><label style="' + _frmLbl() + '">Lieu</label><input type="text" id="frmLieu" placeholder="Ex : Salle B, Site client…" value="' + _esc(d.lieu) + '" style="' + _frmInp() + '"></div>';
+  html += '</div>';
 
-  // Organisme + Lieu
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">'
-    + '<div><label style="' + _formLabelStyle() + '">Organisme</label>'
-    + '<input type="text" id="formOrganisme" value="' + _esc(f.organisme || '') + '" placeholder="APAVE, AFPA…" style="' + _formInputStyle() + '"></div>'
-    + '<div><label style="' + _formLabelStyle() + '">Lieu</label>'
-    + '<input type="text" id="formLieu" value="' + _esc(f.lieu || '') + '" placeholder="Site Lyon, En ligne…" style="' + _formInputStyle() + '"></div>'
-    + '</div>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">';
+  html += '<div><label style="' + _frmLbl() + '">Validité</label><select id="frmEcheance" style="' + _frmInp() + '"><option value="">Sans échéance</option>' + [6,12,18,24,36,48,60].map(function(m){ return '<option value="' + m + '"' + (d.echeance_mois==m?' selected':'') + '>' + m + ' mois</option>'; }).join('') + '</select></div>';
+  html += '<div><label style="' + _frmLbl() + '">Numéro de certificat</label><input type="text" id="frmCertif" placeholder="Ex : CERTIOP-2024-001" value="' + _esc(d.numero_certif) + '" style="' + _frmInp() + '"></div>';
+  html += '</div>';
 
-  // Dates
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">'
-    + '<div><label style="' + _formLabelStyle() + '">Date début *</label>'
-    + '<input type="date" id="formDateDebut" value="' + (f.date_debut ? f.date_debut.slice(0, 10) : '') + '" style="' + _formInputStyle() + '"></div>'
-    + '<div><label style="' + _formLabelStyle() + '">Date fin</label>'
-    + '<input type="date" id="formDateFin" value="' + (f.date_fin ? f.date_fin.slice(0, 10) : '') + '" style="' + _formInputStyle() + '"></div>'
-    + '<div><label style="' + _formLabelStyle() + '">Expiration</label>'
-    + '<input type="date" id="formDateExp" value="' + (f.date_expiration ? f.date_expiration.slice(0, 10) : '') + '" style="' + _formInputStyle() + '"></div>'
-    + '</div>';
-
-  // Durée + Coût
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">'
-    + '<div><label style="' + _formLabelStyle() + '">Durée (heures)</label>'
-    + '<input type="number" id="formDuree" min="0" value="' + (f.duree_heures || '') + '" placeholder="Ex : 14" style="' + _formInputStyle() + '"></div>'
-    + '<div><label style="' + _formLabelStyle() + '">Coût total (€)</label>'
-    + '<input type="number" id="formCout" min="0" step="0.01" value="' + (f.cout_total || '') + '" placeholder="Ex : 850" style="' + _formInputStyle() + '"></div>'
-    + '</div>';
-
-  // Statut (édition)
-  if (isEdit) {
-    html += '<div style="margin-bottom:16px"><label style="' + _formLabelStyle() + '">Statut</label>'
-      + '<select id="formStatus" style="' + _formInputStyle() + '">'
-      + FORM_STATUS.map(function(s) { return '<option value="' + s.id + '"' + (f.status === s.id ? ' selected' : '') + '>' + s.label + '</option>'; }).join('')
-      + '</select></div>';
-  }
-
-  // Notes
-  html += '<div style="margin-bottom:18px"><label style="' + _formLabelStyle() + '">Notes / Objectifs</label>'
-    + '<textarea id="formNotes" rows="3" placeholder="Objectifs, prérequis, matériel…" '
-    + 'style="' + _formInputStyle() + 'resize:vertical">' + _esc(f.notes || '') + '</textarea></div>';
-
-  // Participants
-  html += '<div style="margin-bottom:22px"><label style="' + _formLabelStyle() + '">Participants (un par ligne)</label>'
-    + '<textarea id="formParticipants" rows="4" placeholder="Jean Dupont\nMarie Martin" '
-    + 'style="' + _formInputStyle() + 'resize:vertical">';
-  if (isEdit) {
-    var parts = _formParticipants.filter(function(p) { return p.formation_id === _formEditId; });
-    html += parts.map(function(p) { return p.nom_participant || ''; }).join('\n');
-  }
-  html += '</textarea></div>';
-
-  // Boutons
-  html += '<div style="display:flex;gap:12px;align-items:center">'
-    + '<button onclick="_saveFormation(\'' + role + '\')" '
-    + 'style="padding:12px 28px;background:rgba(52,211,153,.18);border:1px solid rgba(52,211,153,.35);'
-    + 'border-radius:10px;color:#34D399;font-weight:700;cursor:pointer;font-size:14px">'
-    + (isEdit ? '💾 Enregistrer' : '🎓 Créer') + '</button>'
-    + '<button onclick="_formView=\'liste\';renderFormations(\'' + role + '\')" '
-    + 'style="padding:12px 20px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);'
-    + 'border-radius:10px;color:var(--muted);font-weight:700;cursor:pointer">Annuler</button>';
+  html += '<div style="margin-bottom:20px"><label style="' + _frmLbl() + '">Description / Objectifs</label><textarea id="frmDesc" rows="3" style="' + _frmInp() + 'resize:vertical">' + _esc(d.description) + '</textarea></div>';
 
   if (isEdit) {
-    html += '<button onclick="_deleteFormation(\'' + f.id + '\',\'' + role + '\')" '
-      + 'style="margin-left:auto;padding:12px 20px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);'
-      + 'border-radius:10px;color:#EF4444;font-weight:700;cursor:pointer">🗑 Supprimer</button>';
+    html += _frmParticipantsSection(d.id, role);
+  } else {
+    html += '<div style="background:rgba(129,140,248,.05);border:1px solid rgba(129,140,248,.1);border-radius:10px;padding:12px 14px;margin-bottom:18px;font-size:12px;color:var(--muted)">💡 Après création, ajoutez les participants depuis le détail de la formation.</div>';
   }
+
+  html += '<div style="display:flex;gap:10px">';
+  html += '<button onclick="_saveFrm(\'' + role + '\'' + (isEdit ? ',\'' + d.id + '\'' : '') + ')" style="padding:11px 26px;background:rgba(129,140,248,.2);border:1px solid rgba(129,140,248,.4);border-radius:10px;color:#818CF8;font-weight:700;cursor:pointer;font-size:14px">' + (isEdit ? '💾 Enregistrer' : '🎓 Créer') + '</button>';
+  html += '<button onclick="_frmGo(\'catalogue\',\'' + role + '\')" style="padding:11px 18px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:var(--muted);font-weight:700;cursor:pointer">Annuler</button>';
   html += '</div></div></div>';
   return html;
 }
 
-function _pickFormType(el, id, color) {
-  el.closest('div').querySelectorAll('label').forEach(function(l) {
-    l.style.background = 'rgba(255,255,255,.04)';
-    l.style.borderColor = 'rgba(255,255,255,.1)';
-  });
-  el.style.background = color + '22';
-  el.style.borderColor = color + '55';
-  el.querySelector('input').checked = true;
-}
-
-// ── Sauvegarde ────────────────────────────────────────────────────────────────
-async function _saveFormation(role) {
-  if (!currentProfile || !currentProfile.org_id) { showToast('❌ Session expirée', 'error'); return; }
-
-  var typeEl  = document.querySelector('[name="form_type"]:checked');
-  var intitul = (document.getElementById('formIntitule')?.value || '').trim();
-  var dateDeb = document.getElementById('formDateDebut')?.value;
-
-  if (!typeEl || !intitul || !dateDeb) {
-    showToast('⚠️ Type, intitulé et date de début sont obligatoires', 'error'); return;
-  }
-
-  var userId  = currentProfile.id || (typeof currentUser !== 'undefined' && currentUser ? currentUser.id : null);
-
-  var payload = {
-    org_id          : currentProfile.org_id,
-    created_by      : userId,
-    type            : typeEl.value,
-    intitule        : intitul,
-    organisme       : (document.getElementById('formOrganisme')?.value || '').trim() || null,
-    lieu            : (document.getElementById('formLieu')?.value      || '').trim() || null,
-    date_debut      : dateDeb,
-    date_fin        : document.getElementById('formDateFin')?.value    || null,
-    date_expiration : document.getElementById('formDateExp')?.value    || null,
-    duree_heures    : parseInt(document.getElementById('formDuree')?.value  || '0') || null,
-    cout_total      : parseFloat(document.getElementById('formCout')?.value || '0') || null,
-    notes           : (document.getElementById('formNotes')?.value || '').trim() || null,
-    status          : document.getElementById('formStatus')?.value || 'planifiee'
-  };
-
-  var res, formId;
-  if (_formEditId) {
-    payload.updated_at = new Date().toISOString();
-    res = await sb.from('formations').update(payload).eq('id', _formEditId);
-    if (res.error) { showToast('❌ ' + res.error.message, 'error'); return; }
-    formId = _formEditId;
+function _frmParticipantsSection(formationId, role) {
+  var parts = _frmParticipants.filter(function(p){ return p.formation_id === formationId; });
+  var html = '<div style="margin-bottom:18px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+  html += '<div style="font-size:13px;font-weight:700">👥 Participants (' + parts.length + ')</div>';
+  html += '<button onclick="openAddParticipantModal(\'' + formationId + '\',\'' + role + '\')" style="padding:4px 11px;background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.2);border-radius:7px;color:#818CF8;font-size:11px;font-weight:700;cursor:pointer">➕ Ajouter</button>';
+  html += '</div>';
+  if (!parts.length) {
+    html += '<div style="padding:12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:8px;text-align:center;color:var(--muted);font-size:12px">Aucun participant</div>';
   } else {
-    res = await sb.from('formations').insert(payload).select('id').single();
-    if (res.error) { showToast('❌ ' + res.error.message, 'error'); return; }
-    formId = res.data.id;
+    html += '<div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:10px;overflow:hidden">';
+    parts.forEach(function(p, i) {
+      var r = FRM_RESULT.find(function(r){ return r.id === p.result; });
+      html += '<div style="padding:9px 13px;display:flex;align-items:center;gap:10px' + (i > 0 ? ';border-top:1px solid rgba(255,255,255,.04)' : '') + '">';
+      html += '<div style="flex:1;font-size:13px;font-weight:600">' + _esc(p.nom_externe || '—') + '</div>';
+      if (p.poste) html += '<span style="font-size:11px;color:var(--muted)">' + _esc(p.poste) + '</span>';
+      if (r) html += '<span style="padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700;background:' + r.color + '22;color:' + r.color + '">' + r.label + '</span>';
+      if (p.attestation_url) html += '<a href="' + _esc(p.attestation_url) + '" target="_blank" style="padding:2px 7px;background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.2);border-radius:5px;color:#4ADE80;font-size:11px;text-decoration:none">📄</a>';
+      html += '<select onchange="updateParticipantResult(\'' + p.id + '\',this.value,\'' + role + '\')" style="padding:3px 7px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:5px;color:var(--text);font-size:11px">';
+      FRM_RESULT.forEach(function(r2){ html += '<option value="' + r2.id + '"' + (p.result===r2.id?' selected':'') + '>' + r2.label + '</option>'; });
+      html += '</select>';
+      html += '<button onclick="removeParticipant(\'' + p.id + '\',\'' + formationId + '\',\'' + role + '\')" style="padding:2px 7px;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.15);border-radius:5px;color:#EF4444;font-size:11px;cursor:pointer">✕</button>';
+      html += '</div>';
+    });
+    html += '</div>';
   }
+  html += '</div>';
+  return html;
+}
 
-  // Participants
-  var partText = (document.getElementById('formParticipants')?.value || '').trim();
-  if (partText) {
-    var noms = partText.split('\n').map(function(s) { return s.trim(); }).filter(Boolean);
-    if (noms.length > 0) {
-      if (_formEditId) await sb.from('formation_participants').delete().eq('formation_id', formId);
-      var inserts = noms.map(function(nom) {
-        return { formation_id: formId, org_id: currentProfile.org_id, nom_participant: nom, status: 'inscrit', result: 'en_attente' };
-      });
-      var pRes = await sb.from('formation_participants').insert(inserts);
-      if (pRes.error) console.warn('[Formations] participants:', pRes.error);
+// ── Habilitations ─────────────────────────────────────────────────────────────
+function _frmRenderHabilitations(role) {
+  var personMap = {};
+  _frmParticipants.forEach(function(p) {
+    var name = p.nom_externe || 'Inconnu';
+    if (!personMap[name]) personMap[name] = [];
+    var frm = _frmList.find(function(f){ return f.id === p.formation_id; });
+    if (!frm) return;
+    var expDate = null, daysLeft = null;
+    if (frm.echeance_mois && frm.date_fin) {
+      expDate = new Date(frm.date_fin); expDate.setMonth(expDate.getMonth() + parseInt(frm.echeance_mois));
+      daysLeft = Math.round((expDate - new Date()) / 86400000);
     }
-  }
+    personMap[name].push({ frm: frm, result: p.result, expDate: expDate, daysLeft: daysLeft, attestation: p.attestation_url });
+  });
 
-  showToast(_formEditId ? '✅ Formation mise à jour' : '🎓 Formation créée', 'success');
-  _formView = 'liste'; _formEditId = null;
-  loadFormations(role);
+  var names = Object.keys(personMap).sort();
+  if (!names.length) return _frmEmpty('🏅', 'Aucune habilitation — ajoutez des participants aux formations');
+
+  var expired = 0, expiring = 0;
+  names.forEach(function(n){ personMap[n].forEach(function(h){ if (h.daysLeft !== null){ if (h.daysLeft < 0) expired++; else if (h.daysLeft < 60) expiring++; } }); });
+
+  var html = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px">';
+  html += _frmKpi('🏅', names.length, 'Personnes', '#818CF8', role);
+  html += _frmKpi('⚠️', expiring, 'Expirent <60j', '#F97316', role);
+  html += _frmKpi('🔴', expired, 'Expirées', '#EF4444', role);
+  html += '</div>';
+
+  html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+  html += '<thead><tr style="border-bottom:1px solid rgba(255,255,255,.08)">';
+  ['Personne','Formation','Résultat','Expiration','Attestation'].forEach(function(h){
+    html += '<th style="padding:9px 11px;text-align:left;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">' + h + '</th>';
+  });
+  html += '</tr></thead><tbody>';
+
+  names.forEach(function(name) {
+    personMap[name].forEach(function(h, idx) {
+      var res  = FRM_RESULT.find(function(r){ return r.id === h.result; });
+      var type = FRM_TYPES.find(function(t){ return t.id === h.frm.type; }) || FRM_TYPES[FRM_TYPES.length-1];
+      var expStr = '—', expColor = 'var(--muted)';
+      if (h.expDate) {
+        expStr = h.expDate.toLocaleDateString('fr-FR', {day:'2-digit',month:'short',year:'numeric'});
+        expColor = h.daysLeft < 0 ? '#EF4444' : h.daysLeft < 60 ? '#F97316' : '#4ADE80';
+      }
+      html += '<tr style="border-bottom:1px solid rgba(255,255,255,.04)">';
+      if (idx === 0) {
+        html += '<td rowspan="' + personMap[name].length + '" style="padding:9px 11px;font-weight:700;vertical-align:top;border-right:1px solid rgba(255,255,255,.05)">'
+          + '<div style="display:inline-flex;align-items:center;gap:7px"><div style="width:26px;height:26px;border-radius:50%;background:rgba(129,140,248,.2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#818CF8">'
+          + name.charAt(0).toUpperCase() + '</div>' + _esc(name) + '</div></td>';
+      }
+      html += '<td style="padding:9px 11px"><span style="padding:2px 7px;border-radius:5px;background:' + type.color + '18;color:' + type.color + ';font-size:11px">' + type.icon + ' ' + _esc(h.frm.intitule) + '</span></td>';
+      html += '<td style="padding:9px 11px">' + (res ? '<span style="padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700;background:' + res.color + '22;color:' + res.color + '">' + res.label + '</span>' : '—') + '</td>';
+      html += '<td style="padding:9px 11px;color:' + expColor + ';font-weight:' + (h.daysLeft !== null && h.daysLeft < 60 ? '700' : '400') + '">' + expStr + (h.daysLeft !== null && h.daysLeft < 0 ? ' ⚠' : '') + '</td>';
+      html += '<td style="padding:9px 11px">' + (h.attestation ? '<a href="' + _esc(h.attestation) + '" target="_blank" style="color:#818CF8;font-size:11px">📄 Voir</a>' : '<span style="color:var(--muted)">—</span>') + '</td>';
+      html += '</tr>';
+    });
+  });
+  html += '</tbody></table></div>';
+  return html;
 }
 
-async function _deleteFormation(id, role) {
-  if (!confirm('Supprimer cette formation et tous ses participants ?')) return;
-  var res = await sb.from('formations').delete().eq('id', id);
-  if (res.error) { showToast('❌ ' + res.error.message, 'error'); return; }
-  showToast('🗑 Formation supprimée', 'success');
-  _formView = 'liste'; _formEditId = null;
-  loadFormations(role);
-}
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function _frmRenderStats(role) {
+  var total     = _frmList.length;
+  var terminees = _frmList.filter(function(f){ return f.status === 'terminee'; }).length;
+  var planif    = _frmList.filter(function(f){ return f.status === 'planifiee'; }).length;
+  var nbParts   = _frmParticipants.length;
+  var reussis   = _frmParticipants.filter(function(p){ return p.result === 'reussi'; }).length;
+  var taux      = nbParts > 0 ? Math.round(reussis / nbParts * 100) : 0;
+  var heures    = _frmList.reduce(function(s, f){ return s + (parseFloat(f.duree_heures) || 0); }, 0);
 
-// ── Détail ────────────────────────────────────────────────────────────────────
-function renderFormationDetail(f, role) {
-  var T = FORM_TYPES.find(function(t) { return t.id === f.type; }) || FORM_TYPES[FORM_TYPES.length - 1];
-  var S = FORM_STATUS.find(function(s) { return s.id === f.status; }) || FORM_STATUS[0];
-  var parts = _formParticipants.filter(function(p) { return p.formation_id === f.id; });
-
-  var html = '<div style="max-width:700px">';
-  html += '<button onclick="_formView=\'liste\';renderFormations(\'' + role + '\')" '
-    + 'style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);'
-    + 'border-radius:8px;padding:7px 14px;color:var(--muted);font-size:12px;cursor:pointer;margin-bottom:20px">← Retour</button>';
-
-  html += '<div style="background:linear-gradient(135deg,rgba(52,211,153,.06),rgba(96,165,250,.03));'
-    + 'border:1px solid rgba(52,211,153,.15);border-radius:20px;padding:28px;margin-bottom:20px">';
-  html += '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">';
-  html += '<div>'
-    + '<div style="font-size:28px;margin-bottom:8px">' + T.icon + '</div>'
-    + '<div style="font-size:20px;font-weight:800;color:var(--text);margin-bottom:8px">' + _esc(f.intitule || '—') + '</div>'
-    + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-    + '<span style="padding:4px 12px;border-radius:8px;font-size:12px;font-weight:700;background:' + T.color + '22;color:' + T.color + '">' + T.label + '</span>'
-    + '<span style="padding:4px 12px;border-radius:8px;font-size:12px;font-weight:700;background:' + S.color + '22;color:' + S.color + '">' + S.label + '</span>'
-    + '</div></div>';
-  html += '<button onclick="_formView=\'saisie\';_formEditId=\'' + f.id + '\';renderFormations(\'' + role + '\')" '
-    + 'style="padding:8px 16px;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.25);border-radius:8px;color:#34D399;font-size:12px;font-weight:700;cursor:pointer">✏️ Modifier</button>';
-  html += '</div></div>';
-
-  // Infos
-  var rows = [
-    ['Organisme', f.organisme], ['Lieu', f.lieu],
-    ['Date de début', f.date_debut ? new Date(f.date_debut).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : null],
-    ['Date de fin',   f.date_fin   ? new Date(f.date_fin).toLocaleDateString('fr-FR',   { day: 'numeric', month: 'long', year: 'numeric' }) : null],
-    ['Expiration',    f.date_expiration ? new Date(f.date_expiration).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : null],
-    ['Durée', f.duree_heures ? f.duree_heures + ' heures' : null],
-    ['Coût total', f.cout_total ? f.cout_total + ' €' : null],
-    ['Notes', f.notes]
-  ];
-
-  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">';
-  rows.forEach(function(r) {
-    if (!r[1]) return;
-    html += '<div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:12px 14px">'
-      + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:4px">' + r[0] + '</div>'
-      + '<div style="font-size:13px;color:var(--text)">' + _esc(String(r[1])) + '</div>'
+  var html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:22px">';
+  [
+    { v: total,      l: 'Formations',      i: '🎓', c: '#818CF8' },
+    { v: terminees,  l: 'Terminées',       i: '✅', c: '#4ADE80' },
+    { v: planif,     l: 'Planifiées',      i: '📅', c: '#60A5FA' },
+    { v: nbParts,    l: 'Participants',    i: '👥', c: '#A78BFA' },
+    { v: taux + '%', l: 'Taux réussite',   i: '🏅', c: '#FCD34D' },
+    { v: heures+'h', l: 'Heures',          i: '⏱', c: '#F97316' }
+  ].forEach(function(k) {
+    html += '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:13px;padding:14px;text-align:center">'
+      + '<div style="font-size:20px;margin-bottom:3px">' + k.i + '</div>'
+      + '<div style="font-size:24px;font-weight:900;color:' + k.c + '">' + k.v + '</div>'
+      + '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-top:2px">' + k.l + '</div>'
       + '</div>';
   });
   html += '</div>';
 
-  // Participants
-  html += '<div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:20px">';
-  html += '<div style="font-size:14px;font-weight:700;margin-bottom:14px">👥 Participants (' + parts.length + ')</div>';
-  if (parts.length === 0) {
-    html += '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Aucun participant</div>';
-  } else {
-    html += '<table style="width:100%;border-collapse:collapse;font-size:13px">';
-    html += '<thead><tr style="border-bottom:1px solid rgba(255,255,255,.08)">';
-    ['Participant', 'Statut', 'Résultat'].forEach(function(h) {
-      html += '<th style="padding:8px 10px;text-align:left;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)">' + h + '</th>';
-    });
-    html += '</tr></thead><tbody>';
-    parts.forEach(function(p) {
-      var R = FORM_RESULTS.find(function(r) { return r.id === p.result; });
-      html += '<tr style="border-bottom:1px solid rgba(255,255,255,.04)">'
-        + '<td style="padding:9px 10px;font-weight:600">' + _esc(p.nom_participant || '—') + '</td>'
-        + '<td style="padding:9px 10px"><span style="font-size:11px;background:rgba(255,255,255,.06);padding:2px 8px;border-radius:5px">' + (p.status || '—') + '</span></td>'
-        + '<td style="padding:9px 10px">'
-        + '<select onchange="_updatePartResult(\'' + p.id + '\',this.value)" '
-        + 'style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:3px 8px;'
-        + 'color:' + (R ? R.color : 'var(--text)') + ';font-size:11px;font-weight:700">'
-        + FORM_RESULTS.map(function(r) { return '<option value="' + r.id + '"' + (p.result === r.id ? ' selected' : '') + '>' + r.label + '</option>'; }).join('')
-        + '</select></td></tr>';
-    });
-    html += '</tbody></table>';
-  }
+  // Graphe
+  html += '<div style="background:linear-gradient(135deg,rgba(13,27,42,.95),rgba(15,23,42,.98));border:1px solid rgba(129,140,248,.15);border-radius:18px;overflow:hidden;margin-bottom:18px">';
+  html += '<div style="padding:18px 22px 10px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:2px"><div style="width:3px;height:18px;background:linear-gradient(#818CF8,#6366F1);border-radius:2px"></div><span style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#818CF8">Activité</span></div><div style="font-size:18px;font-weight:900;color:#fff">Formations sur 12 mois</div></div>';
+  html += '<div style="padding:0 22px 8px"><canvas id="frmChartMonths" height="130" style="width:100%;display:block"></canvas></div>';
+  html += '<div style="padding:0 22px 16px;display:flex;gap:14px">';
+  html += '<div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:3px;background:#818CF8;border-radius:2px"></div><span style="font-size:10px;color:#64748B">Formations</span></div>';
+  html += '<div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:3px;background:#60A5FA;border-radius:2px"></div><span style="font-size:10px;color:#64748B">Participants</span></div>';
+  html += '</div></div>';
+
+  // Répartition
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">';
+  html += '<div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:16px"><div style="font-size:13px;font-weight:700;margin-bottom:10px">📊 Par type</div>';
+  FRM_TYPES.forEach(function(t) {
+    var nb = _frmList.filter(function(f){ return f.type === t.id; }).length;
+    var pct = total > 0 ? Math.round(nb / total * 100) : 0;
+    if (!nb) return;
+    html += '<div style="margin-bottom:7px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>' + t.icon + ' ' + t.label + '</span><span style="color:var(--muted)">' + nb + '</span></div>';
+    html += '<div style="height:4px;background:rgba(255,255,255,.05);border-radius:2px"><div style="height:100%;width:' + pct + '%;background:' + t.color + ';border-radius:2px"></div></div></div>';
+  });
+  html += '</div>';
+  html += '<div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:16px"><div style="font-size:13px;font-weight:700;margin-bottom:10px">🏅 Résultats</div>';
+  FRM_RESULT.forEach(function(r) {
+    var nb = _frmParticipants.filter(function(p){ return p.result === r.id; }).length;
+    var pct = nbParts > 0 ? Math.round(nb / nbParts * 100) : 0;
+    if (!nb) return;
+    html += '<div style="margin-bottom:7px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:' + r.color + ';font-weight:700">' + r.label + '</span><span style="color:var(--muted)">' + nb + '</span></div>';
+    html += '<div style="height:4px;background:rgba(255,255,255,.05);border-radius:2px"><div style="height:100%;width:' + pct + '%;background:' + r.color + ';border-radius:2px"></div></div></div>';
+  });
   html += '</div></div>';
   return html;
 }
 
-async function _updatePartResult(partId, result) {
-  var res = await sb.from('formation_participants').update({ result: result }).eq('id', partId);
+// ── Canvas ────────────────────────────────────────────────────────────────────
+function _drawFrmChart() {
+  var canvas = document.getElementById('frmChartMonths');
+  if (!canvas || canvas.offsetWidth === 0) { setTimeout(_drawFrmChart, 60); return; }
+  var now = new Date(), months = [];
+  for (var m = 11; m >= 0; m--) {
+    var d = new Date(now.getFullYear(), now.getMonth() - m, 1);
+    months.push({ key: d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'), label: d.toLocaleDateString('fr-FR',{month:'short'}), f: 0, p: 0 });
+  }
+  _frmList.forEach(function(f) {
+    var b = months.find(function(m){ return m.key === (f.date_debut||'').slice(0,7); });
+    if (b) b.f++;
+  });
+  _frmParticipants.forEach(function(p) {
+    var frm = _frmList.find(function(f){ return f.id === p.formation_id; });
+    if (!frm) return;
+    var b = months.find(function(m){ return m.key === (frm.date_debut||'').slice(0,7); });
+    if (b) b.p++;
+  });
+  var maxVal = Math.max.apply(null, months.map(function(m){ return Math.max(m.f, m.p); }).concat([1]));
+  var dpr = window.devicePixelRatio || 1, W = canvas.offsetWidth, H = 130;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  var ctx = canvas.getContext('2d'); ctx.scale(dpr, dpr);
+  var pad = { l:24,r:10,t:10,b:24 }, gw = W-pad.l-pad.r, gh = H-pad.t-pad.b, n = months.length;
+  ctx.strokeStyle = 'rgba(255,255,255,.04)'; ctx.lineWidth = 1;
+  for (var yv = 0; yv <= maxVal; yv += Math.max(1,Math.ceil(maxVal/4))) {
+    var y = pad.t + gh*(1-yv/maxVal);
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+gw,y); ctx.stroke();
+    ctx.fillStyle='#475569'; ctx.font='9px sans-serif'; ctx.textAlign='right';
+    ctx.fillText(yv, pad.l-3, y+3);
+  }
+  var bw = gw/n*0.28;
+  months.forEach(function(m,i) {
+    var x0 = pad.l + i*gw/n + gw/n*0.1;
+    if (m.f > 0) {
+      var yf = pad.t+gh*(1-m.f/maxVal), g1=ctx.createLinearGradient(0,pad.t,0,pad.t+gh);
+      g1.addColorStop(0,'rgba(129,140,248,.9)'); g1.addColorStop(1,'rgba(129,140,248,.1)');
+      ctx.fillStyle=g1; ctx.beginPath(); ctx.roundRect(x0,yf,bw,gh-(yf-pad.t),2); ctx.fill();
+    }
+    if (m.p > 0) {
+      var yp = pad.t+gh*(1-m.p/maxVal), g2=ctx.createLinearGradient(0,pad.t,0,pad.t+gh);
+      g2.addColorStop(0,'rgba(96,165,250,.9)'); g2.addColorStop(1,'rgba(96,165,250,.1)');
+      ctx.fillStyle=g2; ctx.beginPath(); ctx.roundRect(x0+bw+2,yp,bw,gh-(yp-pad.t),2); ctx.fill();
+    }
+    ctx.fillStyle='#475569'; ctx.font='9px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(m.label, x0+bw, H-5);
+  });
+}
+
+// ── Sauvegarde ────────────────────────────────────────────────────────────────
+async function _saveFrm(role, editId) {
+  if (!currentProfile || !currentProfile.org_id) { showToast('❌ Session expirée', 'error'); return; }
+  var intitule  = document.getElementById('frmIntitule')?.value?.trim();
+  var type      = document.getElementById('frmType')?.value;
+  var dateDebut = document.getElementById('frmDateDebut')?.value;
+  if (!intitule || !type || !dateDebut) { showToast('⚠️ Intitulé, type et date début sont obligatoires', 'error'); return; }
+
+  var echeance = document.getElementById('frmEcheance')?.value;
+  var payload = {
+    org_id        : currentProfile.org_id,
+    created_by    : currentProfile.id,
+    intitule      : intitule,
+    type          : type,
+    status        : document.getElementById('frmStatus')?.value || 'planifiee',
+    date_debut    : dateDebut,
+    date_fin      : document.getElementById('frmDateFin')?.value || null,
+    duree_heures  : parseFloat(document.getElementById('frmDuree')?.value) || null,
+    echeance_mois : echeance ? parseInt(echeance) : null,
+    organisme     : document.getElementById('frmOrganisme')?.value?.trim() || null,
+    lieu          : document.getElementById('frmLieu')?.value?.trim() || null,
+    numero_certif : document.getElementById('frmCertif')?.value?.trim() || null,
+    description   : document.getElementById('frmDesc')?.value?.trim() || null
+  };
+
+  var res = editId
+    ? await sb.from('formations').update(payload).eq('id', editId)
+    : await sb.from('formations').insert(payload);
+
   if (res.error) { showToast('❌ ' + res.error.message, 'error'); return; }
-  var p = _formParticipants.find(function(x) { return x.id === partId; });
-  if (p) p.result = result;
-  showToast('✅ Résultat mis à jour', 'success');
+  showToast(editId ? '✅ Formation modifiée' : '🎓 Formation créée', 'success');
+  _frmSubView = 'catalogue'; _frmEditId = null;
+  loadFormations(role);
+}
+
+// ── Participants ──────────────────────────────────────────────────────────────
+function openAddParticipantModal(formationId, role) {
+  var modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = '<div style="background:var(--bg);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:26px;width:100%;max-width:460px">'
+    + '<div style="font-size:16px;font-weight:800;margin-bottom:18px">👥 Ajouter un participant</div>'
+    + '<div style="margin-bottom:11px"><label style="' + _frmLbl() + '">Nom complet *</label><input type="text" id="partNom" placeholder="Prénom NOM" style="' + _frmInp() + '"></div>'
+    + '<div style="margin-bottom:11px"><label style="' + _frmLbl() + '">Poste</label><input type="text" id="partPoste" placeholder="Ex : Technicien…" style="' + _frmInp() + '"></div>'
+    + '<div style="margin-bottom:11px"><label style="' + _frmLbl() + '">Résultat</label><select id="partResult" style="' + _frmInp() + '">'
+    + FRM_RESULT.map(function(r){ return '<option value="' + r.id + '">' + r.label + '</option>'; }).join('') + '</select></div>'
+    + '<div style="margin-bottom:18px"><label style="' + _frmLbl() + '">URL Attestation</label><input type="url" id="partAttestation" placeholder="https://…" style="' + _frmInp() + '"></div>'
+    + '<div style="display:flex;gap:10px">'
+    + '<button onclick="saveParticipant(\'' + formationId + '\',\'' + role + '\',this.closest(\'[style*=fixed]\')" style="flex:1;padding:9px;background:rgba(129,140,248,.15);border:1px solid rgba(129,140,248,.3);border-radius:9px;color:#818CF8;font-weight:700;cursor:pointer">Ajouter</button>'
+    + '<button onclick="this.closest(\'[style*=fixed]\').remove()" style="padding:9px 14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:var(--muted);cursor:pointer">Annuler</button>'
+    + '</div></div>';
+  document.body.appendChild(modal);
+  modal.addEventListener('click', function(e){ if (e.target===modal) modal.remove(); });
+}
+
+async function saveParticipant(formationId, role, modal) {
+  var nom = document.getElementById('partNom')?.value?.trim();
+  if (!nom) { showToast('⚠️ Nom obligatoire', 'error'); return; }
+  var res = await sb.from('formation_participants').insert({
+    formation_id   : formationId,
+    org_id         : currentProfile.org_id,
+    nom_externe    : nom,
+    poste          : document.getElementById('partPoste')?.value?.trim() || null,
+    result         : document.getElementById('partResult')?.value || 'en_attente',
+    attestation_url: document.getElementById('partAttestation')?.value?.trim() || null,
+    created_by     : currentProfile.id
+  });
+  if (res.error) { showToast('❌ ' + res.error.message, 'error'); return; }
+  if (modal) modal.remove();
+  showToast('✅ Participant ajouté', 'success');
+  loadFormations(role);
+}
+
+async function updateParticipantResult(partId, newResult, role) {
+  var res = await sb.from('formation_participants').update({ result: newResult }).eq('id', partId);
+  if (res.error) { showToast('❌ ' + res.error.message, 'error'); return; }
+  loadFormations(role);
+}
+
+async function removeParticipant(partId, formationId, role) {
+  if (!confirm('Retirer ce participant ?')) return;
+  var res = await sb.from('formation_participants').delete().eq('id', partId);
+  if (res.error) { showToast('❌ ' + res.error.message, 'error'); return; }
+  showToast('✅ Retiré', 'success');
+  loadFormations(role);
+}
+
+// ── Détail ────────────────────────────────────────────────────────────────────
+function openFrmDetail(frmId, role) {
+  var frm = _frmList.find(function(f){ return f.id === frmId; });
+  if (!frm) return;
+  var type   = FRM_TYPES.find(function(t){ return t.id === frm.type; }) || FRM_TYPES[FRM_TYPES.length-1];
+  var status = FRM_STATUS.find(function(s){ return s.id === frm.status; }) || FRM_STATUS[0];
+  var parts  = _frmParticipants.filter(function(p){ return p.formation_id === frmId; });
+
+  var modal = document.createElement('div');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto';
+
+  var html = '<div style="background:var(--bg);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:26px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">';
+  html += '<div><div style="font-size:17px;font-weight:800">' + type.icon + ' ' + _esc(frm.intitule) + '</div>';
+  html += '<div style="font-size:12px;color:var(--muted);margin-top:2px">' + (frm.date_debut ? new Date(frm.date_debut).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}) : '—') + '</div></div>';
+  html += '<button onclick="this.closest(\'[style*=fixed]\').remove()" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:5px 11px;cursor:pointer;color:var(--muted)">✕</button></div>';
+
+  html += '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px">';
+  html += '<span style="padding:3px 10px;border-radius:7px;font-size:12px;font-weight:700;background:' + type.color + '22;color:' + type.color + '">' + type.icon + ' ' + type.label + '</span>';
+  html += '<span style="padding:3px 10px;border-radius:7px;font-size:12px;font-weight:700;background:' + status.color + '22;color:' + status.color + '">' + status.label + '</span>';
+  if (frm.duree_heures) html += '<span style="padding:3px 10px;border-radius:7px;font-size:12px;background:rgba(255,255,255,.06);color:var(--muted)">⏱ ' + frm.duree_heures + 'h</span>';
+  if (frm.echeance_mois) html += '<span style="padding:3px 10px;border-radius:7px;font-size:12px;background:rgba(255,255,255,.06);color:var(--muted)">📅 ' + frm.echeance_mois + ' mois</span>';
+  html += '</div>';
+
+  [['Organisme', frm.organisme], ['Lieu', frm.lieu], ['Numéro certif.', frm.numero_certif], ['Description', frm.description]].forEach(function(r) {
+    if (!r[1]) return;
+    html += '<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:3px">' + r[0] + '</div>';
+    html += '<div style="font-size:13px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:7px;padding:9px 11px">' + _esc(r[1]) + '</div></div>';
+  });
+
+  html += '<div style="margin-top:14px"><div style="font-size:13px;font-weight:700;margin-bottom:8px">👥 Participants (' + parts.length + ')</div>';
+  if (!parts.length) {
+    html += '<div style="font-size:12px;color:var(--muted)">Aucun participant</div>';
+  } else {
+    parts.forEach(function(p) {
+      var r = FRM_RESULT.find(function(x){ return x.id === p.result; });
+      html += '<div style="display:flex;align-items:center;gap:8px;padding:7px 11px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:7px;margin-bottom:5px">';
+      html += '<span style="flex:1;font-size:13px;font-weight:600">' + _esc(p.nom_externe || '—') + '</span>';
+      if (p.poste) html += '<span style="font-size:11px;color:var(--muted)">' + _esc(p.poste) + '</span>';
+      if (r) html += '<span style="padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700;background:' + r.color + '22;color:' + r.color + '">' + r.label + '</span>';
+      html += '</div>';
+    });
+  }
+  html += '</div>';
+
+  html += '<div style="margin-top:14px"><button onclick="this.closest(\'[style*=fixed]\').remove();openFrmEdit(\'' + frmId + '\',\'' + role + '\')" style="padding:7px 16px;background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.2);border-radius:7px;color:#818CF8;font-size:12px;font-weight:700;cursor:pointer">✏️ Modifier</button></div>';
+  html += '</div>';
+
+  modal.innerHTML = html;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', function(e){ if (e.target===modal) modal.remove(); });
+}
+
+function openFrmEdit(frmId, role) {
+  var frm = _frmList.find(function(f){ return f.id === frmId; });
+  if (!frm) return;
+  _frmSubView = 'nouvelle'; _frmEditId = frmId;
+  renderFormations(role);
+}
+
+// ── Filtre ────────────────────────────────────────────────────────────────────
+function filterFormations(role) {
+  var type   = document.getElementById('frmFType')?.value;
+  var status = document.getElementById('frmFStatus')?.value;
+  var month  = document.getElementById('frmFMonth')?.value;
+  var list   = _frmList.filter(function(f) {
+    if (type   && f.type !== type)   return false;
+    if (status && f.status !== status) return false;
+    if (month  && !(f.date_debut||'').startsWith(month)) return false;
+    return true;
+  });
+  var el = document.getElementById('frmTable');
+  if (el) el.innerHTML = _frmBuildTable(list, role);
 }
 
 // ── Export CSV ────────────────────────────────────────────────────────────────
-function _exportFormationsCSV() {
-  var cols = ['Type', 'Intitulé', 'Organisme', 'Lieu', 'Date début', 'Date fin', 'Expiration', 'Durée (h)', 'Coût (€)', 'Statut', 'Nb participants', 'Notes'];
-  var rows = _formations.map(function(f) {
-    var T  = FORM_TYPES.find(function(t) { return t.id === f.type; });
-    var S  = FORM_STATUS.find(function(s) { return s.id === f.status; });
-    var nb = _formParticipants.filter(function(p) { return p.formation_id === f.id; }).length;
-    var e  = function(v) { var s = String(v || ''); return /[,"\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-    return [
-      e(T ? T.label : f.type), e(f.intitule), e(f.organisme), e(f.lieu),
-      e(f.date_debut        ? new Date(f.date_debut).toLocaleDateString('fr-FR')        : ''),
-      e(f.date_fin          ? new Date(f.date_fin).toLocaleDateString('fr-FR')          : ''),
-      e(f.date_expiration   ? new Date(f.date_expiration).toLocaleDateString('fr-FR')   : ''),
-      e(f.duree_heures || ''), e(f.cout_total || ''),
-      e(S ? S.label : f.status), e(nb), e(f.notes)
-    ].join(',');
+function exportFormationsCSV(role) {
+  var H = ['Intitulé','Type','Statut','Date début','Date fin','Durée(h)','Organisme','Lieu','Validité(mois)','Participants'];
+  var rows = _frmList.map(function(f) {
+    var t = FRM_TYPES.find(function(x){ return x.id===f.type; });
+    var s = FRM_STATUS.find(function(x){ return x.id===f.status; });
+    var n = _frmParticipants.filter(function(p){ return p.formation_id===f.id; }).length;
+    var e = function(v){ return '"'+(v||'').toString().replace(/"/g,'""')+'"'; };
+    return [e(f.intitule),e(t?t.label:f.type),e(s?s.label:f.status),e((f.date_debut||'').slice(0,10)),e((f.date_fin||'').slice(0,10)),e(f.duree_heures),e(f.organisme),e(f.lieu),e(f.echeance_mois),e(n)].join(',');
   });
-  var csv  = [cols.join(',')].concat(rows).join('\n');
-  var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-  var url  = URL.createObjectURL(blob);
-  var a    = document.createElement('a');
-  a.href = url; a.download = 'formations_' + new Date().toISOString().slice(0, 10) + '.csv';
-  a.click(); URL.revokeObjectURL(url);
-  showToast('📥 Export CSV téléchargé', 'success');
+  var csv = '\uFEFF' + H.join(',') + '\n' + rows.join('\n');
+  var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  a.download = 'formations_' + new Date().toISOString().slice(0,10) + '.csv'; a.click();
+  showToast('⬇ Export CSV', 'success');
+}
+
+// ── KPI dashboard ─────────────────────────────────────────────────────────────
+async function loadFormationsDashKPI(containerId) {
+  var c = document.getElementById(containerId);
+  if (!c || !currentProfile || !currentProfile.org_id) return;
+  try {
+    var [fr, pr] = await Promise.all([
+      sb.from('formations').select('id,status,echeance_mois,date_fin').eq('org_id', currentProfile.org_id),
+      sb.from('formation_participants').select('id,result').eq('org_id', currentProfile.org_id)
+    ]);
+    var frms = fr.data||[], parts = pr.data||[];
+    var planif = frms.filter(function(f){ return f.status==='planifiee'; }).length;
+    var exp = 0; var now = new Date();
+    frms.forEach(function(f) {
+      if (!f.echeance_mois||!f.date_fin) return;
+      var d = new Date(f.date_fin); d.setMonth(d.getMonth()+parseInt(f.echeance_mois));
+      var days = Math.round((d-now)/86400000);
+      if (days >= 0 && days < 60) exp++;
+    });
+    c.innerHTML = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">'
+      + _frmKpi('🎓', frms.length, 'Formations', '#818CF8', null)
+      + _frmKpi('📅', planif, 'Planifiées', '#60A5FA', null)
+      + _frmKpi('⚠️', exp, 'Expirent bientôt', '#F97316', null)
+      + '</div>';
+  } catch(e) { c.innerHTML = ''; }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function _formLabelStyle() {
-  return 'font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);display:block;margin-bottom:6px';
-}
-function _formInputStyle() {
-  return 'width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:inherit;outline:none;';
-}
-function _formEmptyState(icon, text) {
-  return '<div class="empty-state"><div class="empty-state-icon">' + icon + '</div><div class="empty-state-text">' + text + '</div></div>';
-}
-function _esc(s) {
-  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+function _frmExpirantsCount() {
+  var now = new Date(), n = 0;
+  _frmList.forEach(function(f) {
+    if (!f.echeance_mois||!f.date_fin) return;
+    var exp = new Date(f.date_fin); exp.setMonth(exp.getMonth()+parseInt(f.echeance_mois));
+    var d = Math.round((exp-now)/86400000);
+    if (d>=0 && d<60) n++;
+  });
+  return n;
 }
 
-// ── Boot ──────────────────────────────────────────────────────────────────────
+function _frmKpi(icon, val, label, color, role) {
+  var onclick = role ? 'onclick="switchPage(\'' + (role==='hse'?'HSE':'Company') + '\',\'formations\',null);loadFormations(\'' + role + '\')"' : '';
+  return '<div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-left:3px solid ' + color + ';border-radius:10px;padding:12px;cursor:pointer" ' + onclick + '>'
+    + '<div style="font-size:18px">' + icon + '</div>'
+    + '<div style="font-size:22px;font-weight:900;color:' + color + ';margin:3px 0">' + val + '</div>'
+    + '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700">' + label + '</div>'
+    + '</div>';
+}
+
+function _frmGo(view, role) { _frmSubView = view; _frmEditId = null; renderFormations(role); }
+window._frmGo = _frmGo;
+
+function _frmNavBtn(view, label, role, badge) {
+  var active = _frmSubView === view;
+  return '<button onclick="_frmGo(\'' + view + '\',\'' + role + '\')" style="padding:7px 13px;font-size:12px;font-weight:700;border-radius:8px;cursor:pointer;background:' + (active?'rgba(129,140,248,.2)':'rgba(255,255,255,.04)') + ';border:1px solid ' + (active?'rgba(129,140,248,.4)':'rgba(255,255,255,.08)') + ';color:' + (active?'#818CF8':'var(--muted)') + '">'
+    + label + (badge ? ' <span style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:#F97316;color:#fff;font-size:9px;margin-left:3px">' + badge + '</span>' : '') + '</button>';
+}
+
+function _frmInp()  { return 'width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 11px;color:var(--text);font-size:13px;font-family:inherit;outline:none;'; }
+function _frmSel()  { return 'background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 10px;color:var(--text);font-size:12px;'; }
+function _frmLbl()  { return 'font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);display:block;margin-bottom:5px;'; }
+function _frmEmpty(icon, text) { return '<div class="empty-state"><div class="empty-state-icon">' + icon + '</div><div class="empty-state-text">' + text + '</div></div>'; }
+function _esc(v)    { return (v==null?'':String(v)).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
-  var _t = setInterval(function() {
+  var _w = setInterval(function() {
     if (typeof currentProfile !== 'undefined' && currentProfile && typeof sb !== 'undefined') {
-      clearInterval(_t);
-      checkFormationsActivation();
+      clearInterval(_w); checkFormationsActivation();
     }
   }, 300);
 });
+
+// ════════════════════════════════════════════════════════════════════════════
