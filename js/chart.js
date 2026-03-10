@@ -29,8 +29,81 @@
 
 var SSChart = (function() {
 
-  // ── Registre interne des instances ───────────────────────────
-  var _instances = {};
+  // ── Lire les tokens visuels du thème SafetySphere ─────────────
+  // Lit les CSS variables et classes actives pour harmoniser le graphe
+  // avec les réglages Éclairage / Police / Contraste de l'utilisateur
+  function _getTheme() {
+    var root   = document.documentElement;
+    var body   = document.body;
+    var styles = getComputedStyle(root);
+
+    var isLight = body.classList.contains('theme-light');
+
+    // Clarté (lisibilité) : clarity-1/2/3
+    var clarity = body.classList.contains('clarity-3') ? 3
+                : body.classList.contains('clarity-2') ? 2
+                : body.classList.contains('clarity-1') ? 1 : 0;
+
+    // Contraste global : contrast-high / contrast-max
+    var appEl = document.getElementById('appContent');
+    var contrastHigh = appEl && appEl.classList.contains('contrast-high');
+    var contrastMax  = appEl && appEl.classList.contains('contrast-max');
+
+    // Zoom UI
+    var zoom = parseFloat(styles.getPropertyValue('--ui-zoom') || '1') || 1;
+
+    // Couleurs réelles depuis les CSS variables
+    var textColor  = styles.getPropertyValue('--text').trim()  || (isLight ? '#0F172A' : '#FFFFFF');
+    var mutedColor = styles.getPropertyValue('--muted').trim() || (isLight ? '#64748B' : '#94A3B8');
+    var bgColor    = styles.getPropertyValue('--bg').trim()    || (isLight ? '#F1F5F9' : '#0D1B2A');
+    var orange     = styles.getPropertyValue('--orange').trim()|| '#F97316';
+
+    // Ajuster muted selon clarity
+    if (isLight) {
+      if (clarity === 1) mutedColor = '#475569';
+      if (clarity === 2) mutedColor = '#334155';
+      if (clarity === 3) mutedColor = '#0F172A';
+    } else {
+      if (clarity === 1) mutedColor = '#CBD5E0';
+      if (clarity === 2) mutedColor = '#E2E8F0';
+      if (clarity === 3) mutedColor = '#FFFFFF';
+    }
+
+    // Taille de police de base (via --ui-zoom ou font-size sur html)
+    var htmlFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    var baseFontSize = Math.round(htmlFontSize * zoom);
+    // Échelle pour le canvas : on normalise par rapport à 16px
+    var fontScale = Math.max(0.75, Math.min(1.4, baseFontSize / 16));
+
+    return {
+      isLight     : isLight,
+      clarity     : clarity,
+      contrastHigh: contrastHigh,
+      contrastMax : contrastMax,
+      zoom        : zoom,
+      fontScale   : fontScale,
+      text        : textColor,
+      muted       : mutedColor,
+      bg          : bgColor,
+      orange      : orange,
+      // Couleurs canvas calculées
+      gridLine    : isLight ? 'rgba(0,0,0,.08)'         : 'rgba(255,255,255,.05)',
+      baseline    : isLight ? 'rgba(0,0,0,.15)'         : 'rgba(255,255,255,.1)',
+      axisLabel   : mutedColor,
+      panelBg     : isLight ? 'rgba(248,250,252,.97)'  : 'rgba(13,27,42,.97)',
+      panelBorder : isLight ? 'rgba(249,115,22,.2)'    : 'rgba(249,115,22,.12)',
+      kpiBg       : isLight ? 'rgba(0,0,0,.03)'        : 'rgba(255,255,255,.02)',
+      kpiBorder   : isLight ? 'rgba(0,0,0,.07)'        : 'rgba(255,255,255,.05)',
+      kpiLabel    : isLight ? '#64748B'                : '#374151',
+      btnActive   : isLight ? 'rgba(249,115,22,.12)'   : 'rgba(249,115,22,.18)',
+      btnBg       : isLight ? 'rgba(0,0,0,.04)'        : 'rgba(255,255,255,.03)',
+      btnBorder   : isLight ? 'rgba(0,0,0,.1)'         : 'rgba(255,255,255,.07)',
+      btnInactive : isLight ? '#94A3B8'                : '#4B5563',
+      tooltipBg   : isLight ? 'rgba(15,23,42,.92)'     : 'rgba(8,16,28,.96)',
+      titleColor  : isLight ? '#0F172A'                : '#F1F5F9',
+      subtitleColor: isLight ? '#334155'               : '#F1F5F9'
+    };
+  }
 
   // ── Utilitaires ──────────────────────────────────────────────
   function _esc(s) {
@@ -80,6 +153,7 @@ var SSChart = (function() {
 
   // ── Rendu HTML du panel ───────────────────────────────────────
   function _buildHTML(containerId, visits, opts) {
+    var T = _getTheme();
     var period      = opts.period      || '7d';
     var type        = opts.type        || 'bar';
     var title       = opts.title       || 'Fréquentation';
@@ -115,17 +189,26 @@ var SSChart = (function() {
 
     var uid = 'ssc_' + containerId.replace(/[^a-z0-9]/gi, '') + '_' + Date.now();
 
+    // tokens thème pour injection dans canvas
     var chartData = {
       labels: labels, totals: totals, signed: signed, maxVal: maxVal,
-      type: type, uid: uid, period: days, accent: accent, signColor: signColor
+      type: type, uid: uid, period: days, accent: accent, signColor: signColor,
+      // Thème live — passé au canvas qui s'exécute après innerHTML
+      th: {
+        gridLine  : T.gridLine,
+        baseline  : T.baseline,
+        axisLabel : T.axisLabel,
+        barLabel  : T.text,
+        fs        : T.fontScale
+      }
     };
 
     var html = '';
 
     // ── Wrapper ──
     html += '<div class="sschart-panel" style="'
-      + 'background:linear-gradient(135deg,rgba(13,27,42,.97),rgba(10,18,35,.99));'
-      + 'border:1px solid rgba(' + _hexToRgb(accent) + ',.12);'
+      + 'background:' + T.panelBg + ';'
+      + 'border:1px solid ' + T.panelBorder + ';'
       + 'border-radius:20px;overflow:hidden;position:relative;'
       + 'box-shadow:0 4px 40px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.04)">';
 
@@ -142,9 +225,9 @@ var SSChart = (function() {
     html += '<div style="display:flex;flex-direction:column;gap:2px">';
     html += '<div style="display:flex;align-items:center;gap:8px">';
     html += '<div style="width:2px;height:16px;background:linear-gradient(180deg,' + accent + ',transparent);border-radius:1px"></div>';
-    html += '<span style="font-size:10px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:' + accent + ';font-family:\'Barlow\',sans-serif">' + _esc(title) + '</span>';
+    html += '<span style="font-size:10px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:' + accent + ';font-family:\'Barlow\',sans-serif;font-size:' + Math.round(10*T.fontScale) + 'px">' + _esc(title) + '</span>';
     html += '</div>';
-    html += '<div style="font-size:19px;font-weight:900;color:#F1F5F9;letter-spacing:-.3px;padding-left:10px">' + _esc(subtitle) + '</div>';
+    html += '<div style="font-size:' + Math.round(19 * T.fontScale) + 'px;font-weight:900;color:' + T.titleColor + ';letter-spacing:-.3px;padding-left:10px">' + _esc(subtitle) + '</div>';
     html += '</div>';
     html += '</div>';
 
@@ -153,26 +236,26 @@ var SSChart = (function() {
       html += '<div style="display:flex;gap:6px;align-items:center;flex-shrink:0">';
 
       // Type toggle
-      html += '<div style="display:flex;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:9px;overflow:hidden;padding:2px;gap:2px">';
+      html += '<div style="display:flex;background:' + T.btnBg + ';border:1px solid ' + T.btnBorder + ';border-radius:9px;overflow:hidden;padding:2px;gap:2px">';
       [['bar','▐▐'],['line','∿']].forEach(function(t) {
         var a = type === t[0];
         html += '<button onclick="SSChart.update(\'' + _esc(containerId) + '\',{type:\'' + t[0] + '\'})" style="'
           + 'padding:5px 11px;font-size:12px;font-weight:700;border:none;cursor:pointer;'
           + 'border-radius:7px;transition:all .2s;font-family:\'Barlow\',sans-serif;'
           + 'background:' + (a ? 'rgba(' + _hexToRgb(accent) + ',.18)' : 'transparent') + ';'
-          + 'color:' + (a ? accent : '#4B5563') + '">' + t[1] + '</button>';
+          + 'color:' + (a ? accent : T.btnInactive) + '">' + t[1] + '</button>';
       });
       html += '</div>';
 
       // Période
-      html += '<div style="display:flex;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:9px;overflow:hidden;padding:2px;gap:2px">';
+      html += '<div style="display:flex;background:' + T.btnBg + ';border:1px solid ' + T.btnBorder + ';border-radius:9px;overflow:hidden;padding:2px;gap:2px">';
       [['7d','7J'],['30d','30J'],['90d','90J']].forEach(function(p) {
         var a = period === p[0];
         html += '<button onclick="SSChart.update(\'' + _esc(containerId) + '\',{period:\'' + p[0] + '\'})" style="'
           + 'padding:5px 13px;font-size:11px;font-weight:700;border:none;cursor:pointer;'
           + 'border-radius:7px;transition:all .2s;font-family:\'Barlow\',sans-serif;'
           + 'background:' + (a ? 'rgba(' + _hexToRgb(accent) + ',.18)' : 'transparent') + ';'
-          + 'color:' + (a ? accent : '#4B5563') + '">' + p[1] + '</button>';
+          + 'color:' + (a ? accent : T.btnInactive) + '">' + p[1] + '</button>';
       });
       html += '</div>';
       html += '</div>';
@@ -183,7 +266,7 @@ var SSChart = (function() {
     // ── KPI strip ──
     if (showKpis) {
       html += '<div style="display:grid;grid-template-columns:repeat(5,1fr);margin:16px 24px 0;'
-        + 'background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);'
+        + 'background:' + T.kpiBg + ';border:1px solid ' + T.kpiBorder + ';'
         + 'border-radius:12px;overflow:hidden">';
 
       var kpis = [
@@ -196,9 +279,9 @@ var SSChart = (function() {
 
       kpis.forEach(function(k, i) {
         html += '<div style="padding:13px 10px;text-align:center;'
-          + (i < 4 ? 'border-right:1px solid rgba(255,255,255,.05)' : '') + '">';
+          + (i < 4 ? 'border-right:1px solid ' + T.kpiBorder : '') + '">';
         html += '<div style="font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;'
-          + 'color:#374151;margin-bottom:5px;font-family:\'Barlow\',sans-serif">'
+          + 'color:' + T.kpiLabel + ';margin-bottom:5px;font-family:\'Barlow\',sans-serif">'
           + k.dot + ' ' + _esc(k.sub) + '</div>';
         html += '<div style="font-size:18px;font-weight:900;color:' + k.color + ';'
           + 'letter-spacing:-.5px;line-height:1;font-family:\'Barlow\',sans-serif">' + k.val + '</div>';
@@ -221,17 +304,17 @@ var SSChart = (function() {
       html += '<div style="padding:4px 24px 18px;display:flex;gap:14px;align-items:center;flex-wrap:wrap">';
       html += '<div style="display:flex;align-items:center;gap:5px">'
         + '<div style="width:16px;height:3px;background:' + accent + ';border-radius:2px"></div>'
-        + '<span style="font-size:10px;color:#4B5563;font-family:\'Barlow\',sans-serif">Visites totales</span>'
+        + '<span style="font-size:' + fsSm + 'px;color:' + T.muted + ';font-family:\'Barlow\',sans-serif">Visites totales</span>'
         + '</div>';
       html += '<div style="display:flex;align-items:center;gap:5px">'
         + '<div style="width:16px;height:2px;background:' + signColor + ';border-radius:2px;opacity:.6"></div>'
-        + '<span style="font-size:10px;color:#4B5563;font-family:\'Barlow\',sans-serif">Consignes signées</span>'
+        + '<span style="font-size:' + fsSm + 'px;color:' + T.muted + ';font-family:\'Barlow\',sans-serif">Consignes signées</span>'
         + '</div>';
       if (totalVisits > 0 && peakVal > 0) {
-        html += '<span style="font-size:10px;color:#374151;margin-left:auto;font-family:\'Barlow\',sans-serif">'
+        html += '<span style="font-size:' + fsSm + 'px;color:' + T.muted + ';margin-left:auto;font-family:\'Barlow\',sans-serif">'
           + 'Pic · <strong style="color:#FCD34D">' + _esc(peakLabel) + '</strong></span>';
       } else {
-        html += '<span style="font-size:10px;color:#374151;margin-left:auto;font-style:italic;font-family:\'Barlow\',sans-serif">Aucune donnée sur la période</span>';
+        html += '<span style="font-size:' + fsSm + 'px;color:' + T.muted + ';margin-left:auto;font-style:italic;font-family:\'Barlow\',sans-serif">Aucune donnée sur la période</span>';
       }
       html += '</div>';
     }
@@ -269,25 +352,27 @@ var SSChart = (function() {
       + 'var accent="' + D.accent + '",signC="' + D.signColor + '";'
       + 'function hexRgb(h){var r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return r+","+g+","+b;}'
       + 'var aRgb=hexRgb(accent),sRgb=hexRgb(signC);'
+      + 'var th=' + JSON.stringify(D.th) + ';'
+      + 'var fs=th.fs||1;'
       + 'function vX(i){return pad.l+i/(n-1||1)*gw;}'
       + 'function vY(v){return pad.t+gh*(1-v/maxY);}'
       // Grid
       + 'var step=maxY<=5?1:maxY<=10?2:maxY<=20?5:Math.ceil(maxY/4);'
       + 'for(var yv=0;yv<=maxY;yv+=step){'
       + '  ctx.beginPath();ctx.moveTo(pad.l,vY(yv));ctx.lineTo(pad.l+gw,vY(yv));'
-      + '  ctx.strokeStyle="rgba(255,255,255,.04)";ctx.lineWidth=1;ctx.stroke();'
-      + '  ctx.fillStyle="#374151";ctx.font="8px Barlow,sans-serif";ctx.textAlign="right";'
+      + '  ctx.strokeStyle=th.gridLine;ctx.lineWidth=1;ctx.stroke();'
+      + '  ctx.fillStyle=th.axisLabel;ctx.font=Math.round(8*fs)+"px Barlow,sans-serif";ctx.textAlign="right";'
       + '  ctx.fillText(yv,pad.l-4,vY(yv)+3);'
       + '}'
       // Baseline
       + 'ctx.beginPath();ctx.moveTo(pad.l,pad.t+gh);ctx.lineTo(pad.l+gw,pad.t+gh);'
-      + 'ctx.strokeStyle="rgba(255,255,255,.08)";ctx.lineWidth=1;ctx.stroke();'
+      + 'ctx.strokeStyle=th.baseline;ctx.lineWidth=1;ctx.stroke();'
       // X labels
       + 'var skip=n<=7?1:n<=30?Math.ceil(n/7):Math.ceil(n/8);'
       + 'labels.forEach(function(lbl,i){'
       + '  if(i%skip!==0&&i!==n-1)return;'
       + '  var x=' + (D.type === 'bar' ? 'pad.l+(i+.5)*gw/n' : 'vX(i)') + ';'
-      + '  ctx.fillStyle="#374151";ctx.font="9px Barlow,sans-serif";ctx.textAlign="center";'
+      + '  ctx.fillStyle=th.axisLabel;ctx.font=Math.round(9*fs)+"px Barlow,sans-serif";ctx.textAlign="center";'
       + '  ctx.fillText(lbl,x,H-6);'
       + '});'
       // ── Bars ──
@@ -296,7 +381,7 @@ var SSChart = (function() {
           + 'totals.forEach(function(v,i){'
           + '  var x=pad.l+i*gw/n+gw/n*.14;'
           + '  if(v===0){'
-          + '    ctx.fillStyle="rgba(255,255,255,.03)";'
+          + '    ctx.fillStyle=th.gridLine;'
           + '    ctx.beginPath();ctx.roundRect(x,pad.t+gh-2,bw,2,1);ctx.fill();return;'
           + '  }'
           + '  var y=vY(v),bh=gh-(y-pad.t);'
@@ -319,7 +404,7 @@ var SSChart = (function() {
           + '  }'
           // Label valeur
           + '  if(bh>16){'
-          + '    ctx.fillStyle="#F1F5F9";ctx.font="bold 9px Barlow,sans-serif";ctx.textAlign="center";'
+          + '    ctx.fillStyle=th.barLabel;ctx.font="bold "+Math.round(9*fs)+"px Barlow,sans-serif";ctx.textAlign="center";'
           + '    ctx.fillText(v,x+bw/2,y+11);'
           + '  }'
           + '});'
@@ -375,7 +460,7 @@ var SSChart = (function() {
       + '  var sr=v>0?Math.round(s/v*100):0;'
       + '  if(tip){'
       + '    tip.innerHTML="<div style=\\"font-weight:700;color:"+accent+";margin-bottom:5px;font-size:12px\\">"+lbl+"</div>"'
-      + '      +"<div style=\\"color:#9CA3AF;line-height:1.8\\">👥 <b style=\\"color:#F1F5F9\\">"+v+"</b> visite"+(v!==1?"s":"")+"<br>"'
+      + '      +"<div style=\\"color:"+th.axisLabel+";line-height:1.8\\">👥 <b style=\\"color:"+th.barLabel+"\\">"+v+"</b> visite"+(v!==1?"s":"")+"<br>"'
       + '      +"✅ <b style=\\"color:"+signC+"\\">"+s+"</b> signée"+(s!==1?"s":"")+" · "+sr+"%</div>";'
       + '    var cx=mx+14,cy=my-48;'
       + '    if(cx+140>W)cx=mx-150;'
@@ -476,7 +561,46 @@ var SSChart = (function() {
      */
     getInstance: function(containerId) {
       return _instances[containerId] || null;
-    }
+    },
+
+    /**
+     * _instances() — usage interne (hook thème)
+     */
+    _instances: function() { return _instances; }
   };
 
+})();
+
+// ── Auto-refresh quand le thème/contraste change ─────────────
+// On patch les fonctions globales après leur exécution originale
+// pour que SSChart se re-rende sans rechargement des données
+(function() {
+  function _patchFn(name) {
+    if (typeof window[name] !== 'function') return;
+    var orig = window[name];
+    window[name] = function() {
+      var result = orig.apply(this, arguments);
+      // Rafraîchir toutes les instances SSChart actives
+      setTimeout(function() {
+        if (typeof SSChart !== 'undefined') {
+          var instances = SSChart._instances();
+          Object.keys(instances).forEach(function(id) {
+            var inst = instances[id];
+            var el = document.getElementById(id);
+            if (el) SSChart.update(id, {});
+          });
+        }
+      }, 50);
+      return result;
+    };
+  }
+
+  // Patcher après que le DOM et les scripts sont chargés
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      ['applyTheme','applyContrast','applyGlobalContrast','applyFontSize','resetDisplaySettings'].forEach(_patchFn);
+    });
+  } else {
+    ['applyTheme','applyContrast','applyGlobalContrast','applyFontSize','resetDisplaySettings'].forEach(_patchFn);
+  }
 })();
