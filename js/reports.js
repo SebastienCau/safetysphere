@@ -1715,38 +1715,67 @@ function _loadHtmlInFrame(frame, html, fallbackUrl) {
 }
 
 async function _loadStorageFileInFrame(frame, signedUrl, archiveId, sourceType) {
-  // Montrer un loader
-  _loadHtmlInFrame(frame, '<html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#F9FAFB;color:#6B7280;font-size:14px"><div style="text-align:center"><div style="font-size:32px;margin-bottom:12px">⏳</div>Chargement du document...</div></body></html>', signedUrl);
+  // Afficher loader pendant le chargement
+  _loadHtmlInFrame(frame,
+    '<html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#F9FAFB;color:#6B7280;font-size:14px">'
+    + '<div style="text-align:center"><div style="font-size:32px;margin-bottom:12px">⏳</div>Chargement...</div></body></html>',
+    signedUrl
+  );
 
   try {
-    // Extraire le path depuis l'URL signée Supabase
-    var match = signedUrl.match(/\/object\/(?:sign|public)\/rapport-archives\/(.+?)(?:\?|$)/);
-    if (!match || !match[1]) throw new Error('path_not_found');
+    // ── Extraire le path depuis l'URL signée Supabase ──
+    // Formats possibles :
+    //   .../object/sign/rapport-archives/PATH?token=...
+    //   .../object/authenticated/rapport-archives/PATH
+    //   .../object/public/rapport-archives/PATH
+    var pathMatch = signedUrl.match(/\/object\/(?:sign|authenticated|public)\/rapport-archives\/([^?#]+)/);
+    if (!pathMatch) throw new Error('Impossible d\'extraire le path depuis : ' + signedUrl.substring(0, 80));
 
-    var filePath = decodeURIComponent(match[1]);
+    var filePath = decodeURIComponent(pathMatch[1]);
+    var ext      = filePath.split('.').pop().toLowerCase();
+
     var dlRes = await sb.storage.from('rapport-archives').download(filePath);
-
-    if (dlRes.error || !dlRes.data) throw new Error(dlRes.error ? dlRes.error.message : 'download_empty');
+    if (dlRes.error || !dlRes.data) throw new Error(dlRes.error ? dlRes.error.message : 'Téléchargement vide');
 
     var rawBlob = dlRes.data;
-    var isPdf   = rawBlob.type.includes('pdf') || filePath.toLowerCase().endsWith('.pdf');
 
+    // ── PDF ──
+    var isPdf = ext === 'pdf' || rawBlob.type.includes('pdf');
     if (isPdf) {
-      var pdfUrl = URL.createObjectURL(rawBlob);
-      frame.src  = pdfUrl;
+      // Les PDFs s'ouvrent mieux via l'URL directe (viewer natif Chrome/Firefox)
+      // URL.createObjectURL(pdf) dans iframe ne marche pas sans plugin
+      frame.src = signedUrl;
+      // Si toujours blanc après 3s, proposer ouverture onglet
+      var _t = setTimeout(function() {
+        showViewerFallback(frame, signedUrl);
+      }, 4000);
+      frame.onload = function() { clearTimeout(_t); };
       return;
     }
 
-    // Fichier HTML — décoder proprement en UTF-8 via ArrayBuffer + TextDecoder
-    var buffer  = await rawBlob.arrayBuffer();
-    var decoder = new TextDecoder('utf-8');
-    var htmlText = decoder.decode(buffer);
+    // ── Image (JPG, PNG, etc.) ──
+    var isImage = ['jpg','jpeg','png','gif','webp','bmp'].indexOf(ext) !== -1
+               || rawBlob.type.startsWith('image/');
+    if (isImage) {
+      var imgUrl  = URL.createObjectURL(rawBlob);
+      var imgHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8">'
+        + '<style>*{margin:0;padding:0;box-sizing:border-box}'
+        + 'body{background:#1a1a1a;display:flex;align-items:center;justify-content:center;min-height:100vh}'
+        + 'img{max-width:100%;max-height:100vh;object-fit:contain;display:block}</style>'
+        + '</head><body><img src="' + imgUrl + '" onload="URL.revokeObjectURL(this.src)"></body></html>';
+      _loadHtmlInFrame(frame, imgHtml, signedUrl);
+      return;
+    }
 
-    // Mettre en cache pour prochaines ouvertures
+    // ── HTML (rapports SafetySphere) ──
+    var buffer   = await rawBlob.arrayBuffer();
+    var htmlText = new TextDecoder('utf-8').decode(buffer);
+
+    // Mettre en cache mémoire
     if (archiveId && window._archiveCache && window._archiveCache[archiveId]) {
       window._archiveCache[archiveId].report_html = htmlText;
     }
-    // Persister en base (silent) — évite de re-télécharger la prochaine fois
+    // Persister en base silencieusement (évite de re-télécharger)
     if (archiveId) {
       sb.from('report_archive').update({ report_html: htmlText }).eq('id', archiveId)
         .then(function(){}).catch(function(){});
@@ -1755,8 +1784,13 @@ async function _loadStorageFileInFrame(frame, signedUrl, archiveId, sourceType) 
     _loadHtmlInFrame(frame, htmlText, signedUrl);
 
   } catch(err) {
-    console.error('[Viewer] Erreur chargement storage :', err.message);
-    showViewerFallback(frame, signedUrl);
+    console.error('[Viewer] Erreur :', err.message);
+    // En dernier recours : tenter src direct + fallback si échec
+    frame.src = signedUrl;
+    var _t2 = setTimeout(function() {
+      showViewerFallback(frame, signedUrl);
+    }, 5000);
+    frame.onload = function() { clearTimeout(_t2); };
   }
 }
 
