@@ -510,8 +510,14 @@ var DashCharts = (function () {
       };
 
       _patch('loadWorkerStats',  function () { return _render('worker'); });
-      _patch('loadCompanyStats', function () { return _render('company'); });
-      _patch('loadHSEStats',     function () { return _render('hse'); });
+      _patch('loadCompanyStats', function () {
+        _render('company');
+        if (typeof loadIncidentsDashKPI === 'function') loadIncidentsDashKPI('company-incidents-kpi');
+      });
+      _patch('loadHSEStats', function () {
+        _render('hse');
+        if (typeof loadIncidentsDashKPI === 'function') loadIncidentsDashKPI('hse-incidents-kpi');
+      });
       _patch('loadSTStats',      function () { return _render('subcontractor'); });
 
       var _origAdmin = window.loadAdminOverview;
