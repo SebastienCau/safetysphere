@@ -41,6 +41,14 @@ var AVAILABLE_MODULES = [
     desc     : 'DUER, VGP, FDS, PDP — génération et archivage des rapports HSE',
     color    : '#FCD34D',
     roles    : ['hse', 'company']
+  },
+  {
+    id       : 'incidents',
+    icon     : '🚨',
+    name     : 'Incidents & Sécurité',
+    desc     : 'Déclaration et suivi des incidents, quasi-accidents, actions correctives',
+    color    : '#EF4444',
+    roles    : ['hse', 'company']
   }
 ];
 
@@ -228,37 +236,61 @@ var _gateActivated = false;  // mis à jour par checkGateActivation
 
 // ── Point d'entrée principal ──────────────────────────────────
 async function loadGate(role) {
-  var container = document.getElementById(role + '-gate-content') || document.getElementById(role + '-gate');
-  if (!container) return;
-  container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement Gate...</div></div>';
+  // Normaliser le role : 'HSE' → 'hse', 'Company' → 'company'
+  var roleKey = role.toLowerCase();
+  var dash    = role.charAt(0).toUpperCase() + role.slice(1).toLowerCase();
+  // Cas spéciaux : 'HSE' doit rester 'HSE' comme préfixe d'ID
+  var idPrefix = role; // On garde tel quel pour les IDs HTML
 
-  // Vérifier que Gate est activé via gate_config.active
-  var activRes = await sb.from('gate_config')
-    .select('active')
-    .eq('org_id', currentProfile.org_id)
-    .maybeSingle();
-
-  var gateEnabled = activRes.data ? (activRes.data.active === true) : false;
-  if (!gateEnabled) {
-    // Gate inactif : afficher l'écran d'activation directement accessible
-    _gateSubView = 'config';
-    _gateConfig = null;
-    _gateVisits = [];
-    renderGate(role);
+  var container = document.getElementById(idPrefix + '-gate-content') || document.getElementById(idPrefix + '-gate');
+  if (!container) {
+    console.warn('[Gate] Container introuvable pour role:', role);
     return;
   }
 
-  // Charger config + visites en parallèle
-  var [cfgRes, visRes] = await Promise.all([
-    sb.from('gate_config').select('*').eq('org_id', currentProfile.org_id).maybeSingle(),
-    sb.from('visitor_log').select('*').eq('org_id', currentProfile.org_id)
-      .order('check_in', { ascending: false }).limit(200)
-  ]);
+  // Guard : currentProfile doit être prêt
+  if (!currentProfile || !currentProfile.org_id) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Profil non chargé — veuillez rafraîchir la page</div></div>';
+    return;
+  }
 
-  _gateConfig = cfgRes.data || null;
-  _gateVisits = visRes.data || [];
+  container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement Gate...</div></div>';
 
-  renderGate(role);
+  try {
+    // Vérifier que Gate est activé via gate_config.active
+    var activRes = await sb.from('gate_config')
+      .select('active')
+      .eq('org_id', currentProfile.org_id)
+      .maybeSingle();
+
+    var gateEnabled = activRes.data ? (activRes.data.active === true) : false;
+    if (!gateEnabled) {
+      // Gate inactif : afficher l'écran d'activation directement accessible
+      _gateSubView = 'config';
+      _gateConfig = null;
+      _gateVisits = [];
+      renderGate(role);
+      return;
+    }
+
+    // Charger config + visites en parallèle
+    var [cfgRes, visRes] = await Promise.all([
+      sb.from('gate_config').select('*').eq('org_id', currentProfile.org_id).maybeSingle(),
+      sb.from('visitor_log').select('*').eq('org_id', currentProfile.org_id)
+        .order('check_in', { ascending: false }).limit(200)
+    ]);
+
+    if (cfgRes.error) throw cfgRes.error;
+
+    _gateConfig = cfgRes.data || null;
+    _gateVisits = visRes.data || [];
+
+    renderGate(role);
+
+  } catch(e) {
+    console.error('[Gate] loadGate error:', e);
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Erreur Gate : ' + (e.message || e) + '</div></div>';
+  }
 }
 
 // ── Rendu principal avec sous-navigation ─────────────────────
@@ -289,7 +321,13 @@ function renderGate(role) {
   if (_gateSubView === 'checkin')   html += renderGateCheckin(role);
   if (_gateSubView === 'config')    html += renderGateConfig(role);
 
-  container.innerHTML = html;
+  try {
+    container.innerHTML = html;
+  } catch(e) {
+    console.error('[Gate] renderGate innerHTML error:', e);
+    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚠️</div><div class="empty-state-text">Erreur rendu Gate : ' + (e.message||e) + '</div></div>';
+    return;
+  }
 
   // Dessiner le canvas graphe après injection DOM
   if (_gateSubView === 'registre') {
