@@ -520,6 +520,14 @@ async function loadAdminSignatures() {
   _allSigOrgs._settings = orgMap;
   renderSigOrgList(orgMap);
 
+  // Config source société signataire
+  var orgSourceEl = document.getElementById('sigOrgSourceConfig');
+  if (orgSourceEl) {
+    var cfgManual = await sb.from('signature_settings').select('enabled').eq('scope','global').eq('scope_id','signer_org_source_manual').maybeSingle();
+    var isManual = cfgManual.data && cfgManual.data.enabled === true;
+    orgSourceEl.innerHTML = '<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px 16px;margin-bottom:16px">'      + '<div style="font-size:12px;font-weight:700;color:#fff;margin-bottom:4px">🏢 Source société des signataires</div>'      + '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">Lors d\'une signature présentielle, d\'où vient le nom de la société du signataire ?</div>'      + '<div style="display:flex;gap:8px">'      + '<button onclick="setSigOrgSource(\'auto\')" style="flex:1;padding:8px;border-radius:8px;border:2px solid ' + (!isManual ? '#F97316' : 'rgba(255,255,255,.1)') + ';background:' + (!isManual ? 'rgba(249,115,22,.12)' : 'none') + ';color:' + (!isManual ? '#F97316' : 'var(--muted)') + ';font-size:11px;font-weight:700;cursor:pointer">'      + '🔒 Supabase auto<br><span style="font-weight:400;font-size:10px">Depuis le profil (recommandé HSE)</span></button>'      + '<button onclick="setSigOrgSource(\'manual\')" style="flex:1;padding:8px;border-radius:8px;border:2px solid ' + (isManual ? '#F97316' : 'rgba(255,255,255,.1)') + ';background:' + (isManual ? 'rgba(249,115,22,.12)' : 'none') + ';color:' + (isManual ? '#F97316' : 'var(--muted)') + ';font-size:11px;font-weight:700;cursor:pointer">'      + '✏️ Saisie manuelle<br><span style="font-weight:400;font-size:10px">Modifiable lors de la signature</span></button>'      + '</div></div>';
+  }
+
   // Charger utilisateurs (profiles avec rôles Company/HSE)
   var usersRes = await sb.from('profiles').select('id,full_name,email,role,org_id').in('role',['company','hse']).order('full_name');
   _allSigUsers = usersRes.data || [];
@@ -1576,8 +1584,27 @@ async function generateConsolidatedDocument(requestId, req) {
   var now   = new Date();
   var pad   = function(n){ return String(n).padStart(2,'0'); };
 
+  // Charger les sociétés des signataires
+  var _consOrgMap = {};
+  try {
+    var _emails = items.map(function(it) { return it.signer_email; }).filter(Boolean);
+    if (_emails.length) {
+      var _profRes = await sb.from('profiles').select('email,org_id').in('email', _emails);
+      var _orgIds  = [...new Set((_profRes.data||[]).map(function(p){ return p.org_id; }).filter(Boolean))];
+      if (_orgIds.length) {
+        var _orgRes = await sb.from('organizations').select('id,name').in('id', _orgIds);
+        var _orgMap = {};
+        (_orgRes.data||[]).forEach(function(o){ _orgMap[o.id] = o.name; });
+        (_profRes.data||[]).forEach(function(p){ if (p.org_id && _orgMap[p.org_id]) _consOrgMap[p.email] = _orgMap[p.org_id]; });
+      }
+    }
+  } catch(e) {}
+
+  // Bloc destinataires (envoyé à)
+  var destinatairesHtml = '<div style="margin-bottom:20px;border:1px solid #BFDBFE;border-radius:10px;padding:14px 16px;background:#EFF6FF">'    + '<div style="font-size:9px;font-weight:900;color:#1D4ED8;letter-spacing:1.5px;margin-bottom:10px;text-transform:uppercase">📧 Document envoyé pour signature à</div>'    + items.map(function(item) {        var org = _consOrgMap[item.signer_email] || '';        return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #DBEAFE">'          + '<span style="font-size:16px">' + (item.status === 'signed' ? '✅' : item.status === 'refused' ? '❌' : '⏳') + '</span>'          + '<div>'          + '<div style="font-size:11px;font-weight:700;color:#1E3A5F">' + escapeHtml(item.signer_name || '—') + '</div>'          + (org ? '<div style="font-size:10px;color:#2563EB;font-weight:600">🏢 ' + escapeHtml(org) + '</div>' : '')          + '<div style="font-size:10px;color:#64748B">' + escapeHtml(item.signer_role || '') + ' · ' + escapeHtml(item.signer_email || '') + '</div>'          + '</div>'          + '</div>';      }).join('')    + '</div>';
   // Construire le bloc consolidé de tous les cachets
   var allStamps = items.map(function(item) {
+    var signerOrgName = _consOrgMap[item.signer_email] || '';
     if (item.status !== 'signed') return '';
     var sigDate = new Date(item.signed_at).toLocaleDateString('fr-FR', { day:'2-digit', month:'long', year:'numeric' });
     var sigTime = new Date(item.signed_at).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
@@ -1595,6 +1622,7 @@ async function generateConsolidatedDocument(requestId, req) {
     return '<div style="border:2px solid #1E3A5F;border-radius:8px;padding:12px 16px;margin-bottom:10px;background:#F0F4FF;position:relative">'
       + '<div style="position:absolute;top:-9px;left:12px;background:#fff;padding:0 6px;font-size:9px;font-weight:900;color:#1E3A5F;letter-spacing:1.5px">SIGNÉ ÉLECTRONIQUEMENT — ' + escapeHtml(item.signer_role.toUpperCase()) + '</div>'
       + '<div style="display:flex;gap:8px;align-items:baseline;margin-bottom:4px"><span style="font-size:9px;color:#6B7280;width:80px">Signataire</span><span style="font-size:11px;font-weight:600;color:#111827">' + escapeHtml(item.signer_name) + '</span></div>'
+      + (signerOrgName ? '<div style="display:flex;gap:8px;align-items:baseline;margin-bottom:4px"><span style="font-size:9px;color:#6B7280;width:80px">Société</span><span style="font-size:11px;font-weight:700;color:#1D4ED8">' + escapeHtml(signerOrgName) + '</span></div>' : '')
       + '<div style="display:flex;gap:8px;align-items:baseline;margin-bottom:4px"><span style="font-size:9px;color:#6B7280;width:80px">Email</span><span style="font-size:11px;color:#374151">' + escapeHtml(item.signer_email) + '</span></div>'
       + '<div style="display:flex;gap:8px;align-items:baseline;margin-bottom:4px"><span style="font-size:9px;color:#6B7280;width:80px">Date</span><span style="font-size:11px;font-weight:600;color:#111827">' + sigDate + ' à ' + sigTime + '</span></div>'
       + '<div style="display:flex;gap:8px;align-items:baseline;margin-bottom:4px"><span style="font-size:9px;color:#6B7280;width:80px">Réf.</span><span style="font-family:monospace;font-size:10px;background:#1E3A5F;color:#fff;padding:2px 6px;border-radius:3px">' + escapeHtml(item.sig_id || '—') + '</span></div>'
@@ -1608,6 +1636,7 @@ async function generateConsolidatedDocument(requestId, req) {
     /<\/body>/,
     '<div style="page-break-before:auto;margin-top:24px">'
     + '<div style="font-size:11px;font-weight:900;color:#1E3A5F;letter-spacing:1.5px;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #1E3A5F">DOCUMENT MULTI-SIGNATAIRES CONSOLIDÉ · ' + items.length + ' SIGNATURE(S)</div>'
+    + destinatairesHtml
     + allStamps
     + '</div></body>'
   );
@@ -1645,6 +1674,15 @@ async function generateConsolidatedDocument(requestId, req) {
 }
 
 // ── Admin — Config workflow par type de doc ───────────────────────────────────
+async function setSigOrgSource(source) {
+  await sb.from('signature_settings').upsert(
+    { scope: 'global', scope_id: 'signer_org_source_manual', enabled: source === 'manual' },
+    { onConflict: 'scope,scope_id' }
+  );
+  showToast('Source société : ' + (source === 'manual' ? 'saisie manuelle' : 'Supabase auto'), 'success');
+  loadAdminSignatures();
+}
+
 async function renderAdminWorkflowConfig() {
   var ctn = document.getElementById('adminWorkflowConfigPanel');
   if (!ctn) return;
