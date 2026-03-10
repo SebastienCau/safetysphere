@@ -1294,6 +1294,7 @@ async function renderHistoriqueSection(role) {
           + '<span style="font-size:20px">' + typeIcon(a.report_type) + '</span>'
           + '<div style="flex:1;min-width:0">'
           + '<div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escapeHtml(a.report_num || a.label || '—') + '</div>'
+          + '<div style="font-size:10px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + typeFullName(a.report_type) + (a.label && a.label !== a.report_type ? ' · ' + escapeHtml(a.label) : '') + '</div>'
           + '<div style="font-size:11px;color:var(--muted)">' + genDate + ' · ' + escapeHtml(a.responsable || '—') + '</div>'
           + '</div>'
           + '<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;background:rgba(255,255,255,.06);color:' + headerColor + ';border:1px solid rgba(255,255,255,.1);white-space:nowrap">' + headerDot + ' ' + (pipeState === 'completed' ? 'Signé complet' : pipeState === 'pending' ? 'En cours' : 'Généré') + '</span>'
@@ -1317,7 +1318,7 @@ async function renderHistoriqueSection(role) {
         // Boutons col 1
         if (a.file_url) {
           html += '<button class="pipe-btn" style="background:rgba(249,115,22,.12);border-color:rgba(249,115,22,.3);color:#FDBA74" '
-            + 'onclick="openReportViewer(\'' + a.file_url + '\',\'' + escapeHtml(a.report_num||a.label) + '\',\'' + (isSS?'html':'ext') + '\',\'' + a.id + '\')">📄 Consulter / Imprimer</button>';
+            + 'onclick="openReportViewer(\'' + a.file_url + '\',\'' + escapeHtml((a.report_num||'') + (a.report_num ? ' — ' : '') + typeFullName(a.report_type)) + '\',\'' + (isSS?'html':'ext') + '\',\'' + a.id + '\')">📄 Consulter / Imprimer</button>';
         }
 
         if (!sigReq && !a.signed_file_url) {
@@ -1388,7 +1389,7 @@ async function renderHistoriqueSection(role) {
             + '<div style="color:var(--muted)">' + (consolidatedDoc ? 'Document consolidé multi-signataires' : 'Document signé archivé') + '</div>'
             + '</div>';
           html += '<button class="pipe-btn" style="background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.25);color:#86EFAC" '
-            + 'onclick="openReportViewer(\'' + signedUrl + '\',\'Signé — ' + escapeHtml(a.report_num||a.label) + '\',\'ext\',\'' + a.id + '\')">✅ Consulter / Imprimer</button>';
+            + 'onclick="openReportViewer(\'' + signedUrl + '\',\'✅ ' + escapeHtml((a.report_num||'') + (a.report_num?' — ':'') + typeFullName(a.report_type)) + '\',\'ext\',\'' + a.id + '\')">✅ Consulter / Imprimer</button>';
           if (consolidatedDoc) {
             html += '<button class="pipe-btn" style="background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1);color:var(--muted)" '
               + 'onclick="moveChildToTrash(\'' + consolidatedDoc.id + '\',\'' + role + '\')">🗑️ Supprimer signé</button>';
@@ -1410,8 +1411,29 @@ async function renderHistoriqueSection(role) {
 }
 
 function typeIcon(t) {
-  var m = { DUER:'📄', VGP:'🔧', FDS:'⚗️', PDP:'📋', AUDIT:'🔍', AUTRE:'📎' };
+  var m = {
+    DUER  : '📄',
+    VGP   : '🔧',
+    FDS   : '⚗️',
+    PDP   : '📋',
+    AUDIT : '🔍',
+    SCAN  : '📎',
+    AUTRE : '📎'
+  };
   return m[t] || '📎';
+}
+
+function typeFullName(t) {
+  var m = {
+    DUER  : 'Document Unique d\'Évaluation des Risques',
+    VGP   : 'Vérifications Générales Périodiques',
+    FDS   : 'Fiche de Données de Sécurité',
+    PDP   : 'Plan de Prévention',
+    AUDIT : 'Rapport d\'Audit HSE',
+    SCAN  : 'Document scanné externe',
+    AUTRE : 'Document de Conformité'
+  };
+  return m[t] || t;
 }
 
 function toggleHistTrash(role) {
@@ -2295,7 +2317,7 @@ async function renderInlineReportHistory(reportType, role, containerId) {
     var consultUrl  = a.signed_file_url || a.file_url;
     var consultType = a.signed_file_url ? 'ext' : 'ext';
     var consultBtn  = consultUrl
-      ? '<button class="btn-sm btn-view" style="padding:5px 12px;font-size:11px" onclick="openReportViewer(\'' + consultUrl + '\',\'' + escapeHtml(a.report_num || typeLabel) + '\',\'ext\',\'' + a.id + '\')">📄 Consulter</button>'
+      ? '<button class="btn-sm btn-view" style="padding:5px 12px;font-size:11px" onclick="openReportViewer(\'' + consultUrl + '\',\'' + escapeHtml((a.report_num||'') + (a.report_num?' — ':'') + typeFullName(a.report_type)) + '\',\'ext\',\'' + a.id + '\')">📄 Consulter</button>'
       : '<span style="font-size:11px;color:var(--muted)">Pas de fichier</span>';
 
     // Bouton envoi signature — seulement si pas encore envoyé
