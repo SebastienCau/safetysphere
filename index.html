@@ -630,6 +630,15 @@
         <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-value">0 €</div><div class="stat-label">MRR</div></div>
       </div>
 
+      <!-- Activation modules par organisation -->
+      <div style="margin-top:28px" id="adminModulesPanel">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px">
+          🧩 Modules activés par organisation
+          <span style="font-size:11px;font-weight:400;color:var(--muted)">— Gérez l'accès aux fonctionnalités pour chaque organisation</span>
+        </div>
+        <div id="adminModulesList"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
+      </div>
+
       <!-- Accès rapide Simulateur -->
       <div style="margin-top:28px;background:linear-gradient(135deg,rgba(249,115,22,.08),rgba(168,85,247,.06));border:1px solid rgba(249,115,22,.2);border-radius:16px;padding:22px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;cursor:pointer" onclick="var t=document.querySelector('#dashAdmin .nav-tab:last-child');switchPage('Admin','simulator',t);loadAdminSimulator()">
         <div style="display:flex;align-items:center;gap:16px">
@@ -1864,7 +1873,8 @@
 <script src="js/signatures.js"></script> <!-- 4. Workflow signature, OTP, page publique -->
 <script src="js/reports.js"></script>    <!-- 5. Rapports, archivage, historique, widgets -->
 <script src="js/conformite.js"></script> <!-- 6. DUER, VGP, FDS, PDP, perso -->
-<script src="js/gate.js"></script>      <!-- 7. Registre visiteurs SafetySphere Gate -->
+<script src="js/chart.js"></script>     <!-- 7. SSChart — composant graphe réutilisable -->
+<script src="js/gate.js"></script>      <!-- 8. Registre visiteurs SafetySphere Gate -->
 
 </div>
 
