@@ -685,6 +685,21 @@ function _pickIncGrav(el, id, color) {
 // ════════════════════════════════════════════════════════════════════════════
 
 async function _saveIncident(role) {
+  // Guard : vérifier currentProfile
+  if (!currentProfile || !currentProfile.org_id) {
+    showToast('❌ Session expirée — veuillez vous reconnecter', 'error');
+    console.error('[Incidents] currentProfile invalide:', currentProfile);
+    return;
+  }
+  // L ID utilisateur peut venir de currentProfile.id ou currentUser.id
+  var userId = currentProfile.id || (typeof currentUser !== 'undefined' && currentUser ? currentUser.id : null);
+  var orgId  = currentProfile.org_id;
+  console.log('[Incidents] saveIncident userId:', userId, 'orgId:', orgId);
+  if (!userId) {
+    showToast('❌ Identifiant utilisateur introuvable', 'error');
+    return;
+  }
+
   var typeEl    = document.querySelector('[name="inc_type"]:checked');
   var gravityEl = document.querySelector('[name="inc_gravity"]:checked');
   var titleEl   = document.getElementById('incTitle');
@@ -695,9 +710,9 @@ async function _saveIncident(role) {
   }
 
   var payload = {
-    org_id          : currentProfile.org_id,
-    reported_by     : currentProfile.id,
-    created_by      : currentProfile.id,
+    org_id          : orgId,
+    reported_by     : userId,
+    created_by      : userId,
     type            : typeEl.value,
     gravity         : gravityEl.value,
     title           : titleEl.value.trim(),
