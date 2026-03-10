@@ -138,11 +138,22 @@ async function toggleOrgModule(orgId, moduleId, enabled, toggleId) {
 }
 
 function updateGateTabVisibility(visible) {
-  // Chercher les onglets Gate dans HSE et Company
+  // L'onglet Gate est TOUJOURS visible — c'est dans Gate que le responsable active le module
+  // On met juste à jour l'indicateur visuel sur l'onglet
   var tabs = document.querySelectorAll('.nav-tab');
   tabs.forEach(function(tab) {
-    if (tab.textContent.includes('Gate') || tab.onclick && tab.onclick.toString().includes('gate')) {
-      tab.style.display = visible ? '' : 'none';
+    if (tab.textContent.includes('Gate') || (tab.getAttribute && tab.getAttribute('onclick') || '').includes('gate')) {
+      tab.style.display = '';
+      // Badge indicateur si inactif
+      var badge = tab.querySelector('.gate-status-dot');
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'gate-status-dot';
+        badge.style.cssText = 'display:inline-block;width:6px;height:6px;border-radius:50%;margin-left:5px;vertical-align:middle;flex-shrink:0';
+        tab.appendChild(badge);
+      }
+      badge.style.background = visible ? '#4ADE80' : '#F97316';
+      badge.title = visible ? 'Gate actif' : 'Gate inactif';
     }
   });
 }
@@ -160,7 +171,7 @@ async function checkGateActivation() {
   // Par défaut Gate est DÉSACTIVÉ sauf si explicitement activé
   var enabled = res.data ? res.data.enabled : false;
   _gateActivated = enabled;
-  updateGateTabVisibility(enabled);
+  updateGateTabVisibility(enabled); // met à jour le dot coloré, n'affiche/masque plus l'onglet
   return enabled;
 }
 
@@ -201,12 +212,11 @@ async function loadGate(role) {
 
   var gateEnabled = activRes.data ? activRes.data.enabled : false;
   if (!gateEnabled) {
-    container.innerHTML = '<div class="empty-state" style="padding:48px">'
-      + '<div class="empty-state-icon">🚪</div>'
-      + '<div class="empty-state-text" style="max-width:400px">'
-      + '<strong>SafetySphere Gate</strong> n\'est pas activé pour votre organisation.<br><br>'
-      + '<small>Contactez votre administrateur SafetySphere pour activer le module Registre visiteurs.</small>'
-      + '</div></div>';
+    // Gate inactif : afficher l'écran d'activation directement accessible
+    _gateSubView = 'config';
+    _gateConfig = null;
+    _gateVisits = [];
+    renderGate(role);
     return;
   }
 
@@ -1200,7 +1210,7 @@ function detailRow(label, val) {
   var gateOrg = params.get('gate');
   var gateOut = params.get('gate_out');
 
-  // Masquer les onglets Gate par défaut — ils seront montrés si activés
+  // Au boot : vérifier l'état d'activation (pour le dot coloré) + hook admin
   document.addEventListener('DOMContentLoaded', function() {
     var _waitAuth = setInterval(function() {
       if (typeof currentProfile !== 'undefined' && currentProfile && typeof sb !== 'undefined') {
