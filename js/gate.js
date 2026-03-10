@@ -925,26 +925,29 @@ async function loadPublicGatePage(orgId) {
     .select('*').eq('org_id', orgId).eq('active', true).maybeSingle();
 
   if (!cfgRes.data) {
-    document.body.innerHTML = gateErrorPage('Ce site n\'est pas configuré pour l\'accueil en ligne.');
+    document.open(); document.write(gateErrorPage('Ce site n\'est pas configuré pour l\'accueil en ligne.')); document.close();
     return;
   }
 
-  document.body.innerHTML = gatePublicFormHTML(cfgRes.data, orgId);
+  var html = gatePublicFormHTML(cfgRes.data, orgId);
+  document.open();
+  document.write(html);
+  document.close();
 }
 
 async function loadPublicGateCheckout(visitId) {
   var res = await sb.from('visitor_log').select('*').eq('id', visitId).maybeSingle();
-  if (!res.data) { document.body.innerHTML = gateErrorPage('Visite introuvable.'); return; }
+  if (!res.data) { document.open(); document.write(gateErrorPage('Visite introuvable.')); document.close(); return; }
 
   var v = res.data;
   if (v.check_out) {
-    document.body.innerHTML = gateAlreadyOutPage(v);
+    document.open(); document.write(gateAlreadyOutPage(v)); document.close();
     return;
   }
 
   // Check-out automatique
   await sb.from('visitor_log').update({ check_out: new Date().toISOString(), status: 'departed' }).eq('id', visitId);
-  document.body.innerHTML = gateCheckoutConfirmPage(v);
+  document.open(); document.write(gateCheckoutConfirmPage(v)); document.close();
 }
 
 function gatePublicFormHTML(cfg, orgId) {
