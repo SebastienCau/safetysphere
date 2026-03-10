@@ -43,11 +43,11 @@ var AVAILABLE_MODULES = [
     roles    : ['hse', 'company']
   },
   {
-    id       : 'incidents',
-    icon     : '🚨',
-    name     : 'Incidents & Sécurité',
-    desc     : 'Déclaration et suivi des incidents, quasi-accidents, actions correctives',
-    color    : '#EF4444',
+    id       : 'formations',
+    icon     : '🎓',
+    name     : 'Formations & Habilitations',
+    desc     : 'Gestion des sessions de formation, habilitations et attestations',
+    color    : '#818CF8',
     roles    : ['hse', 'company']
   }
 ];
