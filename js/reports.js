@@ -1672,31 +1672,16 @@ async function openReportViewer(url, title, sourceType, archiveId) {
   }
 
   if (reportHtml) {
-    // Chemin 1 : HTML brut disponible → blob (meilleure fiabilité)
-    var blob = new Blob([reportHtml], { type: 'text/html;charset=utf-8' });
-    var blobUrl = URL.createObjectURL(blob);
-    frame.src = blobUrl;
-    frame.onload = function() { setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 30000); };
+    // Chemin 1 : HTML brut en base → blob local, aucun problème CORS/Content-Type
+    _loadHtmlInFrame(frame, reportHtml, url);
   } else if (url) {
     var isPdf = url.includes('.pdf');
     if (isPdf) {
-      // PDF : src direct
       frame.src = url;
     } else {
-      // Chemin 2 : URL signée Supabase → src direct dans l'iframe (pas de fetch cross-origin)
-      // On ajoute un timestamp pour forcer le rechargement si nécessaire
-      frame.src = url;
-      // Timeout de détection page blanche — si l'iframe reste vide après 4s, proposer ouverture onglet
-      var _blankTimer = setTimeout(function() {
-        try {
-          var fdoc = frame.contentDocument || frame.contentWindow.document;
-          var bodyText = fdoc && fdoc.body ? (fdoc.body.innerText || '').trim() : '';
-          if (!bodyText && (!fdoc || fdoc.readyState === 'complete')) {
-            showViewerFallback(frame, url);
-          }
-        } catch(e) { showViewerFallback(frame, url); }
-      }, 4000);
-      frame.onload = function() { clearTimeout(_blankTimer); };
+      // Chemin 2 : télécharger via le SDK Supabase (gère l'auth + retourne le bon type)
+      // Extraire le path depuis l'URL signée
+      _loadStorageFileInFrame(frame, url, archiveId, sourceType);
     }
   } else {
     showViewerFallback(frame, null);
@@ -1711,6 +1696,74 @@ async function openReportViewer(url, title, sourceType, archiveId) {
       var panel = document.getElementById('viewerSigPanel');
       if (panel && panel.dataset.loaded === '1') return; // déjà géré dans loadViewerSigPanel
     }, 100);
+  }
+}
+
+function _loadHtmlInFrame(frame, html, fallbackUrl) {
+  try {
+    var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    var blobUrl = URL.createObjectURL(blob);
+    frame.src = blobUrl;
+    frame.onload = function() { setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 60000); };
+  } catch(e) {
+    if (fallbackUrl) frame.src = fallbackUrl;
+    else showViewerFallback(frame, fallbackUrl);
+  }
+}
+
+async function _loadStorageFileInFrame(frame, signedUrl, archiveId, sourceType) {
+  try {
+    // Extraire le path relatif depuis l'URL signée Supabase
+    // Format: .../object/sign/rapport-archives/ORG_ID/NOM.html?token=...
+    var match = signedUrl.match(/\/object\/(?:sign|public)\/rapport-archives\/(.+?)(?:\?|$)/);
+    if (match && match[1]) {
+      var filePath = decodeURIComponent(match[1]);
+      // Télécharger via le SDK (authentifié, retourne un Blob correct)
+      var dlRes = await sb.storage.from('rapport-archives').download(filePath);
+      if (!dlRes.error && dlRes.data) {
+        var fileBlob = dlRes.data;
+        // Forcer text/html pour les fichiers HTML
+        if (!fileBlob.type || fileBlob.type === 'application/octet-stream') {
+          fileBlob = new Blob([fileBlob], { type: 'text/html;charset=utf-8' });
+        }
+        if (fileBlob.type.includes('html')) {
+          // Lire et injecter comme blob URL avec bon Content-Type
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            var htmlText = e.target.result;
+            // Sauvegarder en cache pour les prochaines ouvertures
+            if (archiveId && window._archiveCache && window._archiveCache[archiveId]) {
+              window._archiveCache[archiveId].report_html = htmlText;
+              // Sauvegarder aussi en base si c'est un rapport SafetySphere
+              if (sourceType === 'html') {
+                sb.from('report_archive').update({ report_html: htmlText }).eq('id', archiveId).then(function(){});
+              }
+            }
+            _loadHtmlInFrame(frame, htmlText, signedUrl);
+          };
+          reader.onerror = function() { showViewerFallback(frame, signedUrl); };
+          reader.readAsText(fileBlob);
+          return;
+        } else {
+          // PDF ou autre binaire → blob URL direct
+          var blobUrl = URL.createObjectURL(fileBlob);
+          frame.src = blobUrl;
+          return;
+        }
+      }
+    }
+    // Fallback si extraction du path échoue : src direct
+    frame.src = signedUrl;
+    var _t = setTimeout(function() {
+      try {
+        var fd = frame.contentDocument || frame.contentWindow.document;
+        if (!fd || !fd.body || !(fd.body.innerText||'').trim()) showViewerFallback(frame, signedUrl);
+      } catch(e) { showViewerFallback(frame, signedUrl); }
+    }, 5000);
+    frame.onload = function() { clearTimeout(_t); };
+  } catch(err) {
+    console.error('[Viewer] Erreur chargement fichier :', err);
+    showViewerFallback(frame, signedUrl);
   }
 }
 
