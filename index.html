@@ -9,7 +9,7 @@
     v2.0.0 — Refonte architecture : index.html monolithique → structure multi-fichiers
                css/base.css · css/components.css · css/themes.css
                js/core.js · js/workers.js · js/analytics.js
-               js/signatures.js · js/reports.js · js/conformite.js
+               js/signatures.js · js/reports.js · js/conformite.js · js/analytics_charts.js · js/chart.js · js/gate.js
     Historique complet des versions dans le fichier CHANGELOG.md
   -->
   <meta name="app-version" content="2.0.0" />
@@ -271,7 +271,6 @@
     <button class="nav-tab" onclick="switchPage('Company','received',this)">📂 Documents reçus</button>
     <button class="nav-tab" onclick="switchPage('Company','conformite',this);loadConformite('Company')">📋 Conformité</button>
     <button class="nav-tab" onclick="switchPage('Company','analytics',this);loadRoleAnalytics('Company')">📈 Analytics</button>
-    <button class="nav-tab" onclick="switchPage('Company','gate',this);loadGate('Company')">🚪 Gate</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="Company-overview">
@@ -346,10 +345,6 @@
       <div class="dash-welcome">Analytics <em>Entreprise</em></div>
       <div class="dash-subtitle">KPI stratégiques de votre activité sous-traitante</div>
       <div id="role-analytics-Company" style="margin-top:8px"></div>
-    </div>
-
-    <div class="page-section" id="Company-gate">
-      <div id="Company-gate-content"><div class="empty-state"><div class="empty-state-icon">🚪</div><div class="empty-state-text">Chargement Gate...</div></div></div>
     </div>
   </div>
 </div>
@@ -446,7 +441,6 @@
     <button class="nav-tab" onclick="switchPage('HSE','received',this)">📂 Documents reçus</button>
     <button class="nav-tab" onclick="switchPage('HSE','conformite',this);loadConformite('HSE')">📋 Conformité</button>
     <button class="nav-tab" onclick="switchPage('HSE','analytics',this);loadRoleAnalytics('HSE')">📈 Analytics</button>
-    <button class="nav-tab" onclick="switchPage('HSE','gate',this);loadGate('HSE')">🚪 Gate</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="HSE-overview">
@@ -523,10 +517,6 @@
       <div class="dash-welcome">Analytics <em>HSE</em></div>
       <div class="dash-subtitle">KPI stratégiques — conformité, risques et sous-traitants</div>
       <div id="role-analytics-HSE" style="margin-top:8px"></div>
-    </div>
-
-    <div class="page-section" id="HSE-gate">
-      <div id="HSE-gate-content"><div class="empty-state"><div class="empty-state-icon">🚪</div><div class="empty-state-text">Chargement Gate...</div></div></div>
     </div>
   </div>
 </div>
@@ -628,15 +618,6 @@
         <div class="stat-card"><div class="stat-icon">🏢</div><div class="stat-value" id="adminStatOrgs">0</div><div class="stat-label">Organisations</div></div>
         <div class="stat-card"><div class="stat-icon">🎓</div><div class="stat-value" id="adminStatCenters">0</div><div class="stat-label">Centres de formation</div></div>
         <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-value">0 €</div><div class="stat-label">MRR</div></div>
-      </div>
-
-      <!-- Activation modules par organisation -->
-      <div style="margin-top:28px" id="adminModulesPanel">
-        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px">
-          🧩 Modules activés par organisation
-          <span style="font-size:11px;font-weight:400;color:var(--muted)">— Gérez l'accès aux fonctionnalités pour chaque organisation</span>
-        </div>
-        <div id="adminModulesList"><div class="empty-state"><div class="empty-state-icon">⏳</div><div class="empty-state-text">Chargement...</div></div></div>
       </div>
 
       <!-- Accès rapide Simulateur -->
@@ -1871,10 +1852,11 @@
 <script src="js/analytics.js"></script>  <!-- 2. Analytics admin + rôles -->
 <script src="js/workers.js"></script>    <!-- 3. Workers, invitations, missions, QR -->
 <script src="js/signatures.js"></script> <!-- 4. Workflow signature, OTP, page publique -->
-<script src="js/reports.js"></script>    <!-- 5. Rapports, archivage, historique, widgets -->
-<script src="js/conformite.js"></script> <!-- 6. DUER, VGP, FDS, PDP, perso -->
-<script src="js/chart.js"></script>     <!-- 7. SSChart — composant graphe réutilisable -->
-<script src="js/gate.js"></script>      <!-- 8. Registre visiteurs SafetySphere Gate -->
+<script src="js/reports.js"></script>         <!-- 5. Rapports, archivage, historique, widgets -->
+<script src="js/conformite.js"></script>      <!-- 6. DUER, VGP, FDS, PDP, perso -->
+<script src="js/analytics_charts.js"></script><!-- 7. Graphes d'accueil par rôle -->
+<script src="js/chart.js"></script>           <!-- 8. Composant SSChart réutilisable (Gate) -->
+<script src="js/gate.js"></script>            <!-- 9. Module Gate — contrôle d'accès visiteurs -->
 
 </div>
 
