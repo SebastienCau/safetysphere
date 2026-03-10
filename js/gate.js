@@ -282,6 +282,22 @@ function renderGate(role) {
   if (_gateSubView === 'config')    html += renderGateConfig(role);
 
   container.innerHTML = html;
+
+  // Initialiser SSChart après injection du DOM
+  if (_gateSubView === 'registre') {
+    setTimeout(function() {
+      if (typeof SSChart !== 'undefined') {
+        SSChart.render('gateFreqChart', _gateVisits, {
+          period   : 'gateFreqChart_period' in window ? window.gateFreqChart_period : '7d',
+          type     : 'gateFreqChart_type'   in window ? window.gateFreqChart_type   : 'bar',
+          title    : 'Fréquentation',
+          subtitle : 'Analyse des visites · ' + ((_gateConfig && _gateConfig.site_name) || 'Site'),
+          onPeriodChange : function(p) { window.gateFreqChart_period = p; },
+          onTypeChange   : function(t) { window.gateFreqChart_type   = t; }
+        });
+      }
+    }, 0);
+  }
 }
 
 function subNavBtn(view, label, role, badge) {
@@ -305,6 +321,11 @@ function switchGateView(view, role) {
 // ══════════════════════════════════════════════════════════════
 //  REGISTRE — vue principale
 // ══════════════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════
+//  ANALYTICS — Graphe fréquentation visiteurs
+// ══════════════════════════════════════════════════════════════
+
 function renderGateRegistre(role) {
   if (!_gateConfig) {
     return '<div class="empty-state" style="padding:40px">'
@@ -321,7 +342,12 @@ function renderGateRegistre(role) {
   var present     = todayVisits.filter(function(v) { return !v.check_out; });
   var departed    = todayVisits.filter(function(v) { return !!v.check_out; });
 
+  // ── Graphe fréquentation (SSChart) ──
+  // Conteneur dédié — SSChart injecte et exécute lui-même le canvas
+  var CHART_ID = 'gateFreqChart';
+
   var html = '';
+  html += '<div id="' + CHART_ID + '" style="margin-bottom:20px"></div>';
 
   // ── Stats du jour ──
   html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">'
