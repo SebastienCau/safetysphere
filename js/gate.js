@@ -655,12 +655,9 @@ async function saveGateConfig(role) {
     updated_at           : new Date().toISOString()
   };
 
-  var res;
-  if (_gateConfig && _gateConfig.id) {
-    res = await sb.from('gate_config').update(payload).eq('id', _gateConfig.id).select().single();
-  } else {
-    res = await sb.from('gate_config').insert(payload).select().single();
-  }
+  var res = await sb.from('gate_config')
+    .upsert(payload, { onConflict: 'org_id' })
+    .select().single();
 
   if (res.error) { showToast('Erreur : ' + res.error.message, 'error'); return; }
 
