@@ -58,14 +58,12 @@ async function loadAdminModules() {
 
   // Charger toutes les orgs + leurs settings modules
   var orgsRes    = await sb.from('organizations').select('id, name').order('name');
-  var settingsRes = await sb.from('signature_settings')
-    .select('scope_id, enabled')
-    .eq('scope', 'org_module');
+  var settingsRes = await sb.from('org_modules').select('org_id, module_id, enabled');
 
   var orgs     = orgsRes.data || [];
   var settings = settingsRes.data || [];
 
-  // Construire un map : orgId_moduleId → enabled
+  // Construire un map : orgId_moduleId => enabled
   var enabledMap = {};
   settings.forEach(function(s) {
     enabledMap[s.org_id + '_' + s.module_id] = s.enabled;
@@ -88,7 +86,7 @@ async function loadAdminModules() {
 
     AVAILABLE_MODULES.forEach(function(mod) {
       var key     = org.id + '_' + mod.id;
-      var enabled = enabledMap.hasOwnProperty(key) ? enabledMap[key] : (mod.id !== 'gate'); // Gate désactivé par défaut
+      var enabled = enabledMap.hasOwnProperty(key) ? enabledMap[key] : (mod.id !== 'gate'); // Gate desactive par defaut, autres actifs
       var toggleId = 'mod_' + org.id.slice(0,8) + '_' + mod.id;
 
       html += '<div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:rgba(255,255,255,.02);border-radius:8px;border:1px solid rgba(255,255,255,.05)">'
