@@ -1326,6 +1326,33 @@ function showPublicSignError(msg) {
 }
 
 function openPublicSignPage(item, req, token) {
+  // Injecter le CSS de la page publique dans <head> (body.innerHTML ignore le <head>)
+  if (!document.getElementById('pubSignPageCSS')) {
+    var s = document.createElement('style');
+    s.id = 'pubSignPageCSS';
+    s.textContent = [
+      '*{box-sizing:border-box;margin:0;padding:0}',
+      'body{font-family:"Segoe UI",sans-serif;background:#0D1B2A;color:#E2E8F0;min-height:100vh}',
+      '.ss-header{background:linear-gradient(135deg,#0D1B2A,#1E3A5F);border-bottom:3px solid #F97316;padding:12px 20px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100}',
+      '.ss-logo{width:32px;height:32px;background:#F97316;clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:13px;flex-shrink:0}',
+      '.ss-wrap{max-width:720px;margin:0 auto;padding:24px 16px}',
+      '.doc-reader{background:#fff;border-radius:12px;overflow:hidden;margin-bottom:20px;box-shadow:0 4px 32px rgba(0,0,0,.4)}',
+      '.doc-reader-bar{background:#1E3A5F;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #F97316}',
+      '.doc-reader-frame{width:100%;height:520px;border:none;display:block}',
+      '.read-gate{background:rgba(249,115,22,.08);border:2px solid rgba(249,115,22,.3);border-radius:14px;padding:18px;margin-bottom:20px;transition:border-color .3s}',
+      '.read-gate.unlocked{border-color:rgba(34,197,94,.4);background:rgba(34,197,94,.06)}',
+      '.scroll-hint{display:flex;align-items:center;gap:8px;font-size:12px;color:#94A3B8;margin-bottom:12px}',
+      '.sign-card{background:rgba(30,58,95,.5);border:1px solid rgba(99,162,241,.2);border-radius:14px;padding:20px;margin-bottom:16px}',
+      '.mode-btn{background:none;border:2px solid rgba(255,255,255,.12);border-radius:12px;padding:16px;cursor:pointer;color:#fff;text-align:center;width:100%;transition:all .2s;font-family:"Segoe UI",sans-serif}',
+      '.mode-btn:hover{border-color:#F97316}',
+      '.otp-input{width:38px;height:46px;background:rgba(30,58,95,.7);border:2px solid rgba(99,162,241,.3);border-radius:8px;color:#fff;font-size:20px;font-weight:700;text-align:center;font-family:"Segoe UI",sans-serif}',
+      '.btn-primary{width:100%;padding:13px;background:#F97316;border:none;border-radius:10px;color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:"Segoe UI",sans-serif}',
+      '.btn-secondary{width:100%;padding:11px;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:10px;color:#A5B4FC;font-weight:700;font-size:13px;cursor:pointer;font-family:"Segoe UI",sans-serif;margin-bottom:10px}',
+      '.btn-link{background:none;border:none;color:#94A3B8;font-size:12px;cursor:pointer;text-decoration:underline;font-family:"Segoe UI",sans-serif}',
+      '.drop-zone{border:2px dashed rgba(99,102,241,.3);border-radius:10px;padding:20px;text-align:center;cursor:pointer;color:#A5B4FC;font-size:13px;margin-bottom:12px}'
+    ].join('');
+    document.head.appendChild(s);
+  }
   // Remplacer le contenu de la page par la page de signature
   document.body.innerHTML = publicSignPageHTML(item, req, token);
 
@@ -1426,7 +1453,7 @@ function publicSignPageHTML(item, req, token) {
     + '</div>'
 
     // ── Choix mode signature (masqué tant que pas lu) ──
-    + '<div id="pubSignStep0" class="step-hidden">'
+    + '<div id="pubSignStep0" style="display:none">'
     + '<div style="font-size:13px;color:#94A3B8;margin-bottom:14px;text-align:center">Choisissez votre mode de signature :</div>'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">'
     + '<button class="mode-btn" onclick="pubSignChoose(\'otp\',\'' + escapeHtml(token) + '\')">'
@@ -1440,7 +1467,7 @@ function publicSignPageHTML(item, req, token) {
     + '</div>'
 
     // ── OTP step ──
-    + '<div id="pubSignStepOtp" class="step-hidden">'
+    + '<div id="pubSignStepOtp" style="display:none">'
     + '<div class="sign-card">'
     + '<div style="font-size:13px;color:#94A3B8;margin-bottom:6px;text-align:center">Code de vérification envoyé à</div>'
     + '<div style="font-size:15px;font-weight:700;color:#fff;text-align:center;margin-bottom:16px" id="pubSignEmailDisplay">' + escapeHtml(item.signer_email) + '</div>'
@@ -1459,7 +1486,7 @@ function publicSignPageHTML(item, req, token) {
     + '</div>'
 
     // ── Manuscrit step ──
-    + '<div id="pubSignStepManual" class="step-hidden">'
+    + '<div id="pubSignStepManual" style="display:none">'
     + '<div class="sign-card" style="margin-bottom:14px">'
     + '<div style="font-size:12px;color:#94A3B8;margin-bottom:12px;font-weight:700">Procédure de signature manuscrite :</div>'
     + '<div style="display:flex;flex-direction:column;gap:8px">'
@@ -1476,7 +1503,7 @@ function publicSignPageHTML(item, req, token) {
     + '</div>'
 
     // ── Succès ──
-    + '<div id="pubSignSuccess" class="step-hidden" style="text-align:center;padding:32px 0">'
+    + '<div id="pubSignSuccess" style="display:none;text-align:center;padding:32px 0">'
     + '<div style="font-size:60px;margin-bottom:16px">✅</div>'
     + '<div style="font-size:20px;font-weight:900;color:#fff;margin-bottom:8px">Signature enregistrée !</div>'
     + '<div style="font-size:13px;color:#94A3B8" id="pubSignSuccessDetail">—</div>'
@@ -1525,7 +1552,7 @@ function publicSignPageHTML(item, req, token) {
     + '  if (lbl) { lbl.style.cursor = "pointer"; lbl.style.opacity = "1"; }'
     + '  var gate = document.getElementById("readGate"); if (gate) gate.classList.add("unlocked");'
     + '  var hint = document.querySelector(".scroll-hint"); if (hint) hint.innerHTML = "✅ Cochez pour activer la signature.";'
-    + '  if (chk && !chk.hasEventListener) { chk.addEventListener("change", function(){ if(this.checked) { document.getElementById("pubSignStep0").style.display=""; } }); chk.hasEventListener=true; }'
+    + '  if (chk && !chk.hasEventListener) { chk.hasEventListener=true; chk.addEventListener("change", function(){ if(this.checked) { var s=document.getElementById("pubSignStep0"); if(s){s.style.display="";s.scrollIntoView({behavior:"smooth",block:"start"});} } }); if(chk.checked){var s=document.getElementById("pubSignStep0");if(s)s.style.display="";} }'
     + '}'
     + 'function pubSignDownloadDoc() {'
     + '  if (_pubDocUrl) { var a=document.createElement("a"); a.href=_pubDocUrl; a.download="document.html"; a.click(); }'
@@ -1576,9 +1603,16 @@ function enableSignStep() {
     chk.addEventListener('change', function() {
       if (this.checked) {
         var s0 = document.getElementById('pubSignStep0');
-        if (s0) s0.style.display = '';
+        if (s0) { s0.style.display = 'block'; s0.style.removeProperty('display'); s0.style.display = ''; }
+        // Scroller vers les boutons de signature
+        if (s0) s0.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     });
+  }
+  // Si déjà cochée (cas où enableSignStep est appelé après un check existant)
+  if (chk && chk.checked) {
+    var s0 = document.getElementById('pubSignStep0');
+    if (s0) s0.style.display = '';
   }
 }
 
