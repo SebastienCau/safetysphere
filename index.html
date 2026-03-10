@@ -271,6 +271,7 @@
     <button class="nav-tab" onclick="switchPage('Company','received',this)">📂 Documents reçus</button>
     <button class="nav-tab" onclick="switchPage('Company','conformite',this);loadConformite('Company')">📋 Conformité</button>
     <button class="nav-tab" onclick="switchPage('Company','analytics',this);loadRoleAnalytics('Company')">📈 Analytics</button>
+    <button class="nav-tab" onclick="switchPage('Company','gate',this);loadGate('Company')">🚪 Gate</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="Company-overview">
@@ -345,6 +346,11 @@
       <div class="dash-welcome">Analytics <em>Entreprise</em></div>
       <div class="dash-subtitle">KPI stratégiques de votre activité sous-traitante</div>
       <div id="role-analytics-Company" style="margin-top:8px"></div>
+    </div>
+    <div class="page-section" id="Company-gate">
+      <div class="dash-welcome">🚪 <em>Gate</em> — Contrôle d'accès</div>
+      <div class="dash-subtitle">Registre des visiteurs · Check-in / Check-out · Configuration</div>
+      <div id="Company-gate-content" style="margin-top:8px"></div>
     </div>
   </div>
 </div>
@@ -441,6 +447,7 @@
     <button class="nav-tab" onclick="switchPage('HSE','received',this)">📂 Documents reçus</button>
     <button class="nav-tab" onclick="switchPage('HSE','conformite',this);loadConformite('HSE')">📋 Conformité</button>
     <button class="nav-tab" onclick="switchPage('HSE','analytics',this);loadRoleAnalytics('HSE')">📈 Analytics</button>
+    <button class="nav-tab" onclick="switchPage('HSE','gate',this);loadGate('HSE')">🚪 Gate</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="HSE-overview">
@@ -517,6 +524,11 @@
       <div class="dash-welcome">Analytics <em>HSE</em></div>
       <div class="dash-subtitle">KPI stratégiques — conformité, risques et sous-traitants</div>
       <div id="role-analytics-HSE" style="margin-top:8px"></div>
+    </div>
+    <div class="page-section" id="HSE-gate">
+      <div class="dash-welcome">🚪 <em>Gate</em> — Contrôle d'accès</div>
+      <div class="dash-subtitle">Registre des visiteurs · Check-in / Check-out · Configuration</div>
+      <div id="HSE-gate-content" style="margin-top:8px"></div>
     </div>
   </div>
 </div>
