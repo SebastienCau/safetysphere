@@ -49,6 +49,22 @@ var AVAILABLE_MODULES = [
     desc     : 'Gestion des sessions de formation, habilitations et attestations',
     color    : '#818CF8',
     roles    : ['hse', 'company']
+  },
+  {
+    id       : 'permis',
+    icon     : '🔑',
+    name     : 'Permis de Travail',
+    desc     : 'Émission, suivi et signature des permis de travail terrain',
+    color    : '#F59E0B',
+    roles    : ['hse', 'company']
+  },
+  {
+    id       : 'fds',
+    icon     : '⚗️',
+    name     : 'Produits Chimiques / FDS',
+    desc     : 'Inventaire des produits chimiques et gestion des Fiches de Données de Sécurité',
+    color    : '#06B6D4',
+    roles    : ['hse', 'company']
   }
 ];
 
