@@ -63,7 +63,7 @@ var PERMIT_TYPES = [
       { id: 'detect_reseaux', label: 'Détection réseaux souterrains', required: true },
       { id: 'blindage',       label: 'Blindage parois si profondeur > 1,3m', required: true },
       { id: 'acces_securise', label: 'Accès / sortie sécurisé(e)', required: true },
-      { id: 'balisage_fouille','label': 'Zone balisée et clôturée', required: true },
+      { id: 'balisage_fouille', label: 'Zone balisée et clôturée', required: true },
       { id: 'supervision_fouille', label: 'Superviseur présent', required: true },
     ]
   },
@@ -229,15 +229,19 @@ async function loadPermis(role) {
 
   _permits = res.data || [];
   renderPermis(role);
-  renderPermisKPI();
+  var kpiId = (role === 'hse') ? 'hse-permis-kpi' : 'company-permis-kpi';
+  renderPermisKPI(kpiId);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
 //  KPI — Widget dashboard accueil
 // ════════════════════════════════════════════════════════════════════════════
 
-function renderPermisKPI() {
-  var el = document.getElementById('hse-permis-kpi');
+function renderPermisKPI(targetId) {
+  // Support appel direct avec targetId (ex: 'hse-permis-kpi') OU sans argument (cherche le div existant)
+  var el = targetId
+    ? document.getElementById(targetId)
+    : (document.getElementById('hse-permis-kpi') || document.getElementById('company-permis-kpi'));
   if (!el) return;
 
   var now  = new Date();
