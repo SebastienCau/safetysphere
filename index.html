@@ -274,6 +274,7 @@
     <button class="nav-tab" onclick="switchPage('Company','gate',this);loadGate('Company')">🚪 Gate</button>
     <button class="nav-tab" id="navIncidents-Company" onclick="switchPage('Company','incidents',this);loadIncidents('company')">🚨 Incidents</button>
     <button class="nav-tab" onclick="switchPage('Company','formations',this);loadFormations('company')">🎓 Formations</button>
+    <button class="nav-tab" onclick="switchPage('Company','permis',this);loadPermis('company')">🔑 Permis de travail</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="Company-overview">
@@ -295,6 +296,11 @@
         <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value" id="cStat3">0</div><div class="stat-label">Docs société valides</div></div>
         <div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value" id="cStat4">0</div><div class="stat-label">Expirations proches</div></div>
       </div>
+
+      <!-- KPI Modules : incidents, formations, permis -->
+      <div id="company-incidents-kpi"></div>
+      <div id="company-formations-kpi"></div>
+      <div id="company-permis-kpi"></div>
     </div>
     <div class="page-section" id="Company-entreprise">
       <div class="dash-welcome">Mon <em>Entreprise</em></div>
@@ -363,6 +369,11 @@
       <div class="dash-welcome">🎓 <em>Formations</em> & Habilitations</div>
       <div class="dash-subtitle">Planification · Suivi · Attestations · Statistiques</div>
       <div id="Company-formations-content" style="margin-top:8px"></div>
+    </div>
+    <div class="page-section" id="Company-permis">
+      <div class="dash-welcome">🔑 <em>Permis de Travail</em></div>
+      <div class="dash-subtitle">Émission · Checklist · Double signature · Suivi statuts</div>
+      <div id="Company-permis-content" style="margin-top:8px"></div>
     </div>
   </div>
 </div>
@@ -462,6 +473,7 @@
     <button class="nav-tab" onclick="switchPage('HSE','gate',this);loadGate('HSE')">🚪 Gate</button>
     <button class="nav-tab" id="navIncidents-HSE" onclick="switchPage('HSE','incidents',this);loadIncidents('hse')">🚨 Incidents</button>
     <button class="nav-tab" onclick="switchPage('HSE','formations',this);loadFormations('hse')">🎓 Formations</button>
+    <button class="nav-tab" onclick="switchPage('HSE','permis',this);loadPermis('hse')">🔑 Permis de travail</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="HSE-overview">
@@ -475,6 +487,11 @@
         <div class="stat-card"><div class="stat-icon">📋</div><div class="stat-value">0</div><div class="stat-label">PdP actifs</div></div>
         <div class="stat-card"><div class="stat-icon">⚠️</div><div class="stat-value">0</div><div class="stat-label">Non-conformités</div></div>
       </div>
+
+      <!-- KPI Modules : incidents, formations, permis -->
+      <div id="hse-incidents-kpi"></div>
+      <div id="hse-formations-kpi"></div>
+      <div id="hse-permis-kpi"></div>
 
       <!-- ── WIDGET CONFORMITÉ ── -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-top:28px;margin-bottom:16px">
@@ -553,6 +570,11 @@
       <div class="dash-welcome">🎓 <em>Formations</em> & Habilitations</div>
       <div class="dash-subtitle">Planification · Suivi · Attestations · Statistiques</div>
       <div id="HSE-formations-content" style="margin-top:8px"></div>
+    </div>
+    <div class="page-section" id="HSE-permis">
+      <div class="dash-welcome">🔑 <em>Permis de Travail</em></div>
+      <div class="dash-subtitle">Émission · Checklist · Double signature · Suivi statuts</div>
+      <div id="HSE-permis-content" style="margin-top:8px"></div>
     </div>
   </div>
 </div>
@@ -1894,6 +1916,7 @@
 <script src="js/chart.js"></script>
 <script src="js/incidents.js"></script>
 <script src="js/formations.js"></script>
+<script src="js/permis.js"></script>
 <script src="js/gate.js"></script> <!-- 6. DUER, VGP, FDS, PDP, perso -->
 
 </div>
