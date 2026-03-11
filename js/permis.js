@@ -329,7 +329,7 @@ function switchPermisView(view, role) {
   if (btn) btn.classList.add('active');
 
   if (view === 'liste')  renderPermisListe(role);
-  if (view === 'saisie') renderPermisSaisie(role, null);
+  if (view === 'saisie') renderPermisSaisie(role, _permitEditId || null);
 }
 
 // ── Liste ─────────────────────────────────────────────────────────────────
@@ -437,10 +437,10 @@ function renderPermisSaisie(role, editId) {
     + PERMIT_TYPES.map(function(t) {
         var sel = (p.type || '') === t.id;
         return '<label style="cursor:pointer"><input type="radio" name="permitType" value="' + t.id + '"'
-          + (sel ? ' checked' : '') + ' onchange="onPermitTypeChange(this.value)" style="display:none">'
-          + '<div class="permit-type-card" style="padding:12px 10px;border-radius:10px;text-align:center;border:2px solid '
+          + (sel ? ' checked' : '') + ' onchange="onPermitTypeChange(this.value);onPermitTypeCardChange()" style="display:none">'
+          + '<div id="permit-type-card-' + t.id + '" style="padding:12px 10px;border-radius:10px;text-align:center;border:2px solid '
           + (sel ? t.color : 'rgba(255,255,255,.1)') + ';background:' + (sel ? t.color + '15' : 'transparent')
-          + ';transition:all .2s;font-size:12px;font-weight:700">'
+          + ';transition:all .2s;font-size:12px;font-weight:700;cursor:pointer">'
           + '<div style="font-size:20px;margin-bottom:4px">' + t.icon + '</div>' + t.label + '</div></label>';
       }).join('')
     + '</div></div>'
@@ -522,6 +522,17 @@ function _renderEpiCheckboxes(selected) {
       + '<input type="checkbox" id="epi_' + e.id + '" value="' + e.id + '"' + (chk ? ' checked' : '')
       + ' style="accent-color:var(--orange)">' + e.label + '</label>';
   }).join('');
+}
+
+function onPermitTypeCardChange() {
+  var selected = document.querySelector('input[name="permitType"]:checked');
+  PERMIT_TYPES.forEach(function(t) {
+    var card = document.getElementById('permit-type-card-' + t.id);
+    if (!card) return;
+    var isSel = selected && selected.value === t.id;
+    card.style.border     = '2px solid ' + (isSel ? t.color : 'rgba(255,255,255,.1)');
+    card.style.background = isSel ? t.color + '15' : 'transparent';
+  });
 }
 
 function onPermitTypeChange(typeId, existingData) {
@@ -679,7 +690,7 @@ async function openPermisDetail(id, role) {
     + '  </div>'
     + '  <div style="display:flex;gap:8px;flex-wrap:wrap">'
     + (p.status === 'brouillon' || p.status === 'en_attente'
-        ? '<button onclick="renderPermisSaisie(\'' + role + '\',\'' + id + '\');switchPermisView(\'saisie\',\'' + role + '\')" '
+        ? '<button onclick="_permitEditId=\'' + id + '\';renderPermisSaisie(\'' + role + '\',\'' + id + '\');switchPermisView(\'saisie\',\'' + role + '\')" '
           + 'style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:7px 14px;color:#A5B4FC;font-size:12px;cursor:pointer">✏️ Modifier</button>'
         : '')
     + (p.status === 'brouillon' && checklistComplete
