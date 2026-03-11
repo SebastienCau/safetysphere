@@ -224,7 +224,7 @@ function switchFdsView(view, role) {
   if (btn) btn.classList.add('active');
 
   if (view === 'liste')      renderFdsListe(role);
-  if (view === 'saisie')     renderFdsSaisie(role, null);
+  if (view === 'saisie')     renderFdsSaisie(role, _fdsEditId || null);
   if (view === 'inventaire') renderFdsInventaire(role);
 }
 
@@ -306,6 +306,19 @@ function _renderFdsCard(p, role) {
     + '</div></div>';
 }
 
+// ── Mise à jour visuelle des cartes catégorie ─────────────────────────────
+
+function onFdsCatChange() {
+  var selected = document.querySelector('input[name="fdsCategorie"]:checked');
+  FDS_CATEGORIES.forEach(function(c) {
+    var card = document.getElementById('fds-cat-card-' + c.id);
+    if (!card) return;
+    var isSel = selected && selected.value === c.id;
+    card.style.border    = '2px solid ' + (isSel ? c.color : 'rgba(255,255,255,.1)');
+    card.style.background = isSel ? c.color + '15' : 'transparent';
+  });
+}
+
 // ── Formulaire saisie ─────────────────────────────────────────────────────
 
 function renderFdsSaisie(role, editId) {
@@ -327,10 +340,10 @@ function renderFdsSaisie(role, editId) {
     + FDS_CATEGORIES.map(function(c) {
         var sel = selCat === c.id;
         return '<label style="cursor:pointer"><input type="radio" name="fdsCategorie" value="' + c.id + '"'
-          + (sel ? ' checked' : '') + ' style="display:none">'
-          + '<div class="permit-type-card" style="padding:10px 8px;border-radius:10px;text-align:center;border:2px solid '
+          + (sel ? ' checked' : '') + ' onchange="onFdsCatChange()" style="display:none">'
+          + '<div id="fds-cat-card-' + c.id + '" style="padding:10px 8px;border-radius:10px;text-align:center;border:2px solid '
           + (sel ? c.color : 'rgba(255,255,255,.1)') + ';background:' + (sel ? c.color + '15' : 'transparent')
-          + ';transition:all .2s;font-size:11px;font-weight:700">'
+          + ';transition:all .2s;font-size:11px;font-weight:700;cursor:pointer">'
           + '<div style="font-size:18px;margin-bottom:3px">' + c.icon + '</div>' + c.label + '</div></label>';
       }).join('')
     + '</div></div>'
@@ -555,7 +568,7 @@ function openFdsDetail(id, role) {
     + '    </div>'
     + '  </div>'
     + (role === 'hse' ? '  <div style="display:flex;gap:8px;flex-wrap:wrap">'
-        + '<button onclick="renderFdsSaisie(\'' + role + '\',\'' + id + '\');switchFdsView(\'saisie\',\'' + role + '\')" '
+        + '<button onclick="_fdsEditId=\'' + id + '\';renderFdsSaisie(\'' + role + '\',\'' + id + '\');switchFdsView(\'saisie\',\'' + role + '\')" '
         + 'style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:7px 14px;color:#A5B4FC;font-size:12px;cursor:pointer">✏️ Modifier</button>'
         + (p.fds_url ? '<a href="' + _fdsEsc(p.fds_url) + '" target="_blank" '
           + 'style="background:rgba(6,182,212,.15);border:1px solid rgba(6,182,212,.3);border-radius:8px;padding:7px 14px;color:#06B6D4;font-size:12px;cursor:pointer;text-decoration:none">📄 Ouvrir FDS</a>' : '')
