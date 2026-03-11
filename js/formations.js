@@ -38,7 +38,6 @@ var FRM_RESULT = [
   { id: 'obtenu',     label: 'Obtenu',     color: '#4ADE80' },
   { id: 'recale',     label: 'Recalé',     color: '#EF4444' },
 ];
-];
 
 // ── Activation ───────────────────────────────────────────────────────────────
 async function checkFormationsActivation() {
