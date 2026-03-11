@@ -35,9 +35,9 @@ var FRM_STATUS = [
 
 var FRM_RESULT = [
   { id: 'en_attente', label: 'En attente', color: '#F97316' },
-  { id: 'reussi',     label: 'Réussi',     color: '#4ADE80' },
-  { id: 'echoue',     label: 'Échoué',    color: '#EF4444' },
-  { id: 'absent',     label: 'Absent',     color: '#64748B' }
+  { id: 'obtenu',     label: 'Obtenu',     color: '#4ADE80' },
+  { id: 'recale',     label: 'Recalé',     color: '#EF4444' },
+];
 ];
 
 // ── Activation ───────────────────────────────────────────────────────────────
@@ -256,7 +256,7 @@ function _frmParticipantsSection(formationId, role) {
     parts.forEach(function(p, i) {
       var r = FRM_RESULT.find(function(r){ return r.id === p.result; });
       html += '<div style="padding:9px 13px;display:flex;align-items:center;gap:10px' + (i > 0 ? ';border-top:1px solid rgba(255,255,255,.04)' : '') + '">';
-      html += '<div style="flex:1;font-size:13px;font-weight:600">' + _esc(p.nom_externe || '—') + '</div>';
+      html += '<div style="flex:1;font-size:13px;font-weight:600">' + _esc(p.nom_participant || '—') + '</div>';
       if (p.poste) html += '<span style="font-size:11px;color:var(--muted)">' + _esc(p.poste) + '</span>';
       if (r) html += '<span style="padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700;background:' + r.color + '22;color:' + r.color + '">' + r.label + '</span>';
       if (p.attestation_url) html += '<a href="' + _esc(p.attestation_url) + '" target="_blank" style="padding:2px 7px;background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.2);border-radius:5px;color:#4ADE80;font-size:11px;text-decoration:none">📄</a>';
@@ -276,7 +276,7 @@ function _frmParticipantsSection(formationId, role) {
 function _frmRenderHabilitations(role) {
   var personMap = {};
   _frmParticipants.forEach(function(p) {
-    var name = p.nom_externe || 'Inconnu';
+    var name = p.nom_participant || 'Inconnu';
     if (!personMap[name]) personMap[name] = [];
     var frm = _frmList.find(function(f){ return f.id === p.formation_id; });
     if (!frm) return;
@@ -339,7 +339,7 @@ function _frmRenderStats(role) {
   var terminees = _frmList.filter(function(f){ return f.status === 'terminee'; }).length;
   var planif    = _frmList.filter(function(f){ return f.status === 'planifiee'; }).length;
   var nbParts   = _frmParticipants.length;
-  var reussis   = _frmParticipants.filter(function(p){ return p.result === 'reussi'; }).length;
+  var reussis   = _frmParticipants.filter(function(p){ return p.result === 'obtenu'; }).length;
   var taux      = nbParts > 0 ? Math.round(reussis / nbParts * 100) : 0;
   var heures    = _frmList.reduce(function(s, f){ return s + (parseFloat(f.duree_heures) || 0); }, 0);
 
@@ -501,11 +501,11 @@ async function saveParticipant(formationId, role, modal) {
   var res = await sb.from('formation_participants').insert({
     formation_id   : formationId,
     org_id         : currentProfile.org_id,
-    nom_externe    : nom,
+    nom_participant: nom,
     poste          : document.getElementById('partPoste')?.value?.trim() || null,
     result         : document.getElementById('partResult')?.value || 'en_attente',
     attestation_url: document.getElementById('partAttestation')?.value?.trim() || null,
-    created_by     : currentProfile.id
+    created_by     : currentProfile.id,
   });
   if (res.error) { showToast('❌ ' + res.error.message, 'error'); return; }
   if (modal) modal.remove();
@@ -564,7 +564,7 @@ function openFrmDetail(frmId, role) {
     parts.forEach(function(p) {
       var r = FRM_RESULT.find(function(x){ return x.id === p.result; });
       html += '<div style="display:flex;align-items:center;gap:8px;padding:7px 11px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:7px;margin-bottom:5px">';
-      html += '<span style="flex:1;font-size:13px;font-weight:600">' + _esc(p.nom_externe || '—') + '</span>';
+      html += '<span style="flex:1;font-size:13px;font-weight:600">' + _esc(p.nom_participant || '—') + '</span>';
       if (p.poste) html += '<span style="font-size:11px;color:var(--muted)">' + _esc(p.poste) + '</span>';
       if (r) html += '<span style="padding:2px 7px;border-radius:5px;font-size:11px;font-weight:700;background:' + r.color + '22;color:' + r.color + '">' + r.label + '</span>';
       html += '</div>';
