@@ -275,6 +275,7 @@
     <button class="nav-tab" id="navIncidents-Company" onclick="switchPage('Company','incidents',this);loadIncidents('company')">🚨 Incidents</button>
     <button class="nav-tab" onclick="switchPage('Company','formations',this);loadFormations('company')">🎓 Formations</button>
     <button class="nav-tab" onclick="switchPage('Company','permis',this);loadPermis('company')">🔑 Permis de travail</button>
+    <button class="nav-tab" onclick="switchPage('Company','fds',this);loadFds('company')">⚗️ Produits chimiques</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="Company-overview">
@@ -301,6 +302,7 @@
       <div id="company-incidents-kpi"></div>
       <div id="company-formations-kpi"></div>
       <div id="company-permis-kpi"></div>
+      <div id="company-fds-kpi"></div>
     </div>
     <div class="page-section" id="Company-entreprise">
       <div class="dash-welcome">Mon <em>Entreprise</em></div>
@@ -374,6 +376,11 @@
       <div class="dash-welcome">🔑 <em>Permis de Travail</em></div>
       <div class="dash-subtitle">Émission · Checklist · Double signature · Suivi statuts</div>
       <div id="Company-permis-content" style="margin-top:8px"></div>
+    </div>
+    <div class="page-section" id="Company-fds">
+      <div class="dash-welcome">⚗️ <em>Produits Chimiques & FDS</em></div>
+      <div class="dash-subtitle">Inventaire des produits chimiques — Fiches de Données de Sécurité</div>
+      <div id="Company-fds-content" style="margin-top:8px"></div>
     </div>
   </div>
 </div>
@@ -474,6 +481,7 @@
     <button class="nav-tab" id="navIncidents-HSE" onclick="switchPage('HSE','incidents',this);loadIncidents('hse')">🚨 Incidents</button>
     <button class="nav-tab" onclick="switchPage('HSE','formations',this);loadFormations('hse')">🎓 Formations</button>
     <button class="nav-tab" onclick="switchPage('HSE','permis',this);loadPermis('hse')">🔑 Permis de travail</button>
+    <button class="nav-tab" onclick="switchPage('HSE','fds',this);loadFds('hse')">⚗️ Produits chimiques</button>
   </div>
   <div class="dash-body">
     <div class="page-section active" id="HSE-overview">
@@ -492,6 +500,7 @@
       <div id="hse-incidents-kpi"></div>
       <div id="hse-formations-kpi"></div>
       <div id="hse-permis-kpi"></div>
+      <div id="hse-fds-kpi"></div>
 
       <!-- ── WIDGET CONFORMITÉ ── -->
       <div style="display:flex;align-items:center;justify-content:space-between;margin-top:28px;margin-bottom:16px">
@@ -575,6 +584,11 @@
       <div class="dash-welcome">🔑 <em>Permis de Travail</em></div>
       <div class="dash-subtitle">Émission · Checklist · Double signature · Suivi statuts</div>
       <div id="HSE-permis-content" style="margin-top:8px"></div>
+    </div>
+    <div class="page-section" id="HSE-fds">
+      <div class="dash-welcome">⚗️ <em>Produits Chimiques & FDS</em></div>
+      <div class="dash-subtitle">Inventaire des produits chimiques — Fiches de Données de Sécurité</div>
+      <div id="HSE-fds-content" style="margin-top:8px"></div>
     </div>
   </div>
 </div>
@@ -1917,6 +1931,7 @@
 <script src="js/incidents.js"></script>
 <script src="js/formations.js"></script>
 <script src="js/permis.js"></script>
+<script src="js/fds.js"></script>
 <script src="js/gate.js"></script> <!-- 6. DUER, VGP, FDS, PDP, perso -->
 
 </div>
