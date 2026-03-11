@@ -512,11 +512,15 @@ var DashCharts = (function () {
       _patch('loadWorkerStats',  function () { return _render('worker'); });
       _patch('loadCompanyStats', function () {
         _render('company');
-        if (typeof loadIncidentsDashKPI === 'function') loadIncidentsDashKPI('company-incidents-kpi');
+        if (typeof loadIncidentsDashKPI  === 'function') loadIncidentsDashKPI('company-incidents-kpi');
+        if (typeof loadFormationsKPI     === 'function') loadFormationsKPI('company');
+        if (typeof renderPermisKPI       === 'function') renderPermisKPI('company-permis-kpi');
       });
       _patch('loadHSEStats', function () {
         _render('hse');
-        if (typeof loadIncidentsDashKPI === 'function') loadIncidentsDashKPI('hse-incidents-kpi');
+        if (typeof loadIncidentsDashKPI  === 'function') loadIncidentsDashKPI('hse-incidents-kpi');
+        if (typeof loadFormationsKPI     === 'function') loadFormationsKPI('hse');
+        if (typeof renderPermisKPI       === 'function') renderPermisKPI('hse-permis-kpi');
       });
       _patch('loadSTStats',      function () { return _render('subcontractor'); });
 
